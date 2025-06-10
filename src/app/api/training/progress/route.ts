@@ -3,6 +3,50 @@ import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth, validateBody } from '@/lib/api-helpers'
 import type { UpdateProgressRequest, TrainingProgressResponse } from '@/types/api'
 
+// GET /api/training/progress - Get user's training progress
+export const GET = withAuth(async (req: NextRequest, userId: string) => {
+  try {
+    const supabase = await createClient()
+    
+    // Get all course progress for the user
+    const { data: progressData, error } = await supabase
+      .from('member_course_progress')
+      .select(`
+        *,
+        course:training_courses (
+          id,
+          title,
+          description
+        )
+      `)
+      .eq('member_id', userId)
+
+    if (error) {
+      throw error
+    }
+
+    // Calculate overall progress
+    const totalCourses = progressData?.length || 0
+    const completedCourses = progressData?.filter(p => p.completion_percentage === 1).length || 0
+    
+    const response: TrainingProgressResponse = {
+      progress: {
+        courseCompletion: totalCourses > 0 ? completedCourses / totalCourses : 0,
+        videosCompleted: progressData?.reduce((sum, p) => sum + (p.completed_videos?.length || 0), 0) || 0,
+        totalVideos: 0, // This would need to be calculated from all course videos
+      },
+    }
+
+    return apiResponse(response, 200)
+  } catch (error) {
+    console.error('Get progress error:', error)
+    return apiError(
+      error instanceof Error ? error.message : 'Failed to get progress',
+      500
+    )
+  }
+})
+
 // POST /api/training/progress - Update lesson progress
 export const POST = withAuth(async (req: NextRequest, userId: string) => {
   try {

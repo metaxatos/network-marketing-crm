@@ -83,3 +83,9 @@ After deployment, monitor:
 - Implement proper caching headers
 - Optimize database queries with proper indexes
 - Use Netlify Analytics to monitor performance 
+
+[build]
+  command = "npm run build"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs" 

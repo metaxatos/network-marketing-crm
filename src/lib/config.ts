@@ -14,8 +14,8 @@ export const config = {
 
   // Database configuration (Supabase)
   database: {
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://utvasathtyasoxelnxuf.supabase.co',
-    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0dmFzYXRodHlhc294ZWxueHVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkzMjE3NDEsImV4cCI6MjA2NDg5Nzc0MX0.MrpNzlPGVJPIXq7R_wiHoomYtjLActFmbKVgSJLlq8E',
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   },
 
