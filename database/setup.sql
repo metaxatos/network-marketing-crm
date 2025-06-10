@@ -4,10 +4,28 @@
 -- Enable Row Level Security
 ALTER DATABASE postgres SET "app.jwt_secret" TO 'your-jwt-secret';
 
+-- Create companies table
+CREATE TABLE IF NOT EXISTS public.companies (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    name TEXT NOT NULL,
+    domain TEXT,
+    description TEXT,
+    settings JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Insert a default company for testing
+INSERT INTO public.companies (id, name, description) VALUES 
+('00000000-0000-0000-0000-000000000001', 'Demo Company', 'Default company for new users')
+ON CONFLICT (id) DO NOTHING;
+
 -- Create members table (extends auth.users)
 CREATE TABLE IF NOT EXISTS public.members (
     id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
     company_id UUID,
+    email TEXT,
+    username TEXT,
     level INTEGER DEFAULT 1,
     status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
     sponsor_id UUID REFERENCES public.members(id),
@@ -144,6 +162,7 @@ CREATE TABLE IF NOT EXISTS public.lesson_progress (
 );
 
 -- Enable Row Level Security
+ALTER TABLE public.companies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.member_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.contacts ENABLE ROW LEVEL SECURITY;
@@ -156,6 +175,12 @@ ALTER TABLE public.member_course_progress ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.lesson_progress ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS Policies
+
+-- Companies policies
+CREATE POLICY "Members can view their company" ON public.companies
+    FOR SELECT USING (
+        id IN (SELECT company_id FROM public.members WHERE id = auth.uid())
+    );
 
 -- Members policies
 CREATE POLICY "Users can view their own member record" ON public.members
@@ -272,15 +297,21 @@ CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
     -- Insert into members table
-    INSERT INTO public.members (id, level, status)
-    VALUES (NEW.id, 1, 'active');
+    INSERT INTO public.members (id, email, company_id, level, status)
+    VALUES (
+        NEW.id, 
+        NEW.email,
+        '00000000-0000-0000-0000-000000000001', -- Default to demo company
+        1, 
+        'active'
+    );
     
     -- Insert into member_profiles table
     INSERT INTO public.member_profiles (member_id, first_name, last_name, preferences)
     VALUES (
         NEW.id,
-        COALESCE(NEW.raw_user_meta_data->>'first_name', ''),
-        COALESCE(NEW.raw_user_meta_data->>'last_name', ''),
+        COALESCE(NEW.raw_user_meta_data->>'first_name', 'New'),
+        COALESCE(NEW.raw_user_meta_data->>'last_name', 'User'),
         '{
             "notifications_enabled": true,
             "email_reminders": true,
@@ -309,6 +340,9 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Add updated_at triggers to all tables
+CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.companies
+    FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
 CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.members
     FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
@@ -337,7 +371,9 @@ CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.lesson_progress
     FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
 -- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_companies_domain ON public.companies(domain);
 CREATE INDEX IF NOT EXISTS idx_members_company_id ON public.members(company_id);
+CREATE INDEX IF NOT EXISTS idx_members_email ON public.members(email);
 CREATE INDEX IF NOT EXISTS idx_member_profiles_member_id ON public.member_profiles(member_id);
 CREATE INDEX IF NOT EXISTS idx_contacts_member_id ON public.contacts(member_id);
 CREATE INDEX IF NOT EXISTS idx_contacts_email ON public.contacts(email);

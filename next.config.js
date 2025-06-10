@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
   eslint: {
     // Warning: This allows production builds to successfully complete even if
     // your project has ESLint errors.
@@ -14,28 +13,41 @@ const nextConfig = {
       : `
           default-src 'self';
           script-src 'self' 'unsafe-eval' 'unsafe-inline' https://va.vercel-scripts.com;
-          style-src 'self' 'unsafe-inline';
+          style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+          style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;
           img-src 'self' blob: data: https:;
-          font-src 'self' data:;
-          connect-src 'self' https://*.supabase.co https://*.supabase.io;
+          font-src 'self' data: https://fonts.gstatic.com;
+          connect-src 'self' https://*.supabase.co https://*.supabase.io wss://*.supabase.co wss://*.supabase.io;
           frame-src 'self' https://js.stripe.com;
           object-src 'none';
+          media-src 'self' blob:;
+          worker-src 'self' blob:;
         `.replace(/\s+/g, ' ').trim()
 
     return [
       {
-        source: '/(.*)',
+        source: '/:path*',
         headers: [
           {
             key: 'Content-Security-Policy',
             value: cspPolicy,
           },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
         ],
       },
     ]
   },
-  
-  // Remove custom webpack devtool configuration to avoid performance issues
   
   // Experimental features for Next.js 15
   experimental: {
