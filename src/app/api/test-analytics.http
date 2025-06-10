@@ -1,0 +1,121 @@
+# Email Analytics API Testing
+# Test the complete email analytics infrastructure
+
+### Test 1: Get overall email analytics (last 30 days)
+GET {{host}}/api/emails/analytics?days=30
+Authorization: Bearer {{token}}
+
+### Test 2: Get email analytics for specific template
+GET {{host}}/api/emails/analytics?templateId=template_123&days=7
+Authorization: Bearer {{token}}
+
+### Test 3: Get specific email analytics
+GET {{host}}/api/emails/analytics?emailId=email_123
+Authorization: Bearer {{token}}
+
+### Test 4: Get contact click history
+GET {{host}}/api/emails/analytics?contactId=contact_123
+Authorization: Bearer {{token}}
+
+### Test 5: Send a tracked email
+POST {{host}}/api/emails/send
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "templateId": "template_123",
+  "contactId": "contact_123",
+  "customSubject": "Test Analytics Email"
+}
+
+### Test 6: Simulate email click tracking
+# This would normally be called when a user clicks a link in an email
+GET {{host}}/api/track/click/{{emailId}}?url=https://example.com&linkId=link-1&contactId={{contactId}}
+
+### Test 7: Get sent email history
+GET {{host}}/api/emails/history?page=1&limit=10
+Authorization: Bearer {{token}}
+
+### Test 8: Get email templates
+GET {{host}}/api/email-templates
+Authorization: Bearer {{token}}
+
+### Test 9: Dashboard metrics for analytics widget
+GET {{host}}/api/dashboard/metrics
+Authorization: Bearer {{token}}
+
+### Test 10: Test email open tracking (pixel)
+GET {{host}}/api/track/open/{{emailId}}?contactId={{contactId}}
+
+###
+### Example Analytics Response Structure:
+###
+### Overall Metrics Response:
+# {
+#   "success": true,
+#   "data": {
+#     "type": "metrics",
+#     "data": {
+#       "total_clicks": 150,
+#       "unique_clicks": 45,
+#       "click_through_rate": 0.12,
+#       "most_clicked_links": [
+#         {
+#           "url": "https://example.com/landing",
+#           "click_count": 25,
+#           "unique_clicks": 20
+#         }
+#       ],
+#       "time_series": [
+#         {
+#           "date": "2024-01-01",
+#           "clicks": 12,
+#           "unique_clicks": 8
+#         }
+#       ]
+#     }
+#   }
+# }
+
+### Individual Email Analytics Response:
+# {
+#   "success": true,
+#   "data": {
+#     "type": "email",
+#     "data": {
+#       "email_id": "email_123",
+#       "subject": "Welcome to Our Platform",
+#       "sent_at": "2024-01-01T10:00:00Z",
+#       "total_clicks": 5,
+#       "unique_clicks": 3,
+#       "click_through_rate": 0.6,
+#       "clicks": [
+#         {
+#           "id": "click_123",
+#           "url": "https://example.com",
+#           "clicked_at": "2024-01-01T10:30:00Z",
+#           "contact_id": "contact_123"
+#         }
+#       ]
+#     }
+#   }
+# }
+
+### Template Analytics Response:
+# {
+#   "success": true,
+#   "data": {
+#     "type": "template",
+#     "data": [
+#       {
+#         "template_id": "template_123",
+#         "template_name": "Welcome Email",
+#         "total_sent": 100,
+#         "total_clicks": 45,
+#         "unique_clicks": 30,
+#         "click_through_rate": 0.3,
+#         "time_series": [...]
+#       }
+#     ]
+#   }
+# } 

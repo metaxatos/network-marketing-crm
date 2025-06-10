@@ -1,0 +1,55 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Network Marketing CRM - Project Specific Rules
+
+This is a Network Marketing CRM with a simple UI for non-technical users.
+Backend handles complex multi-company hierarchies, but frontend must be radically simple.
+
+## Project Context
+- Target Users: Non-technical network marketers
+- Key Features: Contact management, email templates, training videos, landing pages
+- Design Philosophy: Celebration-focused, friendly, never overwhelming
+
+## Tech Stack
+- Frontend: Next.js 14 App Router, TypeScript, Tailwind CSS
+- State: Zustand (global), React Query (server state)
+- Backend: Supabase (PostgreSQL, Auth, Realtime)
+- Email: Resend
+- Deployment: Vercel
+
+## Project Structure
+- /app - Next.js app router pages
+- /components - Shared components
+- /actions - Server actions
+- /lib - Utilities
+- /types - TypeScript types
+
+## UI/UX Requirements
+- Large touch targets (minimum 44px)
+- Celebration animations for user actions (confetti, etc.)
+- Friendly empty states with illustrations
+- One-click actions wherever possible
+- Pre-filled forms with smart defaults
+- Success feedback for every action
+
+## Component Patterns
+- Dashboard shows: greeting, quick actions, progress metrics
+- Forms: minimal fields, smart defaults
+- Lists: search, filter, infinite scroll
+- Always show loading skeletons, never spinners
+
+## Database Conventions
+- Use RLS for all tables
+- member_id references the current user
+- Include created_at, updated_at timestamps
+- Soft delete with deleted_at when applicable
+
+## Specific Features
+- Contacts: Simple CRUD, max 5 fields visible
+- Emails: Pre-written templates, one-click send
+- Training: Video with progress tracking
+
+- Landing Pages: Member-specific URLs with lead capture

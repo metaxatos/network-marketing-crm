@@ -1,0 +1,21 @@
+// Base skeleton components
+export { default as Skeleton } from './Skeleton'
+export { default as SkeletonText } from './SkeletonText'
+export { default as SkeletonAvatar } from './SkeletonAvatar'
+export { default as SkeletonCard } from './SkeletonCard'
+export { ModalSkeleton } from './ModalSkeleton'
+
+// Feature-specific skeleton components - temporarily disabled to fix build
+// export { default as ContactCardSkeleton } from '../contacts/ContactCardSkeleton'
+// export { default as ContactDetailSkeleton } from '../contacts/ContactDetailSkeleton'
+// export { ContactFormSkeleton } from '../forms/ContactFormSkeleton'
+// export { default as DashboardSkeleton } from '../Dashboard/DashboardSkeleton'
+// export { default as MetricCardSkeleton } from '../Dashboard/MetricCardSkeleton'
+// export { default as EmailTemplateSkeleton } from '../emails/EmailTemplateSkeleton'
+// export { EmailHistorySkeleton } from '../emails/EmailHistorySkeleton'
+// export { EmailPreviewSkeleton } from '../emails/EmailPreviewSkeleton'
+// export { default as CourseCardSkeleton } from '../training/CourseCardSkeleton'
+// export { CourseProgressSkeleton } from '../training/CourseProgressSkeleton'
+// export { default as VideoPlayerSkeleton } from '../training/VideoPlayerSkeleton'
+// export { LessonContentSkeleton } from '../training/LessonContentSkeleton'
+// export { TeamSkeleton } from '../team/TeamSkeleton' 

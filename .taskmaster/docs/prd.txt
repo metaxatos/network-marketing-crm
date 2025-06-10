@@ -1,0 +1,59 @@
+# Network Marketing CRM - Product Requirements Document
+
+## Overview
+A Network Marketing CRM with a powerful multi-company backend but radically simple frontend UI for non-technical users.
+
+## Tech Stack
+- Frontend: Next.js 14 App Router, TypeScript, Tailwind CSS, Zustand, React Query
+- Backend: Supabase (PostgreSQL, Auth, Realtime, Storage)
+- Email: Resend
+- Deployment: Vercel
+
+## Core Features
+
+### 1. User Account & Dashboard
+- Simple email/password authentication
+- Personalized dashboard with celebration moments
+- Real-time activity feed
+- Key metrics display (contacts, emails, training progress)
+- Mobile-first responsive design
+
+### 2. Contact Management  
+- Add/edit/delete contacts with minimal fields
+- Smart search and filtering
+- Contact status tracking (Lead/Customer/Team)
+- Activity timeline per contact
+- Bulk import capability
+
+### 3. Simple Emailing
+- Pre-written email templates
+- One-click sending
+- Click tracking and analytics
+- Personalization variables
+- Email history per contact
+
+### 4. Training Academy
+- Video-based training modules
+- Progress tracking with resume capability
+- Completion certificates
+- Mobile-optimized player
+- Downloadable resources
+
+### 5. Landing Pages & Funnels
+- Member-specific landing pages
+- Lead capture forms
+- Automatic contact creation
+- UTM tracking
+- Mobile-responsive templates
+
+### 6. Multi-Company Backend (Hidden from Users)
+- Company isolation with RLS
+- Hierarchical member structure
+- Automated commission calculations
+- Admin portal for company management
+
+## Non-Functional Requirements
+- Performance: <3s page load, 60fps animations
+- Security: RLS, input validation, rate limiting
+- Accessibility: WCAG 2.1 AA compliance
+- Browser Support: Chrome, Safari, Firefox, Edge (latest 2 versions)

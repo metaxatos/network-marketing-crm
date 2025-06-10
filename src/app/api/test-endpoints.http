@@ -1,0 +1,203 @@
+### Network Marketing CRM API Test Endpoints
+### Use this file with VS Code REST Client extension or similar HTTP client
+
+@baseUrl = http://localhost:3000/api
+@authToken = YOUR_AUTH_TOKEN_HERE
+
+### Authentication APIs
+
+### Login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+
+### Signup
+POST {{baseUrl}}/auth/signup
+Content-Type: application/json
+
+{
+  "email": "newuser@example.com",
+  "password": "securepass123",
+  "firstName": "John",
+  "lastName": "Doe",
+  "companyId": "company-uuid",
+  "sponsorId": "sponsor-uuid"
+}
+
+### Logout
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{authToken}}
+
+### Get Current User
+GET {{baseUrl}}/auth/user
+Authorization: Bearer {{authToken}}
+
+### Dashboard APIs
+
+### Get Dashboard Metrics
+GET {{baseUrl}}/dashboard/metrics
+Authorization: Bearer {{authToken}}
+
+### Get Activities
+GET {{baseUrl}}/dashboard/activities?page=1&limit=20
+Authorization: Bearer {{authToken}}
+
+### Get Quick Actions
+GET {{baseUrl}}/dashboard/quick-actions
+Authorization: Bearer {{authToken}}
+
+### Contact Management APIs
+
+### List Contacts
+GET {{baseUrl}}/contacts?search=john&status=lead&page=1&limit=20
+Authorization: Bearer {{authToken}}
+
+### Create Contact
+POST {{baseUrl}}/contacts
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "name": "Jane Smith",
+  "phone": "+1234567890",
+  "email": "jane@example.com",
+  "status": "lead",
+  "tags": ["new", "interested"]
+}
+
+### Get Single Contact
+GET {{baseUrl}}/contacts/contact-uuid
+Authorization: Bearer {{authToken}}
+
+### Update Contact
+PUT {{baseUrl}}/contacts/contact-uuid
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "name": "Jane Smith Updated",
+  "status": "customer",
+  "tags": ["customer", "vip"]
+}
+
+### Delete Contact
+DELETE {{baseUrl}}/contacts/contact-uuid
+Authorization: Bearer {{authToken}}
+
+### Add Note to Contact
+POST {{baseUrl}}/contacts/contact-uuid/notes
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "content": "Had a great call with Jane. She's interested in joining the team!"
+}
+
+### Email System APIs
+
+### Get Email Templates
+GET {{baseUrl}}/email-templates
+Authorization: Bearer {{authToken}}
+
+### Send Email
+POST {{baseUrl}}/emails/send
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "contactId": "contact-uuid",
+  "templateId": "template-uuid",
+  "variables": {
+    "custom_message": "Looking forward to working with you!"
+  }
+}
+
+### Get Email History
+GET {{baseUrl}}/emails/history?page=1&limit=20
+Authorization: Bearer {{authToken}}
+
+### Update Email Status
+PUT {{baseUrl}}/emails/email-uuid/status
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "status": "bounced"
+}
+
+### Training APIs
+
+### Get Courses
+GET {{baseUrl}}/training/courses
+Authorization: Bearer {{authToken}}
+
+### Enroll in Course
+POST {{baseUrl}}/training/enroll
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "courseId": "course-uuid"
+}
+
+### Update Progress
+POST {{baseUrl}}/training/progress
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "videoId": "video-uuid",
+  "positionSeconds": 125,
+  "completed": false
+}
+
+### Get Course Details
+GET {{baseUrl}}/training/course-uuid
+Authorization: Bearer {{authToken}}
+
+### Landing Page APIs
+
+### Get Public Landing Page (no auth required)
+GET {{baseUrl}}/public/pages/my-opportunity
+
+### Capture Lead (no auth required)
+POST {{baseUrl}}/public/pages/my-opportunity/capture
+Content-Type: application/json
+
+{
+  "name": "New Lead",
+  "email": "lead@example.com",
+  "phone": "+1234567890",
+  "utmSource": "facebook",
+  "utmCampaign": "spring2024"
+}
+
+### Get User's Landing Pages
+GET {{baseUrl}}/landing-pages
+Authorization: Bearer {{authToken}}
+
+### Update Landing Page
+PUT {{baseUrl}}/landing-pages/page-uuid
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "title": "Updated Landing Page Title",
+  "isPublished": true,
+  "content": {
+    "sections": [
+      {
+        "id": "hero_1",
+        "type": "hero",
+        "props": {
+          "headline": "Join My Amazing Team",
+          "subheadline": "Start your journey today"
+        }
+      }
+    ]
+  }
+} 
