@@ -74,12 +74,86 @@ CREATE TABLE IF NOT EXISTS public.event_registrations (
     UNIQUE(event_id, member_id)
 );
 
+-- Create training courses table
+CREATE TABLE IF NOT EXISTS public.training_courses (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    company_id UUID,
+    title TEXT NOT NULL,
+    description TEXT,
+    thumbnail_url TEXT,
+    duration_minutes INTEGER DEFAULT 0,
+    order_index INTEGER DEFAULT 0,
+    is_required BOOLEAN DEFAULT false,
+    is_published BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create course modules table
+CREATE TABLE IF NOT EXISTS public.course_modules (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    course_id UUID REFERENCES public.training_courses(id) ON DELETE CASCADE NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    order_index INTEGER DEFAULT 0,
+    is_published BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create course lessons table
+CREATE TABLE IF NOT EXISTS public.course_lessons (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    module_id UUID REFERENCES public.course_modules(id) ON DELETE CASCADE NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    video_url TEXT NOT NULL,
+    video_platform TEXT DEFAULT 'youtube' CHECK (video_platform IN ('youtube', 'vimeo', 'wistia')),
+    duration_seconds INTEGER,
+    order_index INTEGER DEFAULT 0,
+    is_published BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create member course progress table
+CREATE TABLE IF NOT EXISTS public.member_course_progress (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    member_id UUID REFERENCES public.members(id) ON DELETE CASCADE NOT NULL,
+    course_id UUID REFERENCES public.training_courses(id) ON DELETE CASCADE NOT NULL,
+    completion_percentage FLOAT DEFAULT 0.0,
+    last_video_id UUID REFERENCES public.course_lessons(id),
+    last_position_seconds INTEGER DEFAULT 0,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(member_id, course_id)
+);
+
+-- Create lesson progress table
+CREATE TABLE IF NOT EXISTS public.lesson_progress (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    member_id UUID REFERENCES public.members(id) ON DELETE CASCADE NOT NULL,
+    lesson_id UUID REFERENCES public.course_lessons(id) ON DELETE CASCADE NOT NULL,
+    watch_time_seconds INTEGER DEFAULT 0,
+    completed BOOLEAN DEFAULT false,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(member_id, lesson_id)
+);
+
 -- Enable Row Level Security
 ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.member_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.contacts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.event_registrations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.training_courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.course_modules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.course_lessons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.member_course_progress ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.lesson_progress ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS Policies
 
@@ -142,6 +216,57 @@ CREATE POLICY "Users can update their own registrations" ON public.event_registr
 CREATE POLICY "Users can cancel their own registrations" ON public.event_registrations
     FOR DELETE USING (auth.uid() = member_id);
 
+-- Training courses policies (public read for company members)
+CREATE POLICY "Members can view courses for their company" ON public.training_courses
+    FOR SELECT USING (
+        company_id IN (SELECT company_id FROM public.members WHERE id = auth.uid())
+        OR company_id IS NULL
+    );
+
+-- Course modules policies
+CREATE POLICY "Members can view published modules" ON public.course_modules
+    FOR SELECT USING (
+        is_published = true AND
+        course_id IN (
+            SELECT id FROM public.training_courses
+            WHERE company_id IN (SELECT company_id FROM public.members WHERE id = auth.uid())
+            OR company_id IS NULL
+        )
+    );
+
+-- Course lessons policies
+CREATE POLICY "Members can view published lessons" ON public.course_lessons
+    FOR SELECT USING (
+        is_published = true AND
+        module_id IN (
+            SELECT cm.id FROM public.course_modules cm
+            JOIN public.training_courses tc ON cm.course_id = tc.id
+            WHERE cm.is_published = true
+            AND (tc.company_id IN (SELECT company_id FROM public.members WHERE id = auth.uid())
+                 OR tc.company_id IS NULL)
+        )
+    );
+
+-- Member course progress policies
+CREATE POLICY "Users can view their own course progress" ON public.member_course_progress
+    FOR SELECT USING (auth.uid() = member_id);
+
+CREATE POLICY "Users can insert their own course progress" ON public.member_course_progress
+    FOR INSERT WITH CHECK (auth.uid() = member_id);
+
+CREATE POLICY "Users can update their own course progress" ON public.member_course_progress
+    FOR UPDATE USING (auth.uid() = member_id);
+
+-- Lesson progress policies
+CREATE POLICY "Users can view their own lesson progress" ON public.lesson_progress
+    FOR SELECT USING (auth.uid() = member_id);
+
+CREATE POLICY "Users can insert their own lesson progress" ON public.lesson_progress
+    FOR INSERT WITH CHECK (auth.uid() = member_id);
+
+CREATE POLICY "Users can update their own lesson progress" ON public.lesson_progress
+    FOR UPDATE USING (auth.uid() = member_id);
+
 -- Create functions for automatic profile creation
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
@@ -196,9 +321,23 @@ CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.contacts
 CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.events
     FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
+CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.training_courses
+    FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.course_modules
+    FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.course_lessons
+    FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.member_course_progress
+    FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.lesson_progress
+    FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_members_company_id ON public.members(company_id);
-CREATE INDEX IF NOT EXISTS idx_members_sponsor_id ON public.members(sponsor_id);
 CREATE INDEX IF NOT EXISTS idx_member_profiles_member_id ON public.member_profiles(member_id);
 CREATE INDEX IF NOT EXISTS idx_contacts_member_id ON public.contacts(member_id);
 CREATE INDEX IF NOT EXISTS idx_contacts_email ON public.contacts(email);
@@ -206,13 +345,18 @@ CREATE INDEX IF NOT EXISTS idx_events_member_id ON public.events(member_id);
 CREATE INDEX IF NOT EXISTS idx_events_start_time ON public.events(start_time);
 CREATE INDEX IF NOT EXISTS idx_event_registrations_event_id ON public.event_registrations(event_id);
 CREATE INDEX IF NOT EXISTS idx_event_registrations_member_id ON public.event_registrations(member_id);
+CREATE INDEX IF NOT EXISTS idx_training_courses_company_id ON public.training_courses(company_id);
+CREATE INDEX IF NOT EXISTS idx_course_modules_course_id ON public.course_modules(course_id);
+CREATE INDEX IF NOT EXISTS idx_course_lessons_module_id ON public.course_lessons(module_id);
+CREATE INDEX IF NOT EXISTS idx_member_course_progress_member_id ON public.member_course_progress(member_id);
+CREATE INDEX IF NOT EXISTS idx_member_course_progress_course_id ON public.member_course_progress(course_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_progress_member_id ON public.lesson_progress(member_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_progress_lesson_id ON public.lesson_progress(lesson_id);
 
--- Insert some sample data (optional)
--- You can uncomment this if you want some test data
-
-/*
--- Sample company (you can update this with your actual company info)
-INSERT INTO public.companies (id, name, description) VALUES 
-('00000000-0000-0000-0000-000000000000', 'Demo Company', 'Sample company for testing')
-ON CONFLICT (id) DO NOTHING;
-*/ 
+-- Insert sample training courses (optional - for demo purposes)
+INSERT INTO public.training_courses (title, description, duration_minutes, order_index, is_required) VALUES
+('Network Marketing Fundamentals', 'Master the basics of network marketing and build a solid foundation for your business success.', 150, 1, true),
+('Advanced Sales Strategies', 'Learn proven sales techniques and closing strategies that top performers use to maximize their results.', 195, 2, false),
+('Building Your Team', 'Discover how to recruit, train, and motivate a high-performing team that drives exponential growth.', 260, 3, false),
+('Digital Marketing Mastery', 'Leverage social media and digital tools to build your brand and attract qualified prospects online.', 225, 4, false)
+ON CONFLICT DO NOTHING; 
