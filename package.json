@@ -10,7 +10,8 @@
     "type-check": "tsc --noEmit",
     "test": "jest",
     "test:e2e": "playwright test",
-    "analyze": "ANALYZE=true next build"
+    "analyze": "ANALYZE=true next build",
+    "deploy:check": "node scripts/deploy.js"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -36,6 +37,7 @@
     "zustand": "^5.0.5"
   },
   "devDependencies": {
+    "@netlify/plugin-nextjs": "^5.7.2",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-big-calendar": "^1.16.2",

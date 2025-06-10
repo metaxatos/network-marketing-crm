@@ -2,21 +2,33 @@
   command = "npm run build"
   publish = ".next"
 
-[build.environment]
-  NEXT_PRIVATE_TARGET = "server"
-
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-[functions]
-  directory = "netlify/functions"
-  node_bundler = "esbuild"
+[build.environment]
+  NODE_VERSION = "18"
+  NPM_FLAGS = "--legacy-peer-deps"
 
+# API routes handled by Next.js
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/:splat"
+  to = "/.netlify/functions/___netlify-handler"
   status = 200
 
+# Static files optimization
+[[redirects]]
+  from = "/_next/static/*"
+  to = "/static/:splat"
+  status = 200
+  headers = {cache-control = "public, max-age=31536000, immutable"}
+
+# Catch-all for client-side routing (SPA mode)
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/___netlify-handler"
+  status = 200
+
+# Security headers
 [[headers]]
   for = "/*"
   [headers.values]
@@ -25,5 +37,7 @@
     X-XSS-Protection = "1; mode=block"
     Referrer-Policy = "strict-origin-when-cross-origin"
 
+# Production specific environment
 [context.production.environment]
-  NEXT_SERVERLESS = "true" 
+  NEXT_SERVERLESS = "true"
+  NODE_VERSION = "18" 

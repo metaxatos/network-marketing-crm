@@ -1,480 +1,495 @@
-# Task 7: Testing & Deployment Preparation
+Task 7: GitHub Setup & Netlify Deployment
+Priority: 🔴 HIGH
+Estimated Time: 2-3 days
+Status: 📋 TODO
+Description
+Prepare the Network Marketing CRM for production by setting up GitHub repository, implementing essential testing, and deploying to Netlify. Focus on getting a working production version live while ensuring basic reliability and security.
+Context
 
-## Priority: 🟡 MEDIUM
-## Estimated Time: 2-3 days
-## Status: 📋 TODO
+App is complete and working locally
+Need to move from local development to production
+Using Netlify for hosting (free tier friendly)
+Must handle environment variables securely
+Focus on getting live first, optimize later
 
-## Description
-Comprehensive testing, error handling improvements, and deployment preparation to ensure the Network Marketing CRM is production-ready. This includes end-to-end testing, performance optimization, and setting up monitoring.
+Acceptance Criteria
+GitHub Repository Setup
 
-## Context
-- App has all core features implemented
-- Need thorough testing before production deployment
-- Must ensure reliability for non-technical users
-- Performance and security are critical
+ Initialize Git repository with proper .gitignore
+ Create GitHub repository
+ Initial commit with clean code structure
+ README.md with project documentation
+ Branch protection for main branch
 
-## Acceptance Criteria
+Netlify Deployment
 
-### Testing Coverage
-- [ ] End-to-end testing for all user flows
-- [ ] Component testing for critical features
-- [ ] API endpoint testing
-- [ ] Error boundary testing
-- [ ] Mobile responsiveness testing
+ Netlify account and project setup
+ Build configuration for Next.js
+ Environment variables configured
+ Custom domain setup (if available)
+ Automatic deployments from GitHub
 
-### Performance Optimization
-- [ ] Page load time optimization (< 2 seconds)
-- [ ] Image optimization and lazy loading
-- [ ] Bundle size optimization
-- [ ] Database query optimization
-- [ ] Memory leak prevention
+Essential Testing
 
-### Error Handling & Monitoring
-- [ ] Global error boundaries
-- [ ] Comprehensive error logging
-- [ ] User-friendly error messages
-- [ ] Fallback UI for failed states
-- [ ] Error reporting system
+ Critical user flows work in production
+ Authentication flow testing
+ Database connections verified
+ Email sending functionality confirmed
+ Mobile responsiveness check
 
-### Security & Privacy
-- [ ] RLS policy verification
-- [ ] Input sanitization audit
-- [ ] Authentication flow testing
-- [ ] Privacy compliance check
-- [ ] Rate limiting implementation
+Production Readiness
 
-### Deployment Preparation
-- [ ] Environment variable management
-- [ ] Build optimization
-- [ ] CDN configuration
-- [ ] Database migration scripts
-- [ ] Monitoring setup
+ Error handling for common failures
+ Loading states for all async operations
+ Secure environment variable management
+ Basic performance optimization
+ Production database setup
 
-## Implementation Steps
+Implementation Steps
+1. GitHub Repository Setup
+Initialize Git Repository
+bash# Initialize git
+git init
 
-1. **Test Suite Setup**
-   - Install and configure testing frameworks
-   - Set up test databases and environments
-   - Create testing utilities and helpers
-   - Write integration test infrastructure
+# Create .gitignore
+cat > .gitignore << 'EOF'
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
 
-2. **Critical Path Testing**
-   - User registration and login flow
-   - Contact management operations
-   - Email sending and tracking
-   - Training progress tracking
-   - Landing page functionality
+# Testing
+coverage/
+.nyc_output
 
-3. **Performance Optimization**
-   - Analyze bundle size and optimize
-   - Implement image optimization
-   - Add loading optimizations
-   - Database query performance review
+# Next.js
+.next/
+out/
+build/
+dist/
 
-4. **Error Handling Enhancement**
-   - Add global error boundaries
-   - Implement comprehensive logging
-   - Create fallback UI components
-   - Test error scenarios
+# Production
+*.production
 
-5. **Security Audit**
-   - Review RLS policies
-   - Test authentication flows
-   - Audit input validation
-   - Check for common vulnerabilities
+# Misc
+.DS_Store
+*.pem
+.vscode/
+.idea/
 
-6. **Deployment Setup**
-   - Configure production environment
-   - Set up monitoring and alerts
-   - Create deployment pipeline
-   - Test production deployment
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-## Files to Create/Modify
+# Local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-### Testing Infrastructure
-- `/tests/setup.ts` - Test configuration
-- `/tests/helpers/` - Testing utilities
-- `/tests/e2e/` - End-to-end tests
-- `/tests/integration/` - Integration tests
-- `/tests/components/` - Component tests
+# Vercel
+.vercel
 
-### Error Handling
-- `/src/components/ErrorBoundary.tsx` - Global error boundary
-- `/src/components/ErrorFallback.tsx` - Error fallback UI
-- `/src/lib/errorLogger.ts` - Error logging service
-- `/src/hooks/useErrorHandler.ts` - Error handling hook
+# Typescript
+*.tsbuildinfo
+next-env.d.ts
 
-### Performance
-- `/src/lib/imageOptimization.ts` - Image optimization
-- `/src/components/LazyLoad.tsx` - Lazy loading wrapper
-- `next.config.js` - Build optimizations
-- Bundle analyzer configuration
+# PWA
+public/sw.js
+public/workbox-*.js
+public/worker-*.js
+public/sw.js.map
+public/workbox-*.js.map
+public/worker-*.js.map
 
-### Deployment
-- `/.env.example` - Environment variables template
-- `/scripts/deploy.sh` - Deployment script
-- `/monitoring/` - Monitoring configuration
-- CI/CD pipeline configuration
+# Supabase
+supabase/.temp/
+supabase/.env
+EOF
 
-## Testing Strategy
+# Initial commit
+git add .
+git commit -m "Initial commit: Network Marketing CRM"
+Create README.md
+markdown# Network Marketing CRM
 
-### End-to-End Tests (Playwright)
-```typescript
-// Critical user flows
-describe('User Registration Flow', () => {
-  test('new user can register and complete setup', async ({ page }) => {
-    await page.goto('/auth/register')
-    
-    // Fill registration form
-    await page.fill('[data-testid=email]', 'test@example.com')
-    await page.fill('[data-testid=password]', 'securepassword')
-    await page.click('[data-testid=register-button]')
-    
-    // Complete profile setup
-    await page.waitForURL('/settings/profile')
-    await page.fill('[data-testid=username]', 'testuser')
-    await page.fill('[data-testid=first-name]', 'Test')
-    await page.click('[data-testid=save-profile]')
-    
-    // Verify dashboard access
-    await page.waitForURL('/dashboard')
-    await expect(page.locator('[data-testid=welcome-message]')).toContainText('Test')
-  })
-})
+A modern CRM system designed specifically for network marketing professionals, built with Next.js and Supabase.
 
-describe('Contact Management', () => {
-  test('user can add, edit, and delete contacts', async ({ page }) => {
-    await loginAsUser(page)
-    
-    // Add contact
-    await page.goto('/contacts')
-    await page.click('[data-testid=add-contact-button]')
-    await page.fill('[data-testid=contact-name]', 'John Doe')
-    await page.fill('[data-testid=contact-email]', 'john@example.com')
-    await page.click('[data-testid=save-contact]')
-    
-    // Verify contact appears in list
-    await expect(page.locator('[data-testid=contact-list]')).toContainText('John Doe')
-    
-    // Edit contact
-    await page.click('[data-testid=contact-john-doe]')
-    await page.click('[data-testid=edit-contact]')
-    await page.fill('[data-testid=contact-phone]', '+1234567890')
-    await page.click('[data-testid=save-contact]')
-    
-    // Verify changes saved
-    await expect(page.locator('[data-testid=contact-details]')).toContainText('+1234567890')
-  })
-})
-```
+## Features
 
-### Component Tests (React Testing Library)
-```typescript
-// Critical component testing
-describe('ContactCard', () => {
-  test('displays contact information correctly', () => {
-    const contact = {
-      id: '1',
-      name: 'John Doe',
-      email: 'john@example.com',
-      status: 'lead',
-      created_at: '2024-01-01T00:00:00Z'
-    }
-    
-    render(<ContactCard contact={contact} />)
-    
-    expect(screen.getByText('John Doe')).toBeInTheDocument()
-    expect(screen.getByText('john@example.com')).toBeInTheDocument()
-    expect(screen.getByText('Lead')).toBeInTheDocument()
-  })
-  
-  test('handles contact actions correctly', async () => {
-    const onEdit = jest.fn()
-    const onDelete = jest.fn()
-    
-    render(<ContactCard contact={mockContact} onEdit={onEdit} onDelete={onDelete} />)
-    
-    await user.click(screen.getByRole('button', { name: /edit/i }))
-    expect(onEdit).toHaveBeenCalledWith(mockContact.id)
-  })
-})
-```
+- 👥 Contact Management
+- 📧 Email Templates & Tracking
+- 📚 Training Progress Tracking
+- 🎯 Landing Page Builder
+- 🏢 Multi-Company Support
+- 📱 Mobile Responsive
 
-### API Tests
-```typescript
-// API endpoint testing
-describe('/api/contacts', () => {
-  test('GET /api/contacts returns user contacts', async () => {
-    const response = await request(app)
-      .get('/api/contacts')
-      .set('Authorization', `Bearer ${validToken}`)
-      .expect(200)
-    
-    expect(response.body.contacts).toBeArray()
-    expect(response.body.contacts[0]).toHaveProperty('name')
-    expect(response.body.contacts[0]).toHaveProperty('email')
-  })
-  
-  test('POST /api/contacts creates new contact', async () => {
-    const newContact = {
-      name: 'Test Contact',
-      email: 'test@example.com',
-      status: 'lead'
-    }
-    
-    const response = await request(app)
-      .post('/api/contacts')
-      .set('Authorization', `Bearer ${validToken}`)
-      .send(newContact)
-      .expect(201)
-    
-    expect(response.body.contact.name).toBe(newContact.name)
-    expect(response.body.contact.email).toBe(newContact.email)
-  })
-})
-```
+## Tech Stack
 
-## Performance Optimization
+- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
+- **Backend**: Supabase (PostgreSQL, Auth, Storage)
+- **Deployment**: Netlify
+- **Email**: Resend API
 
-### Bundle Analysis
-```javascript
-// next.config.js optimization
-const nextConfig = {
-  experimental: {
-    optimizeCss: true,
-    optimizePackageImports: ['lucide-react', '@heroicons/react'],
-  },
-  images: {
-    domains: ['images.unsplash.com', 'supabase.co'],
-    formats: ['image/webp', 'image/avif'],
-  },
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      config.resolve.fallback = {
-        fs: false,
-        net: false,
-        tls: false,
-      }
-    }
-    return config
-  },
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- npm or yarn
+- Supabase account
+- Resend API key
+
+### Installation
+
+1. Clone the repository
+```bash
+git clone https://github.com/yourusername/network-marketing-crm.git
+cd network-marketing-crm
+
+Install dependencies
+
+bashnpm install
+
+Set up environment variables
+
+bashcp .env.example .env.local
+# Edit .env.local with your values
+
+Run development server
+
+bashnpm run dev
+Environment Variables
+Create a .env.local file with:
+envNEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+RESEND_API_KEY=your_resend_api_key
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+Deployment
+This app is configured for deployment on Netlify.
+
+Fork this repository
+Connect to Netlify
+Configure environment variables
+Deploy
+
+License
+MIT
+
+### 2. Prepare for Netlify Deployment
+
+#### Create netlify.toml
+```toml
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NEXT_PRIVATE_TARGET = "server"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[context.production.environment]
+  NEXT_SERVERLESS = "true"
+Create .env.example
+env# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+# Email
+RESEND_API_KEY=
+
+# App
+NEXT_PUBLIC_APP_URL=
+NEXT_PUBLIC_APP_NAME="Network Marketing CRM"
+
+# Optional: Analytics
+NEXT_PUBLIC_GA_ID=
+Update package.json scripts
+json{
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit",
+    "test": "jest",
+    "test:e2e": "playwright test",
+    "analyze": "ANALYZE=true next build"
+  }
 }
-```
+3. Production Code Adjustments
+Update API Routes for Netlify Functions
+typescript// Convert API routes to work with Netlify
+// Example: /src/app/api/contacts/route.ts
 
-### Image Optimization
-```typescript
-// Optimized image component
-const OptimizedImage = ({ src, alt, ...props }) => {
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function GET(request: NextRequest) {
+  try {
+    // Your existing logic
+    return NextResponse.json({ success: true, data: contacts })
+  } catch (error) {
+    console.error('API Error:', error)
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
+// Add runtime config
+export const runtime = 'edge' // or 'nodejs'
+Add Error Boundaries
+typescript// src/app/error.tsx
+'use client'
+
+export default function Error({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string }
+  reset: () => void
+}) {
   return (
-    <Image
-      src={src}
-      alt={alt}
-      loading="lazy"
-      placeholder="blur"
-      blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD..."
-      {...props}
-    />
-  )
-}
-```
-
-### Database Query Optimization
-```sql
--- Add indexes for common queries
-CREATE INDEX CONCURRENTLY idx_contacts_member_search 
-ON contacts(member_id, name, email, phone) 
-WHERE deleted_at IS NULL;
-
-CREATE INDEX CONCURRENTLY idx_sent_emails_member_date 
-ON sent_emails(member_id, created_at DESC);
-
-CREATE INDEX CONCURRENTLY idx_member_activities_member_date 
-ON member_activities(member_id, created_at DESC);
-```
-
-## Error Handling Implementation
-
-### Global Error Boundary
-```typescript
-class GlobalErrorBoundary extends Component {
-  constructor(props) {
-    super(props)
-    this.state = { hasError: false, error: null }
-  }
-  
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error }
-  }
-  
-  componentDidCatch(error, errorInfo) {
-    // Log error to service
-    errorLogger.log({
-      error: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
-      userId: this.props.userId,
-      timestamp: new Date().toISOString(),
-    })
-  }
-  
-  render() {
-    if (this.state.hasError) {
-      return <ErrorFallback error={this.state.error} />
-    }
-    
-    return this.props.children
-  }
-}
-```
-
-### Error Fallback UI
-```typescript
-const ErrorFallback = ({ error, resetError }) => (
-  <div className="min-h-screen flex items-center justify-center bg-gray-50">
-    <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
-      <div className="text-6xl mb-4">😟</div>
-      <h2 className="text-xl font-semibold text-gray-900 mb-2">
-        Oops! Something went wrong
-      </h2>
-      <p className="text-gray-600 mb-6">
-        We're sorry for the inconvenience. Our team has been notified.
-      </p>
-      <div className="space-y-3">
-        <button 
-          onClick={resetError}
-          className="w-full btn-primary"
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <h2 className="text-2xl font-bold mb-4">Something went wrong!</h2>
+        <button
+          onClick={reset}
+          className="bg-blue-500 text-white px-4 py-2 rounded"
         >
-          Try Again
-        </button>
-        <button 
-          onClick={() => window.location.href = '/dashboard'}
-          className="w-full btn-secondary"
-        >
-          Go to Dashboard
+          Try again
         </button>
       </div>
     </div>
-  </div>
-)
-```
+  )
+}
+Add Loading States
+typescript// src/app/loading.tsx
+export default function Loading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+    </div>
+  )
+}
+4. Essential Testing
+Basic E2E Test Setup
+typescript// tests/auth.spec.ts
+import { test, expect } from '@playwright/test'
 
-## Security Audit Checklist
-
-### Authentication & Authorization
-- [ ] JWT token validation on all protected routes
-- [ ] RLS policies prevent cross-user data access
-- [ ] Password strength requirements enforced
-- [ ] Session timeout implementation
-- [ ] Secure cookie configuration
-
-### Input Validation
-- [ ] All form inputs sanitized and validated
-- [ ] Email format validation
-- [ ] Phone number format validation
-- [ ] File upload security (if applicable)
-- [ ] SQL injection prevention
-
-### Data Protection
-- [ ] Sensitive data encryption at rest
-- [ ] HTTPS enforcement
-- [ ] XSS prevention measures
-- [ ] CSRF protection
-- [ ] Rate limiting on API endpoints
-
-## Monitoring & Alerting Setup
-
-### Application Monitoring
-```typescript
-// Error tracking service
-class ErrorLogger {
-  static log(errorData) {
-    // Send to error tracking service (Sentry, LogRocket, etc.)
-    if (process.env.NODE_ENV === 'production') {
-      fetch('/api/errors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(errorData),
-      })
-    }
+test.describe('Authentication', () => {
+  test('user can log in', async ({ page }) => {
+    await page.goto('/auth/login')
+    
+    await page.fill('[name="email"]', 'test@example.com')
+    await page.fill('[name="password"]', 'password123')
+    await page.click('button[type="submit"]')
+    
+    await expect(page).toHaveURL('/dashboard')
+    await expect(page.locator('h1')).toContainText('Dashboard')
+  })
+})
+Production Checklist Script
+typescript// scripts/production-check.ts
+async function checkProduction() {
+  console.log('🔍 Running production checks...\n')
+  
+  // Check environment variables
+  const requiredEnvs = [
+    'NEXT_PUBLIC_SUPABASE_URL',
+    'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+    'SUPABASE_SERVICE_ROLE_KEY',
+    'RESEND_API_KEY'
+  ]
+  
+  const missingEnvs = requiredEnvs.filter(env => !process.env[env])
+  
+  if (missingEnvs.length > 0) {
+    console.error('❌ Missing environment variables:', missingEnvs)
+    process.exit(1)
   }
   
-  static logPageview(page) {
-    // Analytics tracking
-    if (typeof window !== 'undefined' && window.gtag) {
-      window.gtag('config', process.env.NEXT_PUBLIC_GA_ID, {
-        page_title: document.title,
-        page_location: window.location.href,
-      })
+  console.log('✅ Environment variables configured')
+  
+  // Test database connection
+  try {
+    const { createClient } = require('@supabase/supabase-js')
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+    
+    const { error } = await supabase.from('members').select('count')
+    if (error) throw error
+    
+    console.log('✅ Database connection successful')
+  } catch (error) {
+    console.error('❌ Database connection failed:', error)
+    process.exit(1)
+  }
+  
+  console.log('\n🎉 Production checks passed!')
+}
+
+checkProduction()
+5. Deployment Process
+GitHub Setup
+bash# Create GitHub repository
+# Go to https://github.com/new
+
+# Add remote origin
+git remote add origin https://github.com/yourusername/network-marketing-crm.git
+
+# Push to GitHub
+git branch -M main
+git push -u origin main
+Netlify Setup Steps
+
+Create Netlify Account
+
+Go to https://app.netlify.com
+Sign up with GitHub
+
+
+Import Project
+
+Click "Add new site" → "Import an existing project"
+Choose GitHub
+Select your repository
+
+
+Configure Build Settings
+Build command: npm run build
+Publish directory: .next
+
+Set Environment Variables
+
+Go to Site settings → Environment variables
+Add all variables from .env.example
+Use production values
+
+
+Deploy
+
+Click "Deploy site"
+Wait for build to complete
+
+
+
+6. Post-Deployment Tasks
+Verify Production
+typescript// scripts/verify-production.js
+const checks = [
+  { name: 'Homepage loads', url: '/' },
+  { name: 'Login page accessible', url: '/auth/login' },
+  { name: 'API health check', url: '/api/health' },
+]
+
+async function verifyProduction() {
+  const baseUrl = process.env.PRODUCTION_URL || 'https://your-app.netlify.app'
+  
+  for (const check of checks) {
+    try {
+      const response = await fetch(baseUrl + check.url)
+      console.log(`${check.name}: ${response.ok ? '✅' : '❌'} (${response.status})`)
+    } catch (error) {
+      console.log(`${check.name}: ❌ Failed`)
     }
   }
 }
-```
 
-### Performance Monitoring
-```typescript
-// Performance metrics tracking
-const usePerformanceMonitoring = () => {
-  useEffect(() => {
-    // Track Core Web Vitals
-    if (typeof window !== 'undefined') {
-      import('web-vitals').then(({ getCLS, getFID, getFCP, getLCP, getTTFB }) => {
-        getCLS(console.log)
-        getFID(console.log)
-        getFCP(console.log)
-        getLCP(console.log)
-        getTTFB(console.log)
-      })
-    }
-  }, [])
-}
-```
-
-## Success Criteria
-
-### Testing Coverage
-- [ ] 90%+ test coverage for critical paths
-- [ ] All user flows tested end-to-end
-- [ ] Error scenarios properly handled
-- [ ] Performance benchmarks met
-
-### Performance Metrics
-- [ ] First Contentful Paint < 1.5s
-- [ ] Largest Contentful Paint < 2.5s
-- [ ] Cumulative Layout Shift < 0.1
-- [ ] First Input Delay < 100ms
-
-### Security
-- [ ] All security checklist items passed
-- [ ] Penetration testing completed
-- [ ] Data privacy compliance verified
-- [ ] Error messages don't leak sensitive data
-
-### Production Readiness
-- [ ] Zero critical bugs
-- [ ] All environment variables configured
-- [ ] Monitoring and alerting active
-- [ ] Backup and recovery procedures tested
-
-## Testing Tools & Dependencies
-
-```json
-{
-  "devDependencies": {
-    "@playwright/test": "^1.40.0",
-    "@testing-library/react": "^13.4.0",
-    "@testing-library/jest-dom": "^6.1.0",
-    "@testing-library/user-event": "^14.5.0",
-    "jest": "^29.7.0",
-    "jest-environment-jsdom": "^29.7.0",
-    "supertest": "^6.3.3",
-    "@next/bundle-analyzer": "^14.0.0"
+verifyProduction()
+Setup Monitoring
+typescript// src/lib/monitoring.ts
+export function logError(error: Error, context?: any) {
+  if (process.env.NODE_ENV === 'production') {
+    // Log to console in production
+    console.error('Application Error:', {
+      message: error.message,
+      stack: error.stack,
+      context,
+      timestamp: new Date().toISOString(),
+    })
+    
+    // TODO: Add external error tracking (Sentry, LogRocket, etc.)
   }
 }
-```
+Success Criteria
+Repository & Documentation
 
-## Future Maintenance
-- Automated testing in CI/CD pipeline
-- Regular security audits
-- Performance monitoring dashboards
-- User feedback collection system
-- A/B testing framework for improvements 
+ Clean Git history with meaningful commits
+ Comprehensive README with setup instructions
+ Environment variables documented
+ License file added
+
+Deployment
+
+ Site live on Netlify
+ Custom domain configured (optional)
+ SSL certificate active
+ Build succeeds without warnings
+
+Functionality
+
+ Users can register and login
+ Contact management works
+ Email sending functions
+ All pages load without errors
+ Mobile responsive design verified
+
+Security & Performance
+
+ Environment variables secure
+ No sensitive data in Git
+ Page load time < 3 seconds
+ No console errors in production
+
+Common Issues & Solutions
+Build Failures
+bash# Clear cache and rebuild
+rm -rf .next node_modules
+npm install
+npm run build
+Environment Variable Issues
+
+Double-check variable names (exact match)
+Ensure no quotes in Netlify env vars
+Rebuild after changing env vars
+
+Database Connection
+
+Verify Supabase project is not paused
+Check connection pooling settings
+Ensure RLS policies allow access
+
+Next Steps After Deployment
+
+Set up custom domain (if available)
+Enable Netlify Analytics (optional)
+Configure automatic backups for database
+Set up uptime monitoring (UptimeRobot, etc.)
+Create staging environment for testing

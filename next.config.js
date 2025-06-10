@@ -30,7 +30,7 @@ const nextConfig = {
   // Experimental features for Next.js 15
   experimental: {
     serverActions: {
-      allowedOrigins: ['localhost:3000', 'localhost:3001', 'localhost:3002'],
+      allowedOrigins: ['localhost:3000', 'localhost:3001', 'localhost:3002', 'ourteammlm.netlify.app', 'ourteam.gr'],
     },
     optimizePackageImports: ['@supabase/supabase-js'],
   },
@@ -45,6 +45,9 @@ const nextConfig = {
   // Ensure proper routing
   trailingSlash: false,
   skipTrailingSlashRedirect: true,
+  
+  // Add output configuration for Netlify
+  ...(process.env.NETLIFY && { output: 'standalone' }),
 }
 
 module.exports = nextConfig 
