@@ -31,16 +31,22 @@ export default function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let isMounted = true
+
     // Get initial session
     const getInitialSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        setUser(session?.user ?? null)
+        if (isMounted) {
+          setUser(session?.user ?? null)
+          setLoading(false)
+        }
       } catch (error) {
         console.warn('Auth session failed, continuing without auth:', error)
-        setUser(null)
-      } finally {
-        setLoading(false)
+        if (isMounted) {
+          setUser(null)
+          setLoading(false)
+        }
       }
     }
 
@@ -48,7 +54,7 @@ export default function AuthProvider({ children }: AuthProviderProps) {
 
     // Fallback: Ensure loading doesn't get stuck
     const loadingTimeout = setTimeout(() => {
-      if (loading) {
+      if (isMounted) {
         console.warn('Auth loading timeout, proceeding without auth')
         setLoading(false)
       }
@@ -58,17 +64,22 @@ export default function AuthProvider({ children }: AuthProviderProps) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         try {
-          setUser(session?.user ?? null)
+          if (isMounted) {
+            setUser(session?.user ?? null)
+            setLoading(false)
+          }
         } catch (error) {
           console.warn('Auth state change failed:', error)
-          setUser(null)
-        } finally {
-          setLoading(false)
+          if (isMounted) {
+            setUser(null)
+            setLoading(false)
+          }
         }
       }
     )
 
     return () => {
+      isMounted = false
       subscription.unsubscribe()
       clearTimeout(loadingTimeout)
     }

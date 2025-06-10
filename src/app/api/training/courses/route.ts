@@ -6,16 +6,24 @@ import type { CourseListResponse } from '@/types/api'
 // GET /api/training/courses - Get courses with progress
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
+    console.log('Training courses API - Starting request for user:', userId)
     const supabase = await createClient()
     
     // Get member's company ID
     const member = await getCurrentMember(userId)
+    console.log('Training courses API - Member data:', { 
+      memberId: member?.id, 
+      companyId: member?.company_id,
+      hasCompany: !!member?.company_id 
+    })
     
     if (!member?.company_id) {
+      console.error('Training courses API - No company found for member:', userId)
       return apiError('Company not found', 404)
     }
 
     // Get all courses for the company with user's progress
+    console.log('Training courses API - Querying courses for company:', member.company_id)
     const { data: courses, error } = await supabase
       .from('training_courses')
       .select(`
@@ -38,8 +46,11 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
       .order('order_index', { ascending: true })
 
     if (error) {
+      console.error('Training courses API - Database error:', error)
       throw error
     }
+
+    console.log('Training courses API - Query successful, found courses:', courses?.length || 0)
 
     // Find recommended next course
     let recommendedNext: string | undefined
