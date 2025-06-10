@@ -7,22 +7,32 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   
-  // Disable CSP in development mode
+  // Configure CSP for both development and production
   async headers() {
-    if (process.env.NODE_ENV === 'development' || process.env.DISABLE_CSP === 'true') {
-      return [
-        {
-          source: '/(.*)',
-          headers: [
-            {
-              key: 'Content-Security-Policy',
-              value: "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; object-src 'none';",
-            },
-          ],
-        },
-      ]
-    }
-    return []
+    const cspPolicy = process.env.NODE_ENV === 'development' || process.env.DISABLE_CSP === 'true'
+      ? "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; object-src 'none';"
+      : `
+          default-src 'self';
+          script-src 'self' 'unsafe-eval' 'unsafe-inline' https://va.vercel-scripts.com;
+          style-src 'self' 'unsafe-inline';
+          img-src 'self' blob: data: https:;
+          font-src 'self' data:;
+          connect-src 'self' https://*.supabase.co https://*.supabase.io;
+          frame-src 'self' https://js.stripe.com;
+          object-src 'none';
+        `.replace(/\s+/g, ' ').trim()
+
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: cspPolicy,
+          },
+        ],
+      },
+    ]
   },
   
   // Remove custom webpack devtool configuration to avoid performance issues
