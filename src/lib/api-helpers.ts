@@ -38,39 +38,59 @@ export function withAuth<T = any>(
   handler: (req: NextRequest, userId: string) => Promise<NextResponse<ApiResponse<T>>>
 ) {
   return async (req: NextRequest): Promise<NextResponse<ApiResponse<null>> | NextResponse<ApiResponse<T>>> => {
-    const supabase = await createClient()
-    
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser()
+    try {
+      const supabase = await createClient()
+      
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser()
 
-    if (error || !user) {
-      return apiError('Unauthorized', 401)
+      if (error) {
+        console.error('Auth error in withAuth:', error)
+        return apiError('Authentication failed: ' + error.message, 401)
+      }
+
+      if (!user) {
+        return apiError('No authenticated user found', 401)
+      }
+
+      return handler(req, user.id)
+    } catch (error) {
+      console.error('Unexpected error in withAuth:', error)
+      return apiError('Authentication system error', 500)
     }
-
-    return handler(req, user.id)
   }
 }
 
 // Get current member details
 export async function getCurrentMember(userId: string) {
-  const supabase = await createClient()
-  
-  const { data: member, error } = await supabase
-    .from('members')
-    .select(`
-      *,
-      member_profiles!member_id (*)
-    `)
-    .eq('id', userId)
-    .single()
+  try {
+    const supabase = await createClient()
+    
+    const { data: member, error } = await supabase
+      .from('members')
+      .select(`
+        *,
+        member_profiles!member_id (*)
+      `)
+      .eq('id', userId)
+      .single()
 
-  if (error) {
-    throw new Error('Failed to get member details')
+    if (error) {
+      console.error('Database error in getCurrentMember:', error)
+      throw new Error(`Failed to get member details: ${error.message}`)
+    }
+
+    if (!member) {
+      throw new Error('Member not found')
+    }
+
+    return member
+  } catch (error) {
+    console.error('Error in getCurrentMember:', error)
+    throw error
   }
-
-  return member
 }
 
 // Validate request body
