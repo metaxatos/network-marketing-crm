@@ -9,6 +9,9 @@ import {
   DatabaseEvent
 } from '@/lib/realtime'
 
+// Temporary flag to disable realtime if causing connection issues
+const DISABLE_REALTIME = true // Set to true to temporarily disable realtime
+
 /**
  * Hook for managing a single realtime subscription
  */
@@ -29,7 +32,7 @@ export function useRealtimeSubscription(
   const stableCallback = useCallback(callback, [])
 
   useEffect(() => {
-    if (!user || options?.enabled === false) {
+    if (!user || options?.enabled === false || DISABLE_REALTIME) {
       return
     }
 
@@ -90,7 +93,7 @@ export function useMultipleRealtimeSubscriptions(
   }))
 
   useEffect(() => {
-    if (!user || !enabled || stableSubscriptions.length === 0) {
+    if (!user || !enabled || stableSubscriptions.length === 0 || DISABLE_REALTIME) {
       return
     }
 
@@ -137,6 +140,11 @@ export function useRealtimeConnection() {
   const connectionRef = useRef<RealtimeConnection | null>(null)
 
   useEffect(() => {
+    if (DISABLE_REALTIME) {
+      setStatus('DISCONNECTED')
+      return
+    }
+
     const connection = RealtimeConnection.getInstance()
     connectionRef.current = connection
 
@@ -148,10 +156,10 @@ export function useRealtimeConnection() {
   }, [])
 
   return {
-    status,
-    isConnected: status === 'CONNECTED',
-    isReconnecting: status === 'RECONNECTING',
-    isDisconnected: status === 'DISCONNECTED'
+    status: DISABLE_REALTIME ? 'DISCONNECTED' : status,
+    isConnected: DISABLE_REALTIME ? false : status === 'CONNECTED',
+    isReconnecting: DISABLE_REALTIME ? false : status === 'RECONNECTING',
+    isDisconnected: DISABLE_REALTIME ? true : status === 'DISCONNECTED'
   }
 }
 
@@ -163,6 +171,18 @@ export function useDashboardRealtime() {
   const [contactCount, setContactCount] = useState<number | null>(null)
   const [emailCount, setEmailCount] = useState<number | null>(null)
   const [activityCount, setActivityCount] = useState<number | null>(null)
+
+  // If realtime is disabled, return null values
+  if (DISABLE_REALTIME) {
+    return {
+      contactCount: null,
+      emailCount: null,
+      activityCount: null,
+      setContactCount: () => {},
+      setEmailCount: () => {},
+      setActivityCount: () => {}
+    }
+  }
 
   // Stabilize callbacks to prevent re-subscriptions
   const handleContactUpdate = useCallback((payload: RealtimePostgresChangesPayload<any>) => {

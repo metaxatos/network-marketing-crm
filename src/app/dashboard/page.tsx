@@ -326,8 +326,8 @@ export default function DashboardPage() {
           </div>
         </DashboardLayout>
         
-        {/* Development Test Panel */}
-        {process.env.NODE_ENV === 'development' && <RealtimeTestPanel />}
+        {/* Realtime Debug Panel - Available in all environments */}
+        <RealtimeTestPanel />
       </div>
     </ErrorBoundary>
   )
