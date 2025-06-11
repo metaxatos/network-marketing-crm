@@ -53,7 +53,7 @@ function LoginForm() {
         <div className="text-center mb-8 animate-fade-in">
           <div className="text-6xl mb-4">🌟</div>
           <h1 className="text-3xl font-bold text-warm-800 mb-2">
-            Welcome Back!
+            Welcome Back to OurTeam!
           </h1>
           <p className="text-warm-600">
             Ready to grow your business today?
@@ -142,10 +142,11 @@ function LoginForm() {
           </div>
         </div>
 
-        {/* Trust indicators */}
+        {/* Trust indicators - Updated */}
         <div className="text-center mt-8 text-sm text-warm-500">
           <p>🔒 Your data is secure and private</p>
-          <p>💝 Join thousands of successful marketers</p>
+          <p>🚀 Join thousands of successful marketers</p>
+          <p className="mt-2 text-xs text-warm-400">Version 2.0 - Now with enhanced features!</p>
         </div>
       </div>
     </div>
