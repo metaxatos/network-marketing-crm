@@ -33,9 +33,19 @@ This document summarizes the fixes that have been implemented to resolve the Net
   - Provide better error logging
 - **Result**: New users won't get 404 errors on training page
 
-### 5. ✅ Code Deployment
-- **Status**: All changes committed and pushed to GitHub
-- **Trigger**: Netlify deployment automatically triggered
+### 5. ✅ Fixed Auth Circular Dependency
+- **Issue**: `/api/auth/user` route using withAuth wrapper caused circular dependency
+- **Fix**: Rewrote route without withAuth wrapper, direct auth checking
+- **Result**: Auth endpoints now work without circular imports
+
+### 6. ✅ Enhanced Database Schema (Updated)
+- **Issue**: Missing companies table and email/username fields in members
+- **Fix**: Added companies table with default company and updated members schema
+- **Result**: User creation and company lookups now work properly
+
+### 7. ✅ Code Deployment (Updated)
+- **Status**: All critical fixes committed and pushed to GitHub
+- **Trigger**: Netlify deployment automatically triggered twice
 
 ## 🚨 CRITICAL: Environment Variables Still Needed
 

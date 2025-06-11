@@ -16,6 +16,9 @@ export interface SubscriptionConfig {
   callback: (payload: RealtimePostgresChangesPayload<any>) => void
 }
 
+// Global channel tracking to prevent duplicates
+const activeChannels = new Map<string, RealtimeChannel>()
+
 /**
  * Creates a realtime subscription for database changes
  */
@@ -23,7 +26,16 @@ export function createRealtimeSubscription(
   channelName: string,
   config: SubscriptionConfig
 ): RealtimeSubscription {
+  // Clean up any existing channel with the same name
+  const existingChannel = activeChannels.get(channelName)
+  if (existingChannel) {
+    console.log(`🔄 Cleaning up existing channel: ${channelName}`)
+    supabase.removeChannel(existingChannel)
+    activeChannels.delete(channelName)
+  }
+
   const channel = supabase.channel(channelName)
+  activeChannels.set(channelName, channel)
 
   // Subscribe to postgres changes
   channel.on('postgres_changes', {
@@ -39,16 +51,28 @@ export function createRealtimeSubscription(
       console.log(`✅ Subscribed to ${channelName}`)
     } else if (status === 'CHANNEL_ERROR') {
       console.error(`❌ Failed to subscribe to ${channelName}`)
+      // Clean up failed channel
+      activeChannels.delete(channelName)
     } else if (status === 'TIMED_OUT') {
       console.warn(`⏰ Subscription to ${channelName} timed out`)
+    } else if (status === 'CLOSED') {
+      console.log(`🔌 Channel ${channelName} closed`)
+      activeChannels.delete(channelName)
     }
   })
 
   return {
     channel,
     unsubscribe: () => {
-      supabase.removeChannel(channel)
-      console.log(`🔌 Unsubscribed from ${channelName}`)
+      try {
+        supabase.removeChannel(channel)
+        activeChannels.delete(channelName)
+        console.log(`🔌 Unsubscribed from ${channelName}`)
+      } catch (error) {
+        console.warn(`⚠️ Error unsubscribing from ${channelName}:`, error)
+        // Force remove from tracking
+        activeChannels.delete(channelName)
+      }
     }
   }
 }
@@ -64,8 +88,36 @@ export function createMultipleSubscriptions(
   )
 
   return () => {
-    subs.forEach(sub => sub.unsubscribe())
+    subs.forEach(sub => {
+      try {
+        sub.unsubscribe()
+      } catch (error) {
+        console.warn('Error during cleanup:', error)
+      }
+    })
   }
+}
+
+/**
+ * Get list of active channels (for debugging)
+ */
+export function getActiveChannels(): string[] {
+  return Array.from(activeChannels.keys())
+}
+
+/**
+ * Force cleanup all channels (use with caution)
+ */
+export function cleanupAllChannels(): void {
+  console.log(`🧹 Cleaning up ${activeChannels.size} active channels`)
+  activeChannels.forEach((channel, name) => {
+    try {
+      supabase.removeChannel(channel)
+    } catch (error) {
+      console.warn(`Error cleaning up channel ${name}:`, error)
+    }
+  })
+  activeChannels.clear()
 }
 
 /**
@@ -88,23 +140,55 @@ export class RealtimeConnection {
   }
 
   private setupConnectionListeners() {
-    // Note: Supabase handles connection status internally
-    // We'll track status through channel subscription callbacks
-    // For now, assume connected state
-    this.updateStatus('CONNECTED')
+    // Monitor WebSocket connection through Supabase client
+    try {
+      // Check if we can access the realtime connection
+      const realtime = (supabase as any).realtime
+      if (realtime) {
+        realtime.onOpen(() => {
+          this.updateStatus('CONNECTED')
+        })
+        realtime.onClose(() => {
+          this.updateStatus('DISCONNECTED')
+        })
+        realtime.onError(() => {
+          this.updateStatus('RECONNECTING')
+        })
+      } else {
+        // Fallback: assume connected after a short delay
+        setTimeout(() => {
+          this.updateStatus('CONNECTED')
+        }, 1000)
+      }
+    } catch (error) {
+      console.warn('Could not setup realtime connection listeners:', error)
+      // Fallback: assume connected
+      this.updateStatus('CONNECTED')
+    }
   }
 
   private updateStatus(status: 'CONNECTED' | 'DISCONNECTED' | 'RECONNECTING') {
     if (this.currentStatus !== status) {
       this.currentStatus = status
-      this.connectionCallbacks.forEach(callback => callback(status))
+      console.log(`🔗 Realtime connection status: ${status}`)
+      this.connectionCallbacks.forEach(callback => {
+        try {
+          callback(status)
+        } catch (error) {
+          console.warn('Error in connection status callback:', error)
+        }
+      })
     }
   }
 
   onStatusChange(callback: (status: 'CONNECTED' | 'DISCONNECTED' | 'RECONNECTING') => void) {
     this.connectionCallbacks.push(callback)
     // Immediately call with current status
-    callback(this.currentStatus)
+    try {
+      callback(this.currentStatus)
+    } catch (error) {
+      console.warn('Error in initial connection status callback:', error)
+    }
 
     return () => {
       this.connectionCallbacks = this.connectionCallbacks.filter(cb => cb !== callback)
@@ -113,6 +197,10 @@ export class RealtimeConnection {
 
   getStatus() {
     return this.currentStatus
+  }
+
+  getActiveChannelCount() {
+    return activeChannels.size
   }
 }
 

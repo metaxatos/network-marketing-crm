@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useCallback } from 'react'
 import { useContactStore } from '@/stores/contactStore'
 import { useRealtimeSubscription } from './useRealtime'
 import type { Contact } from '@/types'
@@ -14,35 +14,45 @@ export function useContactsRealtime() {
     handleRealtimeDelete 
   } = useContactStore()
 
-  // Subscribe to contact insertions
+  // Stabilize callbacks to prevent re-subscriptions
+  const handleInsert = useCallback((payload: any) => {
+    const newContact = payload.new as Contact
+    handleRealtimeInsert(newContact)
+  }, [handleRealtimeInsert])
+
+  const handleUpdate = useCallback((payload: any) => {
+    const updatedContact = payload.new as Contact
+    handleRealtimeUpdate(updatedContact)
+  }, [handleRealtimeUpdate])
+
+  const handleDelete = useCallback((payload: any) => {
+    const deletedContactId = (payload.old as any)?.id as string
+    if (deletedContactId) {
+      handleRealtimeDelete(deletedContactId)
+    }
+  }, [handleRealtimeDelete])
+
+  // Subscribe to contact insertions with unique channel suffix
   useRealtimeSubscription(
     'contacts',
     'INSERT',
-    (payload) => {
-      const newContact = payload.new as Contact
-      handleRealtimeInsert(newContact)
-    }
+    handleInsert,
+    { channelSuffix: 'contacts_crud' }
   )
 
-  // Subscribe to contact updates
+  // Subscribe to contact updates with unique channel suffix
   useRealtimeSubscription(
     'contacts',
     'UPDATE',
-    (payload) => {
-      const updatedContact = payload.new as Contact
-      handleRealtimeUpdate(updatedContact)
-    }
+    handleUpdate,
+    { channelSuffix: 'contacts_crud' }
   )
 
-  // Subscribe to contact deletions
+  // Subscribe to contact deletions with unique channel suffix
   useRealtimeSubscription(
     'contacts',
     'DELETE',
-    (payload) => {
-      const deletedContactId = (payload.old as any)?.id as string
-      if (deletedContactId) {
-        handleRealtimeDelete(deletedContactId)
-      }
-    }
+    handleDelete,
+    { channelSuffix: 'contacts_crud' }
   )
 } 

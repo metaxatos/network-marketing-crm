@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import { useAppAuth } from './useAuth'
 import { 
@@ -19,35 +19,50 @@ export function useRealtimeSubscription(
   options?: {
     filter?: string
     enabled?: boolean
+    channelSuffix?: string
   }
 ) {
   const { user } = useAppAuth()
   const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null)
+  
+  // Stabilize the callback to prevent re-subscriptions
+  const stableCallback = useCallback(callback, [])
 
   useEffect(() => {
     if (!user || options?.enabled === false) {
       return
     }
 
-    const channelName = `${table}_${event}_${user.id}`
+    // Include channelSuffix for uniqueness
+    const suffix = options?.channelSuffix ? `_${options.channelSuffix}` : ''
+    const channelName = `${table}_${event}_${user.id}${suffix}`
+    
+    // Clean up existing subscription before creating new one
+    if (subscriptionRef.current) {
+      subscriptionRef.current.unsubscribe()
+      subscriptionRef.current = null
+    }
+    
     const subscription = createRealtimeSubscription(channelName, {
       table,
       event,
       filter: options?.filter || `member_id=eq.${user.id}`,
-      callback
+      callback: stableCallback
     })
 
     subscriptionRef.current = subscription
 
     return () => {
       subscription.unsubscribe()
+      subscriptionRef.current = null
     }
-  }, [user, table, event, options?.filter, options?.enabled, callback])
+  }, [user, table, event, options?.filter, options?.enabled, options?.channelSuffix, stableCallback])
 
   useEffect(() => {
     return () => {
       if (subscriptionRef.current) {
         subscriptionRef.current.unsubscribe()
+        subscriptionRef.current = null
       }
     }
   }, [])
@@ -67,14 +82,26 @@ export function useMultipleRealtimeSubscriptions(
 ) {
   const { user } = useAppAuth()
   const cleanupRef = useRef<(() => void) | null>(null)
+  
+  // Stabilize callbacks to prevent re-subscriptions
+  const stableSubscriptions = subscriptions.map(sub => ({
+    ...sub,
+    callback: useCallback(sub.callback, [])
+  }))
 
   useEffect(() => {
-    if (!user || !enabled) {
+    if (!user || !enabled || stableSubscriptions.length === 0) {
       return
     }
 
-    const configs = subscriptions.map((sub, index) => ({
-      name: `${sub.table}_${sub.event}_${user.id}_${index}`,
+    // Clean up existing subscriptions
+    if (cleanupRef.current) {
+      cleanupRef.current()
+      cleanupRef.current = null
+    }
+
+    const configs = stableSubscriptions.map((sub, index) => ({
+      name: `${sub.table}_${sub.event}_${user.id}_multi_${index}`,
       config: {
         table: sub.table,
         event: sub.event,
@@ -86,13 +113,17 @@ export function useMultipleRealtimeSubscriptions(
     const cleanup = createMultipleSubscriptions(configs)
     cleanupRef.current = cleanup
 
-    return cleanup
-  }, [user, enabled, subscriptions])
+    return () => {
+      cleanup()
+      cleanupRef.current = null
+    }
+  }, [user, enabled, stableSubscriptions])
 
   useEffect(() => {
     return () => {
       if (cleanupRef.current) {
         cleanupRef.current()
+        cleanupRef.current = null
       }
     }
   }, [])
@@ -133,35 +164,45 @@ export function useDashboardRealtime() {
   const [emailCount, setEmailCount] = useState<number | null>(null)
   const [activityCount, setActivityCount] = useState<number | null>(null)
 
-  // Contact updates
+  // Stabilize callbacks to prevent re-subscriptions
+  const handleContactUpdate = useCallback((payload: RealtimePostgresChangesPayload<any>) => {
+    if (payload.eventType === 'INSERT') {
+      setContactCount(prev => prev !== null ? prev + 1 : null)
+    } else if (payload.eventType === 'DELETE') {
+      setContactCount(prev => prev !== null ? Math.max(0, prev - 1) : null)
+    }
+  }, [])
+
+  const handleEmailUpdate = useCallback((payload: RealtimePostgresChangesPayload<any>) => {
+    setEmailCount(prev => prev !== null ? prev + 1 : null)
+  }, [])
+
+  const handleActivityUpdate = useCallback((payload: RealtimePostgresChangesPayload<any>) => {
+    setActivityCount(prev => prev !== null ? prev + 1 : null)
+  }, [])
+
+  // Contact updates with unique channel suffix
   useRealtimeSubscription(
     'contacts',
     '*',
-    (payload) => {
-      if (payload.eventType === 'INSERT') {
-        setContactCount(prev => prev !== null ? prev + 1 : null)
-      } else if (payload.eventType === 'DELETE') {
-        setContactCount(prev => prev !== null ? Math.max(0, prev - 1) : null)
-      }
-    }
+    handleContactUpdate,
+    { channelSuffix: 'dashboard' }
   )
 
   // Email updates
   useRealtimeSubscription(
     'sent_emails',
     'INSERT',
-    (payload) => {
-      setEmailCount(prev => prev !== null ? prev + 1 : null)
-    }
+    handleEmailUpdate,
+    { channelSuffix: 'dashboard' }
   )
 
   // Activity updates
   useRealtimeSubscription(
     'member_activities',
     'INSERT',
-    (payload) => {
-      setActivityCount(prev => prev !== null ? prev + 1 : null)
-    }
+    handleActivityUpdate,
+    { channelSuffix: 'dashboard' }
   )
 
   // Initialize counts
@@ -213,31 +254,34 @@ export function useActivityFeedRealtime(
   const [activities, setActivities] = useState<any[]>([])
   const [newActivityCount, setNewActivityCount] = useState(0)
 
+  const handleActivityInsert = useCallback((payload: RealtimePostgresChangesPayload<any>) => {
+    const newActivity = {
+      id: payload.new.id,
+      type: payload.new.activity_type,
+      description: getActivityDescription(payload.new),
+      timestamp: new Date(payload.new.created_at),
+      metadata: payload.new.metadata,
+      member_id: payload.new.member_id
+    }
+
+    setActivities(prev => [newActivity, ...prev.slice(0, 9)]) // Keep only 10 most recent
+    setNewActivityCount(prev => prev + 1)
+    
+    if (onNewActivity) {
+      onNewActivity(newActivity)
+    }
+  }, [onNewActivity])
+
   useRealtimeSubscription(
     'member_activities',
     'INSERT',
-    (payload) => {
-      const newActivity = {
-        id: payload.new.id,
-        type: payload.new.activity_type,
-        description: getActivityDescription(payload.new),
-        timestamp: new Date(payload.new.created_at),
-        metadata: payload.new.metadata,
-        member_id: payload.new.member_id
-      }
-
-      setActivities(prev => [newActivity, ...prev.slice(0, 9)]) // Keep only 10 most recent
-      setNewActivityCount(prev => prev + 1)
-      
-      if (onNewActivity) {
-        onNewActivity(newActivity)
-      }
-    }
+    handleActivityInsert,
+    { channelSuffix: 'activity_feed' }
   )
 
-  const markActivityAsSeen = () => {
+  const markActivityAsSeen = useCallback(() => {
     setNewActivityCount(0)
-  }
+  }, [])
 
   return {
     activities,
@@ -247,26 +291,24 @@ export function useActivityFeedRealtime(
   }
 }
 
-// Helper function to format activity descriptions
+// Helper function for activity descriptions
 function getActivityDescription(activity: any): string {
   switch (activity.activity_type) {
     case 'contact_added':
-      return `Added new contact${activity.metadata?.contact_name ? `: ${activity.metadata.contact_name}` : ''}`
+      return `Added new contact: ${activity.metadata?.contact_name || 'Unknown'}`
     case 'email_sent':
-      return `Sent email${activity.metadata?.contact_name ? ` to ${activity.metadata.contact_name}` : ''}`
-    case 'training_completed':
-      return `Completed training${activity.metadata?.course_title ? `: ${activity.metadata.course_title}` : ''}`
-    case 'goal_achieved':
-      return `Achieved goal${activity.metadata?.goal_name ? `: ${activity.metadata.goal_name}` : ''}`
-    case 'milestone_reached':
-      return `Reached milestone${activity.metadata?.milestone_name ? `: ${activity.metadata.milestone_name}` : ''}`
+      return `Sent email to ${activity.metadata?.contact_name || activity.metadata?.email || 'contact'}`
+    case 'email_opened':
+      return `Email opened by ${activity.metadata?.contact_name || 'contact'}`
+    case 'email_clicked':
+      return `Email link clicked by ${activity.metadata?.contact_name || 'contact'}`
     case 'login':
-      return 'Logged in'
-    case 'logout':
-      return 'Logged out'
-    case 'signup':
-      return 'Created account'
+      return 'Logged into dashboard'
+    case 'training_completed':
+      return `Completed training: ${activity.metadata?.course_name || 'Unknown course'}`
+    case 'goal_achieved':
+      return `Achieved goal: ${activity.metadata?.goal_name || 'Unknown goal'}`
     default:
-      return activity.activity_type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
+      return activity.metadata?.description || 'Activity recorded'
   }
 } 
