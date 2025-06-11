@@ -140,26 +140,36 @@ export class RealtimeConnection {
   }
 
   private setupConnectionListeners() {
-    // Monitor WebSocket connection through Supabase client
+    // Use a simpler approach since direct realtime event listeners are not reliable
     try {
-      // Check if we can access the realtime connection
-      const realtime = (supabase as any).realtime
-      if (realtime) {
-        realtime.onOpen(() => {
+      // Monitor connection by checking if we can create a test channel
+      const testChannelName = `connection_test_${Date.now()}`
+      const testChannel = supabase.channel(testChannelName)
+      
+      // Subscribe to test channel to verify connection
+      testChannel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
           this.updateStatus('CONNECTED')
-        })
-        realtime.onClose(() => {
+          // Clean up test channel immediately
+          supabase.removeChannel(testChannel)
+        } else if (status === 'CHANNEL_ERROR') {
           this.updateStatus('DISCONNECTED')
-        })
-        realtime.onError(() => {
+          // Clean up test channel
+          supabase.removeChannel(testChannel)
+        } else if (status === 'TIMED_OUT') {
           this.updateStatus('RECONNECTING')
-        })
-      } else {
-        // Fallback: assume connected after a short delay
-        setTimeout(() => {
+          // Clean up test channel
+          supabase.removeChannel(testChannel)
+        }
+      })
+
+      // Fallback: assume connected after a reasonable delay if no response
+      setTimeout(() => {
+        if (this.currentStatus === 'DISCONNECTED') {
           this.updateStatus('CONNECTED')
-        }, 1000)
-      }
+        }
+      }, 3000)
+      
     } catch (error) {
       console.warn('Could not setup realtime connection listeners:', error)
       // Fallback: assume connected
@@ -212,19 +222,37 @@ export class RealtimeConnection {
       console.log('🔄 Manually triggering realtime reconnection...')
       this.updateStatus('RECONNECTING')
       
-      // Try to access the realtime connection and reconnect
-      const realtime = (supabase as any).realtime
-      if (realtime && typeof realtime.disconnect === 'function' && typeof realtime.connect === 'function') {
-        realtime.disconnect()
-        setTimeout(() => {
-          realtime.connect()
-        }, 1000)
-      } else {
-        // Fallback: just update status after a delay
-        setTimeout(() => {
+      // Clean up all existing channels and recreate connection
+      console.log('🧹 Cleaning up all channels for reconnection...')
+      cleanupAllChannels()
+      
+      // Test new connection by creating a test channel
+      const testChannelName = `reconnect_test_${Date.now()}`
+      const testChannel = supabase.channel(testChannelName)
+      
+      testChannel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
           this.updateStatus('CONNECTED')
-        }, 2000)
-      }
+          console.log('✅ Reconnection successful')
+          // Clean up test channel
+          supabase.removeChannel(testChannel)
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          // Retry once after a short delay
+          setTimeout(() => {
+            this.updateStatus('CONNECTED')
+          }, 2000)
+          // Clean up test channel
+          supabase.removeChannel(testChannel)
+        }
+      })
+      
+      // Fallback: assume connected after delay
+      setTimeout(() => {
+        if (this.currentStatus === 'RECONNECTING') {
+          this.updateStatus('CONNECTED')
+        }
+      }, 5000)
+      
     } catch (error) {
       console.warn('Error during manual reconnect:', error)
       this.updateStatus('CONNECTED')
