@@ -1,227 +1,143 @@
-# Network Marketing CRM 🌟
+# Network Marketing CRM
 
-A celebration-focused, user-friendly CRM designed specifically for network marketers. Built with simplicity and success in mind.
+A modern CRM system designed specifically for network marketing professionals.
 
-## 🎯 Project Vision
+## 🚀 Live Demo
 
-**"Make network marketing feel as simple as texting a friend"**
+[https://ourteammlm.netlify.app](https://ourteammlm.netlify.app)
 
-This CRM strips away complexity and focuses on what matters most:
-- 👥 **Managing relationships** (contacts)
-- ✉️ **Staying in touch** (simple email templates)
-- 🎓 **Learning & growing** (bite-sized training)
-
-## ✨ Key Features
-
-### 🎉 Celebration-Focused Design
-- Confetti animations for achievements
-- Progress celebrations and milestones
-- Encouraging, never overwhelming interface
-
-### 📱 Mobile-First Experience
-- 44px minimum touch targets
-- One-thumb navigation
-- Works perfectly offline
-
-### 🎨 User-Friendly Interface
-- Large, readable fonts (18px minimum)
-- Warm, welcoming color palette
-- Zero learning curve design
-
-## 🛠 Tech Stack
-
-- **Frontend**: Next.js 14 with App Router
-- **Styling**: Tailwind CSS with custom design system
-- **TypeScript**: Full type safety
-- **State Management**: Zustand (planned)
-- **Backend**: Supabase (planned)
-- **Email**: Resend API (planned)
-- **Deployment**: Netlify
-
-## 🚀 Getting Started
+## 🛠️ Setup Instructions
 
 ### Prerequisites
+
 - Node.js 18+ 
 - npm or yarn
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd network-marketing-crm
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Start development server**
-   ```bash
-   npm run dev
-   ```
-
-4. **Open your browser**
-   Navigate to [http://localhost:3000](http://localhost:3000)
+- Supabase account
+- Netlify account (for deployment)
 
 ### Environment Variables
 
-Create a `.env.local` file with:
+Create a `.env.local` file in the root directory with the following variables:
 
-```bash
+```env
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
-# Email
+# App Configuration
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_NAME=Network Marketing CRM
+
+# Email (Optional)
 RESEND_API_KEY=your_resend_api_key
 
-# App
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_APP_NAME="Network Marketing CRM"
+# Analytics (Optional)
+NEXT_PUBLIC_GA_ID=your_google_analytics_id
 ```
 
-### Available Scripts
+### Local Development
 
-- `npm run dev` - Start development server with Turbopack
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint
-- `npm run type-check` - Run TypeScript type checking
-- `npm run test` - Run Jest tests
-- `npm run test:e2e` - Run Playwright E2E tests
+1. Clone the repository:
+```bash
+git clone https://github.com/metaxatos/network-marketing-crm.git
+cd network-marketing-crm
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Set up environment variables (see above)
+
+4. Run the development server:
+```bash
+npm run dev
+```
+
+5. Open [http://localhost:3000](http://localhost:3000)
+
+### Deployment to Netlify
+
+1. Fork this repository to your GitHub account
+
+2. Log in to [Netlify](https://app.netlify.com)
+
+3. Click "Add new site" → "Import an existing project"
+
+4. Connect your GitHub account and select your forked repository
+
+5. **Important**: Add environment variables in Netlify:
+   - Go to Site settings → Environment variables
+   - Add all the required environment variables from `.env.example`
+   - For the OurTeam 2.0 Supabase project:
+     - `NEXT_PUBLIC_SUPABASE_URL`: `https://utvasathtyasoxelnxuf.supabase.co`
+     - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Get from Supabase dashboard
+     - `SUPABASE_SERVICE_ROLE_KEY`: Get from Supabase dashboard (Settings → API)
+
+6. Deploy the site
+
+### Troubleshooting
+
+If you encounter authentication issues:
+
+1. Visit `/debug-auth` to check environment variable configuration
+2. Visit `/api/check-env` for API endpoint diagnostics
+3. Ensure all required environment variables are set in Netlify
+4. Check the [setup guide](./NETLIFY_ENV_SETUP.md) for detailed instructions
+
+## 🏗️ Tech Stack
+
+- **Frontend**: Next.js 15, React 18, TypeScript
+- **Styling**: Tailwind CSS
+- **Database**: Supabase (PostgreSQL)
+- **Authentication**: Supabase Auth
+- **Deployment**: Netlify
+- **Email**: Resend (optional)
 
 ## 📁 Project Structure
 
 ```
 src/
-├── app/                 # Next.js App Router pages
-│   ├── layout.tsx      # Root layout
-│   ├── page.tsx        # Home page
-│   └── globals.css     # Global styles
-├── components/         # Reusable UI components
-├── lib/               # Utility functions
-├── types/             # TypeScript type definitions
-├── actions/           # Server actions (planned)
-└── stores/            # Zustand stores (planned)
+├── app/              # Next.js app directory
+├── components/       # React components
+├── lib/             # Utility functions and configurations
+├── stores/          # Zustand state management
+├── types/           # TypeScript type definitions
+└── styles/          # Global styles
 ```
 
-## 🎨 Design System
+## 🔑 Key Features
 
-### Color Palette
-- **Primary**: Soft, trusting blues (#3b82f6)
-- **Success**: Energizing greens (#22c55e)
-- **Celebration**: Warm golds (#f59e0b)
-- **Warm**: Professional grays (#78716c)
-
-### Typography
-- **Font**: Inter (Google Fonts)
-- **Minimum size**: 18px for body text
-- **Touch targets**: 44px minimum
-
-### Components
-- **Buttons**: Celebration animations on interaction
-- **Cards**: Soft shadows with hover effects
-- **Forms**: Large, touch-friendly inputs
-- **Navigation**: Bottom-fixed mobile navigation
+- Contact management
+- Email campaigns
+- Landing page builder
+- Training course system
+- Team hierarchy visualization
+- Analytics dashboard
+- Multi-company support
 
 ## 🎯 Target Audience
 
-**Network marketers who are:**
+Network marketers who are:
 - Not technical (relationship builders, not software experts)
 - Busy entrepreneurs juggling multiple responsibilities
 - Mobile-first (always on the go)
 - Motivated by growth and progress
 - Team-oriented (success through helping others)
 
-## 🌟 User Experience Principles
+## 🎨 Design Principles
 
-### Emotional Goals
-Users should feel:
-- ✅ **Confident**: "I know exactly what to do next"
-- ✅ **Supported**: "The app is helping me succeed"
-- ✅ **Accomplished**: "Look at all I've done today!"
-- ✅ **Connected**: "My relationships are growing"
+- **Celebration-focused**: Confetti animations for achievements
+- **Mobile-first**: 44px minimum touch targets, one-thumb navigation
+- **User-friendly**: Large, readable fonts (18px minimum)
+- **Warm and welcoming**: Professional yet approachable design
 
-### What Users Never Feel
-- ❌ Overwhelmed by options
-- ❌ Confused by terminology
-- ❌ Ashamed of inactivity
-- ❌ Lost in navigation
+## 📝 License
 
-## 🚀 Deployment
+This project is proprietary software. All rights reserved.
 
-This app is configured for deployment on Netlify.
+## 🤝 Support
 
-### Prerequisites
-- GitHub account
-- Netlify account
-- Supabase project
-- Resend API key
-
-### Quick Deploy
-
-1. **Fork this repository**
-2. **Connect to Netlify**
-   - Go to [Netlify](https://app.netlify.com)
-   - Click "Add new site" → "Import an existing project"
-   - Choose GitHub and select your repository
-3. **Configure build settings**
-   - Build command: `npm run build`
-   - Publish directory: `.next`
-4. **Set environment variables**
-   - Add all variables from `.env.example`
-   - Use your production values
-5. **Deploy**
-   - Click "Deploy site"
-   - Wait for build to complete
-
-### Manual Deployment
-
-For more control over the deployment process:
-
-```bash
-# Build for production
-npm run build
-
-# Test production build locally
-npm run start
-```
-
-## 🔮 Upcoming Features
-
-### Phase 1: Foundation ✅
-- [x] Project setup and configuration
-- [x] Design system and UI components
-- [x] Basic page structure
-
-### Phase 2: Core Features (Next)
-- [ ] User authentication with Supabase
-- [ ] Contact management system
-- [ ] Dashboard with metrics
-- [ ] Simple email templates
-
-### Phase 3: Advanced Features
-- [ ] Training video system
-- [ ] Landing page builder
-- [ ] Analytics and reporting
-- [ ] Mobile app (PWA)
-
-## 🤝 Contributing
-
-This project follows the principle of **celebration over administration**. Every feature should:
-
-1. **Reduce complexity** for the end user
-2. **Celebrate achievements** with animations/feedback
-3. **Use large, touch-friendly** interface elements
-4. **Provide clear next steps** at all times
-
-## 📄 License
-
-This project is private and proprietary.
-
----
-
-**Built with ❤️ for network marketers who want to focus on relationships, not software.**
+For issues or questions, please open an issue on GitHub or contact support.
