@@ -135,7 +135,7 @@ async function updateEmailClickStats(emailId: string) {
     if (!clickData) return
     
     const totalClicks = clickData.length
-    const uniqueClicks = new Set(clickData.map(c => c.contact_id).filter(Boolean)).size
+    const uniqueClicks = new Set(clickData.map((c: { contact_id: string | null }) => c.contact_id).filter(Boolean)).size
     
     // Calculate click-through rate (if we have this data)
     // For now, we'll just update the total clicks
