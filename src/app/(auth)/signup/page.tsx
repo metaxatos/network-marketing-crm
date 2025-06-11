@@ -12,16 +12,30 @@ function SignupForm() {
     confirmPassword: '',
     firstName: '',
     lastName: '',
+    username: '',
+    phone: '',
+    companyId: '',
+    sponsorId: '',
   })
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
+  const [usernameChecking, setUsernameChecking] = useState(false)
   
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirect') || '/dashboard'
+  const sponsorParam = searchParams.get('sponsor') // For affiliate links
   
   const { signup, isAuthenticated } = useUserStore()
+
+  // Auto-fill sponsor ID from URL parameter
+  useEffect(() => {
+    if (sponsorParam) {
+      setFormData(prev => ({ ...prev, sponsorId: sponsorParam }))
+    }
+  }, [sponsorParam])
 
   // Check if user is already logged in
   useEffect(() => {
@@ -31,10 +45,46 @@ function SignupForm() {
   }, [isAuthenticated, router, redirectTo])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
-      [e.target.name]: e.target.value
+      [name]: value
     }))
+  }
+
+  const validateUsername = (username: string) => {
+    const usernameRegex = /^[a-z0-9_-]+$/
+    return usernameRegex.test(username) && username.length >= 3 && username.length <= 30
+  }
+
+  const checkUsernameAvailability = async (username: string) => {
+    if (!validateUsername(username)) {
+      setUsernameAvailable(false)
+      return
+    }
+
+    setUsernameChecking(true)
+    try {
+      const response = await fetch(`/api/auth/check-username?username=${encodeURIComponent(username)}`)
+      const result = await response.json()
+      setUsernameAvailable(result.available)
+    } catch (error) {
+      console.error('Username check failed:', error)
+      setUsernameAvailable(false)
+    } finally {
+      setUsernameChecking(false)
+    }
+  }
+
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleaned = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '')
+    setFormData(prev => ({ ...prev, username: cleaned }))
+    
+    if (cleaned.length >= 3) {
+      checkUsernameAvailability(cleaned)
+    } else {
+      setUsernameAvailable(null)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -53,12 +103,31 @@ function SignupForm() {
       return
     }
 
+    if (!formData.username || !validateUsername(formData.username)) {
+      setError('Username must be 3-30 characters, lowercase letters, numbers, hyphens, and underscores only')
+      return
+    }
+
+    if (usernameAvailable === false) {
+      setError('Username is already taken')
+      return
+    }
+
+    if (!formData.phone || formData.phone.length < 10) {
+      setError('Please enter a valid phone number')
+      return
+    }
+
     setIsLoading(true)
 
     try {
       const result = await signup(formData.email, formData.password, {
         first_name: formData.firstName,
         last_name: formData.lastName,
+        username: formData.username,
+        phone: formData.phone,
+        companyId: formData.companyId || null,
+        sponsorId: formData.sponsorId || null,
       })
 
       if (result.success) {
@@ -87,6 +156,11 @@ function SignupForm() {
           <p className="text-warm-600">
             Join thousands of successful network marketers
           </p>
+          {sponsorParam && (
+            <p className="text-sm text-purple-600 mt-2">
+              🎉 You've been invited to join this amazing team!
+            </p>
+          )}
         </div>
 
         {/* Signup Form */}
@@ -118,7 +192,7 @@ function SignupForm() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="firstName" className="block text-sm font-medium text-warm-700 mb-2">
-                    First Name
+                    First Name *
                   </label>
                   <input
                     id="firstName"
@@ -135,7 +209,7 @@ function SignupForm() {
 
                 <div>
                   <label htmlFor="lastName" className="block text-sm font-medium text-warm-700 mb-2">
-                    Last Name
+                    Last Name *
                   </label>
                   <input
                     id="lastName"
@@ -153,7 +227,7 @@ function SignupForm() {
 
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-warm-700 mb-2">
-                  Email Address
+                  Email Address *
                 </label>
                 <input
                   id="email"
@@ -169,42 +243,141 @@ function SignupForm() {
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-warm-700 mb-2">
-                  Password
+                <label htmlFor="username" className="block text-sm font-medium text-warm-700 mb-2">
+                  Username *
                 </label>
                 <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={handleChange}
+                  id="username"
+                  name="username"
+                  type="text"
+                  value={formData.username}
+                  onChange={handleUsernameChange}
                   required
-                  className="input"
-                  placeholder="••••••••"
+                  className={`input ${
+                    usernameAvailable === true ? 'border-green-500' : 
+                    usernameAvailable === false ? 'border-red-500' : ''
+                  }`}
+                  placeholder="your-username"
                   disabled={isLoading}
                 />
+                {usernameChecking && (
+                  <p className="text-sm text-gray-500 mt-1">Checking availability...</p>
+                )}
+                {usernameAvailable === true && (
+                  <p className="text-sm text-green-500 mt-1">✓ Username is available!</p>
+                )}
+                {usernameAvailable === false && formData.username.length >= 3 && (
+                  <p className="text-sm text-red-500 mt-1">✗ Username is taken</p>
+                )}
+                <p className="text-xs text-warm-500 mt-1">
+                  For your personal landing page: yoursite.com/{formData.username || 'username'}
+                </p>
               </div>
 
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-warm-700 mb-2">
-                  Confirm Password
+                <label htmlFor="phone" className="block text-sm font-medium text-warm-700 mb-2">
+                  Phone Number *
                 </label>
                 <input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  value={formData.confirmPassword}
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  value={formData.phone}
                   onChange={handleChange}
                   required
                   className="input"
-                  placeholder="••••••••"
+                  placeholder="+1 (555) 123-4567"
                   disabled={isLoading}
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="password" className="block text-sm font-medium text-warm-700 mb-2">
+                    Password *
+                  </label>
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                    className="input"
+                    placeholder="••••••••"
+                    disabled={isLoading}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-warm-700 mb-2">
+                    Confirm Password *
+                  </label>
+                  <input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type="password"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    required
+                    className="input"
+                    placeholder="••••••••"
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
+              {/* Optional fields for advanced users */}
+              <details className="group">
+                <summary className="flex cursor-pointer items-center justify-between rounded-lg p-4 text-warm-700 bg-warm-50 hover:bg-warm-100 transition-colors">
+                  <span className="text-sm font-medium">Advanced Options (Optional)</span>
+                  <span className="ml-1.5 h-5 w-5 flex-shrink-0 rotate-0 transform transition-transform group-open:rotate-180">
+                    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </span>
+                </summary>
+                
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <label htmlFor="companyId" className="block text-sm font-medium text-warm-700 mb-2">
+                      Company ID
+                    </label>
+                    <input
+                      id="companyId"
+                      name="companyId"
+                      type="text"
+                      value={formData.companyId}
+                      onChange={handleChange}
+                      className="input"
+                      placeholder="Leave empty for default company"
+                      disabled={isLoading}
+                    />
+                  </div>
+
+                  {!sponsorParam && (
+                    <div>
+                      <label htmlFor="sponsorId" className="block text-sm font-medium text-warm-700 mb-2">
+                        Sponsor ID
+                      </label>
+                      <input
+                        id="sponsorId"
+                        name="sponsorId"
+                        type="text"
+                        value={formData.sponsorId}
+                        onChange={handleChange}
+                        className="input"
+                        placeholder="Who invited you? (Optional)"
+                        disabled={isLoading}
+                      />
+                    </div>
+                  )}
+                </div>
+              </details>
+
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || usernameAvailable === false}
                 className="btn-primary w-full text-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? (

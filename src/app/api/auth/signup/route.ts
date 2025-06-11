@@ -1,7 +1,17 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, validateBody, checkRateLimit, isValidEmail, sanitizeInput } from '@/lib/api-helpers'
-import type { SignupRequest } from '@/types/api'
+
+interface SignupRequest {
+  email: string
+  password: string
+  firstName: string
+  lastName: string
+  username?: string
+  phone?: string
+  companyId?: string | null
+  sponsorId?: string | null
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,8 +33,21 @@ export async function POST(req: NextRequest) {
         throw new Error('Invalid email format')
       }
       
-      if (data.password.length < 8) {
-        throw new Error('Password must be at least 8 characters long')
+      if (data.password.length < 6) {
+        throw new Error('Password must be at least 6 characters long')
+      }
+
+      // Validate username if provided
+      if (data.username) {
+        const usernameRegex = /^[a-z0-9_-]+$/
+        if (!usernameRegex.test(data.username) || data.username.length < 3 || data.username.length > 30) {
+          throw new Error('Username must be 3-30 characters, lowercase letters, numbers, hyphens, and underscores only')
+        }
+      }
+
+      // Validate phone if provided
+      if (data.phone && data.phone.length < 10) {
+        throw new Error('Phone number must be at least 10 characters')
       }
       
       return {
@@ -32,20 +55,43 @@ export async function POST(req: NextRequest) {
         password: data.password,
         firstName: sanitizeInput(data.firstName),
         lastName: sanitizeInput(data.lastName),
-        companyId: data.companyId,
-        sponsorId: data.sponsorId,
+        username: data.username ? sanitizeInput(data.username) : undefined,
+        phone: data.phone ? sanitizeInput(data.phone) : undefined,
+        companyId: data.companyId || '00000000-0000-0000-0000-000000000001', // Default company
+        sponsorId: data.sponsorId || null,
       }
     })
 
     const supabase = await createClient()
 
-    // Create user account
+    // Check if username is taken (if provided)
+    if (body.username) {
+      const { data: existingUsername } = await supabase
+        .from('members')
+        .select('username')
+        .eq('username', body.username)
+        .single()
+
+      if (existingUsername) {
+        return apiError('Username is already taken', 400)
+      }
+    }
+
+    // Create user account with metadata
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: body.email,
       password: body.password,
+      options: {
+        data: {
+          first_name: body.firstName,
+          last_name: body.lastName,
+          full_name: `${body.firstName} ${body.lastName}`.trim(),
+        }
+      }
     })
 
     if (authError) {
+      console.error('Auth signup error:', authError)
       if (authError.message.includes('already registered')) {
         return apiError('An account with this email already exists', 400)
       }
@@ -57,64 +103,86 @@ export async function POST(req: NextRequest) {
     }
 
     // Create member record
-    const { error: memberError } = await supabase.from('members').insert({
+    const { data: memberData, error: memberError } = await supabase.from('members').insert({
       id: authData.user.id,
-      company_id: body.companyId || null,
-      sponsor_id: body.sponsorId || null,
+      company_id: body.companyId,
+      sponsor_id: body.sponsorId,
       email: body.email,
+      username: body.username,
+      phone: body.phone,
       status: 'active',
-      level: 0,
-    })
+      level: 1,
+    }).select().single()
 
     if (memberError) {
       console.error('Member creation error:', memberError)
-      // Note: User is created but member record failed
-      // This should be handled by a cleanup process
+      return apiError('Failed to create member profile. Please contact support.', 500)
     }
 
     // Create member profile
-    const { error: profileError } = await supabase.from('member_profiles').insert({
+    const { data: profileData, error: profileError } = await supabase.from('member_profiles').insert({
       member_id: authData.user.id,
       first_name: body.firstName,
       last_name: body.lastName,
+      phone: body.phone,
       preferences: {
         notifications_enabled: true,
         email_reminders: true,
         celebration_animations: true,
         theme: 'light',
       },
-    })
+    }).select().single()
 
     if (profileError) {
       console.error('Profile creation error:', profileError)
+      // Don't fail here, profile can be created later
+    }
+
+    // Get company info
+    let companyData = null
+    if (body.companyId) {
+      const { data: company } = await supabase
+        .from('companies')
+        .select('id, name, domain')
+        .eq('id', body.companyId)
+        .single()
+      
+      companyData = company
     }
 
     // Log activity
-    await supabase.from('member_activities').insert({
-      member_id: authData.user.id,
-      activity_type: 'signup',
-      metadata: {
-        sponsor_id: body.sponsorId,
-        ip_address: ip,
-      },
-    })
+    try {
+      await supabase.from('member_activities').insert({
+        member_id: authData.user.id,
+        activity_type: 'signup',
+        metadata: {
+          sponsor_id: body.sponsorId,
+          ip_address: ip,
+          company_id: body.companyId,
+        },
+      })
+    } catch (activityError) {
+      console.error('Activity logging error:', activityError)
+      // Don't fail signup for activity logging issues
+    }
 
     return apiResponse({
       user: {
         id: authData.user.id,
         email: authData.user.email!,
-        profile: {
-          firstName: body.firstName,
-          lastName: body.lastName,
-        },
       },
-      message: 'Account created successfully. Please check your email to verify your account.',
+      member: memberData,
+      profile: profileData,
+      company: companyData,
+      message: authData.user.email_confirmed_at 
+        ? 'Account created successfully!' 
+        : 'Account created successfully. Please check your email to verify your account.',
     }, 201, 'Signup successful')
   } catch (error) {
     console.error('Signup error:', error)
     return apiError(
       error instanceof Error ? error.message : 'An unexpected error occurred',
-      400
+      500
     )
   }
 } 

@@ -32,11 +32,17 @@ export default function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     let isMounted = true
+    let timeoutId: NodeJS.Timeout
 
     // Get initial session
     const getInitialSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          console.warn('Auth session error:', error)
+        }
+        
         if (isMounted) {
           setUser(session?.user ?? null)
           setLoading(false)
@@ -52,13 +58,13 @@ export default function AuthProvider({ children }: AuthProviderProps) {
 
     getInitialSession()
 
-    // Fallback: Ensure loading doesn't get stuck
-    const loadingTimeout = setTimeout(() => {
-      if (isMounted) {
-        console.warn('Auth loading timeout, proceeding without auth')
+    // Fallback: Ensure loading doesn't get stuck (increased timeout for slow connections)
+    timeoutId = setTimeout(() => {
+      if (isMounted && loading) {
+        console.warn('Auth loading timeout after 10 seconds, proceeding without auth')
         setLoading(false)
       }
-    }, 3000)
+    }, 10000) // Increased from 3 seconds to 10 seconds
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -66,13 +72,19 @@ export default function AuthProvider({ children }: AuthProviderProps) {
         try {
           if (isMounted) {
             setUser(session?.user ?? null)
-            setLoading(false)
+            
+            // Only set loading to false if we're not already finished loading
+            if (loading) {
+              setLoading(false)
+            }
           }
         } catch (error) {
           console.warn('Auth state change failed:', error)
           if (isMounted) {
             setUser(null)
-            setLoading(false)
+            if (loading) {
+              setLoading(false)
+            }
           }
         }
       }
@@ -81,7 +93,9 @@ export default function AuthProvider({ children }: AuthProviderProps) {
     return () => {
       isMounted = false
       subscription.unsubscribe()
-      clearTimeout(loadingTimeout)
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
     }
   }, [])
 
