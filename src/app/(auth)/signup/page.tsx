@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useUserStore } from '@/stores/userStore'
@@ -22,6 +22,9 @@ function SignupForm() {
   const [message, setMessage] = useState('')
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
   const [usernameChecking, setUsernameChecking] = useState(false)
+  const [companies, setCompanies] = useState<Array<{ id: string; name: string }>>([])
+  const [sponsorResults, setSponsorResults] = useState<Array<{ id: string; name: string; username: string }>>([])
+  const sponsorTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -44,12 +47,29 @@ function SignupForm() {
     }
   }, [isAuthenticated, router, redirectTo])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Load companies on mount
+  useEffect(() => {
+    fetch('/api/companies')
+      .then(res => res.json())
+      .then(res => {
+        if (res.success) {
+          setCompanies(res.data)
+        }
+      })
+      .catch(err => console.error('Failed to load companies', err))
+  }, [])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
       [name]: value
     }))
+  }
+
+  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
   }
 
   const validateUsername = (username: string) => {
@@ -85,6 +105,29 @@ function SignupForm() {
     } else {
       setUsernameAvailable(null)
     }
+  }
+
+  const handleSponsorInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value } = e.target
+    setFormData(prev => ({ ...prev, sponsorId: value }))
+
+    if (value.length < 4) {
+      setSponsorResults([])
+      return
+    }
+
+    if (sponsorTimeoutRef.current) clearTimeout(sponsorTimeoutRef.current)
+    sponsorTimeoutRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/members/search?q=${encodeURIComponent(value)}`)
+        const json = await res.json()
+        if (json.success) {
+          setSponsorResults(json.data)
+        }
+      } catch (err) {
+        console.error('Sponsor search failed', err)
+      }
+    }, 400)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -341,35 +384,55 @@ function SignupForm() {
                 <div className="mt-4 space-y-4">
                   <div>
                     <label htmlFor="companyId" className="block text-sm font-medium text-warm-700 mb-2">
-                      Company ID
+                      Company *
                     </label>
-                    <input
+                    <select
                       id="companyId"
                       name="companyId"
-                      type="text"
                       value={formData.companyId}
-                      onChange={handleChange}
+                      onChange={handleSelectChange}
                       className="input"
-                      placeholder="Leave empty for default company"
-                      disabled={isLoading}
-                    />
+                      required
+                    >
+                      <option value="">Select company</option>
+                      {companies.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
                   </div>
 
                   {!sponsorParam && (
                     <div>
                       <label htmlFor="sponsorId" className="block text-sm font-medium text-warm-700 mb-2">
-                        Sponsor ID
+                        Sponsor (optional)
                       </label>
                       <input
                         id="sponsorId"
                         name="sponsorId"
                         type="text"
                         value={formData.sponsorId}
-                        onChange={handleChange}
+                        onChange={handleSponsorInput}
                         className="input"
-                        placeholder="Who invited you? (Optional)"
-                        disabled={isLoading}
+                        placeholder="Start typing name or username"
                       />
+                      {sponsorResults.length > 0 && (
+                        <div className="border rounded-md bg-white max-h-56 overflow-y-auto shadow-md mt-1 z-10 absolute w-full">
+                          {sponsorResults.map((s) => (
+                            <button
+                              type="button"
+                              key={s.id}
+                              className="block w-full text-left px-3 py-2 hover:bg-warm-100"
+                              onClick={() => {
+                                setFormData(prev => ({ ...prev, sponsorId: s.id }))
+                                setSponsorResults([])
+                              }}
+                            >
+                              <span className="font-medium">{s.name || s.username}</span>
+                              {s.username && <span className="text-xs text-warm-500 ml-2">@{s.username}</span>}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

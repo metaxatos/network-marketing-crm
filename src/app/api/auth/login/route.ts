@@ -43,7 +43,13 @@ export async function POST(req: NextRequest) {
       return apiError('Login failed. Please try again.', 500)
     }
 
-    // Get member profile
+    // Get member & profile & company info
+    const { data: memberRecord } = await supabase
+      .from('members')
+      .select(`*, company:companies(id, name, domain)`) // join company
+      .eq('id', data.user.id)
+      .single()
+
     const { data: memberProfile } = await supabase
       .from('member_profiles')
       .select('*')
@@ -64,13 +70,19 @@ export async function POST(req: NextRequest) {
       user: {
         id: data.user.id,
         email: data.user.email!,
-        profile: memberProfile ? {
-          firstName: memberProfile.first_name,
-          lastName: memberProfile.last_name,
-          avatarUrl: memberProfile.avatar_url,
-        } : null,
       },
-      session: data.session.access_token,
+      member: memberRecord,
+      profile: memberProfile ? {
+        firstName: memberProfile.first_name,
+        lastName: memberProfile.last_name,
+        avatarUrl: memberProfile.avatar_url,
+      } : null,
+      company: memberRecord?.company || null,
+      session: {
+        access_token: data.session?.access_token,
+        refresh_token: data.session?.refresh_token,
+        expires_at: data.session?.expires_at,
+      },
     }, 200, 'Login successful')
   } catch (error) {
     console.error('Login error:', error)

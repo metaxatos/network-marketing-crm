@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
         lastName: sanitizeInput(data.lastName),
         username: data.username ? sanitizeInput(data.username) : undefined,
         phone: data.phone ? sanitizeInput(data.phone) : undefined,
-        companyId: data.companyId || '00000000-0000-0000-0000-000000000001', // Default company
+        companyId: data.companyId || null,
         sponsorId: data.sponsorId || null,
       }
     })
