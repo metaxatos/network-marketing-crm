@@ -6,22 +6,18 @@ export const useAppAuth = () => {
     user,
     member,
     profile,
+    company,
     isAuthenticated,
     isLoading,
-    loadUser,
-    setLoading
+    initialize
   } = useUserStore()
 
   useEffect(() => {
-    // Load user data on mount
-    const initializeAuth = async () => {
-      setLoading(true)
-      await loadUser()
-      setLoading(false)
-    }
-
-    initializeAuth()
-  }, [loadUser, setLoading])
+    // Initialize authentication on mount
+    initialize().catch((error: any) => {
+      console.warn('Auth initialization failed:', error)
+    })
+  }, [initialize])
 
   // Note: Data loading for contacts, emails, courses, and landing pages
   // is now handled by React Query hooks in individual components
@@ -31,6 +27,7 @@ export const useAppAuth = () => {
     user,
     member,
     profile,
+    company,
     isAuthenticated,
     isLoading,
     loading: isLoading

@@ -10,44 +10,34 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { isAuthenticated, isLoading, member, loadUser, setLoading } = useUserStore()
+  const { isAuthenticated, isLoading, member, initialize } = useUserStore()
   const [showMemberSetup, setShowMemberSetup] = useState(false)
   const [initialized, setInitialized] = useState(false)
   const router = useRouter()
 
-  // Initialize store in development
+  // Initialize auth store
   useEffect(() => {
     if (!initialized) {
       setInitialized(true)
-      // In development, immediately set loading to false
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔧 [DEV] Bypassing auth loading state')
-        setLoading(false)
-      }
+      initialize().catch((error: any) => {
+        console.warn('Auth initialization failed:', error)
+      })
     }
-  }, [initialized, setLoading])
+  }, [initialized, initialize])
 
   useEffect(() => {
-    // Temporarily disable auth redirect for development
+    // Redirect to login if not authenticated (production only)
     if (process.env.NODE_ENV === 'production' && !isLoading && !isAuthenticated) {
       router.push('/auth/login')
     }
   }, [isAuthenticated, isLoading, router])
 
   useEffect(() => {
-    if (isAuthenticated && !member) {
-      loadUser().catch((error: any) => {
-        console.warn('Member loading failed, continuing with minimal setup:', error)
-      })
-    }
-  }, [isAuthenticated, member, loadUser])
-
-  useEffect(() => {
-    // Skip member setup if no member data loaded (development mode)
-    if (member && (!member.email || !member.phone || !member.username)) {
+    // Check if member setup is needed
+    if (isAuthenticated && member && (!member.email || !member.phone || !member.username)) {
       setShowMemberSetup(true)
     }
-  }, [member])
+  }, [isAuthenticated, member])
 
   // In development, skip all loading and auth checks
   if (process.env.NODE_ENV === 'development') {
@@ -89,7 +79,7 @@ export default function DashboardLayout({
       <MemberSetup 
         onComplete={() => {
           setShowMemberSetup(false)
-          loadUser() // Reload member data
+          initialize() // Reload member data
         }} 
       />
     )

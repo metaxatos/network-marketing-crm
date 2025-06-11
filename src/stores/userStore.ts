@@ -285,6 +285,7 @@ export const useUserStore = create<UserStore>()(
         user: state.user,
         member: state.member,
         profile: state.profile,
+        company: state.company,
         isAuthenticated: state.isAuthenticated,
       }),
     }
