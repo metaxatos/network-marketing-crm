@@ -194,10 +194,10 @@ function SignupForm() {
         <div className="text-center mb-8 animate-fade-in">
           <div className="text-6xl mb-4">🚀</div>
           <h1 className="text-3xl font-bold text-warm-800 mb-2">
-            Start Your Journey!
+            Start Your Success Journey!
           </h1>
           <p className="text-warm-600">
-            Join thousands of successful network marketers
+            Join thousands of successful network marketers today
           </p>
           {sponsorParam && (
             <p className="text-sm text-purple-600 mt-2">
@@ -449,7 +449,7 @@ function SignupForm() {
                     Creating Account...
                   </div>
                 ) : (
-                  '🌟 Create My Account'
+                  '🎯 Create My Account'
                 )}
               </button>
             </form>
@@ -469,12 +469,12 @@ function SignupForm() {
               </Link>
             </div>
           </div>
-        </div>
 
-        {/* Trust indicators */}
-        <div className="text-center mt-8 text-sm text-warm-500">
-          <p>🔒 Your data is secure and private</p>
-          <p>💝 No spam, ever. We respect your inbox</p>
+          {/* Trust indicators */}
+          <div className="text-center mt-8 text-sm text-warm-500">
+            <p>🔒 Your data is secure and private</p>
+            <p>💝 No spam, ever. We respect your inbox</p>
+          </div>
         </div>
       </div>
     </div>
