@@ -46,7 +46,7 @@ export function createRealtimeSubscription(
   } as any, config.callback)
 
   // Subscribe to the channel
-  channel.subscribe((status) => {
+  channel.subscribe((status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED') => {
     if (status === 'SUBSCRIBED') {
       console.log(`✅ Subscribed to ${channelName}`)
     } else if (status === 'CHANNEL_ERROR') {
@@ -147,7 +147,7 @@ export class RealtimeConnection {
       const testChannel = supabase.channel(testChannelName)
       
       // Subscribe to test channel to verify connection
-      testChannel.subscribe((status) => {
+      testChannel.subscribe((status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED') => {
         if (status === 'SUBSCRIBED') {
           this.updateStatus('CONNECTED')
           // Clean up test channel immediately
@@ -230,7 +230,7 @@ export class RealtimeConnection {
       const testChannelName = `reconnect_test_${Date.now()}`
       const testChannel = supabase.channel(testChannelName)
       
-      testChannel.subscribe((status) => {
+      testChannel.subscribe((status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED') => {
         if (status === 'SUBSCRIBED') {
           this.updateStatus('CONNECTED')
           console.log('✅ Reconnection successful')
