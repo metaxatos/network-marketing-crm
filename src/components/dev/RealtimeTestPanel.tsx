@@ -4,13 +4,21 @@ import { useState, useEffect } from 'react'
 import { useRealtimeConnection } from '@/hooks/useRealtime'
 import { getActiveChannels, cleanupAllChannels } from '@/lib/realtime'
 import { Zap, Database, Users, Mail, Activity, Wifi, WifiOff, AlertTriangle, Bug } from 'lucide-react'
+import { RealtimeConnection } from '@/lib/realtime'
 
 export function RealtimeTestPanel() {
   const [isVisible, setIsVisible] = useState(false)
-  const { status, isConnected } = useRealtimeConnection()
+  const { status, isConnected, isReconnecting } = useRealtimeConnection()
   const [isLoading, setIsLoading] = useState(false)
   const [activeChannels, setActiveChannels] = useState<string[]>([])
   const [debugInfo, setDebugInfo] = useState<any>({})
+  const [subscriptionCount, setSubscriptionCount] = useState(0)
+  const [lastActivity, setLastActivity] = useState<string | null>(null)
+  const [connectionHistory, setConnectionHistory] = useState<Array<{
+    timestamp: string
+    event: string
+    status: string
+  }>>([])
 
   // Update active channels periodically
   useEffect(() => {
@@ -30,6 +38,42 @@ export function RealtimeTestPanel() {
       timestamp: new Date().toISOString()
     }
     setDebugInfo(info)
+  }, [])
+
+  useEffect(() => {
+    const connection = RealtimeConnection.getInstance()
+    
+    // Track subscription count
+    const updateCount = () => {
+      const count = connection.getActiveSubscriptionsCount()
+      setSubscriptionCount(count)
+    }
+    
+    // Track connection events
+    const trackEvent = (event: string, status: string) => {
+      const entry = {
+        timestamp: new Date().toLocaleTimeString(),
+        event,
+        status
+      }
+      setConnectionHistory(prev => [entry, ...prev.slice(0, 9)]) // Keep last 10
+    }
+
+    // Monitor status changes
+    const unsubscribeStatus = connection.onStatusChange((newStatus) => {
+      trackEvent('Status Change', newStatus)
+    })
+
+    // Initial count
+    updateCount()
+    
+    // Update count every 2 seconds
+    const interval = setInterval(updateCount, 2000)
+
+    return () => {
+      unsubscribeStatus()
+      clearInterval(interval)
+    }
   }, [])
 
   const triggerContactAdd = async () => {
@@ -117,6 +161,16 @@ export function RealtimeTestPanel() {
     console.log('🧹 Force cleaning up all channels...')
     cleanupAllChannels()
     setActiveChannels([])
+  }
+
+  const handleManualReconnect = () => {
+    const connection = RealtimeConnection.getInstance()
+    connection.reconnect()
+    setLastActivity('Manual reconnect triggered')
+  }
+
+  const handleClearHistory = () => {
+    setConnectionHistory([])
   }
 
   if (!isVisible) {
@@ -232,6 +286,69 @@ export function RealtimeTestPanel() {
         >
           <Database className="w-4 h-4" />
           Force Cleanup Channels
+        </button>
+      </div>
+
+      <div className="mt-4 text-xs text-gray-500">
+        Use these buttons to test realtime updates. Check the browser console for detailed logs.
+        {activeChannels.length > 5 && (
+          <div className="text-orange-600 mt-1">
+            ⚠️ Many active channels detected. Consider cleanup.
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3 pt-3 border-t border-gray-200">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="font-medium text-gray-700">Realtime Monitor</h4>
+          <div className={`w-3 h-3 rounded-full ${
+            isConnected ? 'bg-green-500' : 
+            isReconnecting ? 'bg-yellow-500 animate-pulse' : 
+            'bg-red-500'
+          }`}></div>
+        </div>
+        
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Status:</span>
+            <span className={`font-medium ${
+              isConnected ? 'text-green-600' : 
+              isReconnecting ? 'text-yellow-600' : 
+              'text-red-600'
+            }`}>
+              {status}
+            </span>
+          </div>
+          
+          <div className="flex justify-between">
+            <span className="text-gray-600">Active Subscriptions:</span>
+            <span className="font-medium text-blue-600">{subscriptionCount}</span>
+          </div>
+          
+          {lastActivity && (
+            <div className="flex justify-between">
+              <span className="text-gray-600">Last Activity:</span>
+              <span className="font-medium text-purple-600 truncate max-w-32">{lastActivity}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3 pt-3 border-t border-gray-200">
+        <button
+          onClick={handleManualReconnect}
+          className="w-full bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded text-xs font-medium"
+        >
+          Manual Reconnect
+        </button>
+      </div>
+
+      <div className="mt-3 pt-3 border-t border-gray-200">
+        <button
+          onClick={handleClearHistory}
+          className="w-full bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded text-xs font-medium"
+        >
+          Clear Connection Log
         </button>
       </div>
 

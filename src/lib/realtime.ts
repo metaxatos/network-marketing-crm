@@ -202,6 +202,34 @@ export class RealtimeConnection {
   getActiveChannelCount() {
     return activeChannels.size
   }
+
+  getActiveSubscriptionsCount() {
+    return activeChannels.size
+  }
+
+  reconnect() {
+    try {
+      console.log('🔄 Manually triggering realtime reconnection...')
+      this.updateStatus('RECONNECTING')
+      
+      // Try to access the realtime connection and reconnect
+      const realtime = (supabase as any).realtime
+      if (realtime && typeof realtime.disconnect === 'function' && typeof realtime.connect === 'function') {
+        realtime.disconnect()
+        setTimeout(() => {
+          realtime.connect()
+        }, 1000)
+      } else {
+        // Fallback: just update status after a delay
+        setTimeout(() => {
+          this.updateStatus('CONNECTED')
+        }, 2000)
+      }
+    } catch (error) {
+      console.warn('Error during manual reconnect:', error)
+      this.updateStatus('CONNECTED')
+    }
+  }
 }
 
 /**

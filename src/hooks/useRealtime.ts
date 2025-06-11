@@ -10,7 +10,7 @@ import {
 } from '@/lib/realtime'
 
 // Temporary flag to disable realtime if causing connection issues
-const DISABLE_REALTIME = true // Set to true to temporarily disable realtime
+const DISABLE_REALTIME = false // Set to true to temporarily disable realtime
 
 /**
  * Hook for managing a single realtime subscription
