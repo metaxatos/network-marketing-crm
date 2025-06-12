@@ -7,24 +7,10 @@
 [[headers]]
   for = "/*"
   [headers.values]
-    # Content Security Policy - Allow unsafe-eval for Next.js
-    Content-Security-Policy = """
-      default-src 'self';
-      script-src 'self' 'unsafe-eval' 'unsafe-inline' https://va.vercel-scripts.com;
-      style-src 'self' 'unsafe-inline';
-      img-src 'self' blob: data: https:;
-      font-src 'self' data:;
-      connect-src 'self' https://*.supabase.co https://*.supabase.io;
-      frame-src 'self' https://js.stripe.com;
-      object-src 'none';
-      base-uri 'self';
-      form-action 'self';
-      frame-ancestors 'none';
-      block-all-mixed-content;
-      upgrade-insecure-requests;
-    """
+    # Content Security Policy - Allow unsafe-eval for Supabase and Next.js
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://va.vercel-scripts.com https://*.supabase.co; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in https://*.supabase.net; frame-src 'self' https://js.stripe.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; block-all-mixed-content; upgrade-insecure-requests;"
     # Security headers
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Permissions-Policy = "camera=(), microphone=(), geolocation=()" 
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
