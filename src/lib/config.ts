@@ -3,27 +3,37 @@
  * Centralizes all environment variables and app settings
  */
 
+// Helper to get environment variable with fallback
+function getEnvVar(key: string, fallback?: string): string {
+  if (typeof window !== 'undefined') {
+    // Client-side
+    return (window as any).process?.env?.[key] || process.env[key] || fallback || ''
+  }
+  // Server-side
+  return process.env[key] || fallback || ''
+}
+
 export const config = {
   // App metadata
   app: {
     name: 'Network Marketing CRM',
     description: 'Your Success Companion',
     version: '0.1.0',
-    url: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    url: getEnvVar('NEXT_PUBLIC_APP_URL', 'http://localhost:3000'),
   },
 
   // Database configuration (Supabase)
   database: {
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
-    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    url: getEnvVar('NEXT_PUBLIC_SUPABASE_URL'),
+    anonKey: getEnvVar('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
+    serviceRoleKey: getEnvVar('SUPABASE_SERVICE_ROLE_KEY'),
   },
 
   // Email service configuration (Resend)
   email: {
-    apiKey: process.env.RESEND_API_KEY || '',
-    fromEmail: process.env.FROM_EMAIL || 'noreply@example.com',
-    fromName: process.env.FROM_NAME || 'Network Marketing CRM',
+    apiKey: getEnvVar('RESEND_API_KEY'),
+    fromEmail: getEnvVar('FROM_EMAIL', 'noreply@example.com'),
+    fromName: getEnvVar('FROM_NAME', 'Network Marketing CRM'),
   },
 
   // Authentication settings
@@ -74,8 +84,8 @@ export const config = {
   // Development settings
   dev: {
     enableDebugMode: process.env.NODE_ENV === 'development',
-    enableMockData: process.env.ENABLE_MOCK_DATA === 'true',
-    logLevel: process.env.LOG_LEVEL || 'info',
+    enableMockData: getEnvVar('ENABLE_MOCK_DATA') === 'true',
+    logLevel: getEnvVar('LOG_LEVEL', 'info'),
   },
 
   // External services
@@ -83,13 +93,13 @@ export const config = {
     // Analytics (future)
     analytics: {
       enabled: false,
-      trackingId: process.env.ANALYTICS_TRACKING_ID || '',
+      trackingId: getEnvVar('ANALYTICS_TRACKING_ID'),
     },
     
     // Error monitoring (future)
     errorMonitoring: {
       enabled: false,
-      dsn: process.env.ERROR_MONITORING_DSN || '',
+      dsn: getEnvVar('ERROR_MONITORING_DSN'),
     },
   },
 
@@ -118,16 +128,19 @@ export function validateConfig() {
   ]
 
   const missingVars = requiredEnvVars.filter(
-    (varName) => !process.env[varName]
+    (varName) => !getEnvVar(varName)
   )
 
-  if (missingVars.length > 0 && process.env.NODE_ENV === 'production') {
-    throw new Error(
+  if (missingVars.length > 0) {
+    console.warn(
       `Missing required environment variables: ${missingVars.join(', ')}`
     )
+    if (process.env.NODE_ENV === 'production') {
+      console.error('Required environment variables are missing in production!')
+    }
   }
 
-  return true
+  return missingVars.length === 0
 }
 
 // Helper to check if a feature is enabled
@@ -149,4 +162,4 @@ export function isDevelopment(): boolean {
 // Helper for production mode checks
 export function isProduction(): boolean {
   return process.env.NODE_ENV === 'production'
-} 
+}
