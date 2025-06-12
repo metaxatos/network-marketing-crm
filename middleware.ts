@@ -7,6 +7,17 @@ export async function middleware(request: NextRequest) {
     request,
   })
 
+  // Skip middleware for test routes
+  const testRoutes = ['/test-auth', '/test-auth-status', '/dashboard-debug', '/diagnostics']
+  const isTestRoute = testRoutes.some(route => 
+    request.nextUrl.pathname.startsWith(route)
+  )
+  
+  if (isTestRoute) {
+    console.log('[Middleware] Skipping auth check for test route:', request.nextUrl.pathname)
+    return supabaseResponse
+  }
+
   const supabase = createServerClient(
     appConfig.database.url,
     appConfig.database.anonKey,
@@ -32,36 +43,50 @@ export async function middleware(request: NextRequest) {
   // supabase.auth.getUser(). A simple mistake could make it very hard to debug
   // issues with users being randomly logged out.
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  try {
+    const {
+      data: { user },
+      error
+    } = await supabase.auth.getUser()
 
-  // Define protected routes
-  const protectedRoutes = ['/dashboard', '/events', '/training', '/landing-page']
-  const authRoutes = ['/auth/login', '/auth/signup', '/(auth)/login', '/(auth)/signup']
-  const isProtectedRoute = protectedRoutes.some(route => 
-    request.nextUrl.pathname.startsWith(route)
-  )
-  const isAuthRoute = authRoutes.some(route => 
-    request.nextUrl.pathname.startsWith(route)
-  )
+    if (error) {
+      console.error('[Middleware] Auth error:', error.message)
+    }
 
-  // Redirect logic
-  if (!user && isProtectedRoute) {
-    // User is not authenticated but trying to access protected route
-    const url = request.nextUrl.clone()
-    url.pathname = '/auth/login'
-    url.searchParams.set('redirect', request.nextUrl.pathname)
-    return NextResponse.redirect(url)
-  }
+    // Define protected routes
+    const protectedRoutes = ['/dashboard', '/events', '/training', '/landing-page']
+    const authRoutes = ['/auth/login', '/auth/signup', '/(auth)/login', '/(auth)/signup']
+    const isProtectedRoute = protectedRoutes.some(route => 
+      request.nextUrl.pathname.startsWith(route)
+    )
+    const isAuthRoute = authRoutes.some(route => 
+      request.nextUrl.pathname.startsWith(route)
+    )
 
-  if (user && isAuthRoute) {
-    // User is authenticated but trying to access auth routes
-    const redirectUrl = request.nextUrl.searchParams.get('redirect') || '/dashboard'
-    const url = request.nextUrl.clone()
-    url.pathname = redirectUrl
-    url.searchParams.delete('redirect')
-    return NextResponse.redirect(url)
+    console.log('[Middleware] Path:', request.nextUrl.pathname, 'User:', user?.id, 'Protected:', isProtectedRoute)
+
+    // Redirect logic
+    if (!user && isProtectedRoute) {
+      // User is not authenticated but trying to access protected route
+      const url = request.nextUrl.clone()
+      url.pathname = '/auth/login'
+      url.searchParams.set('redirect', request.nextUrl.pathname)
+      console.log('[Middleware] Redirecting to login')
+      return NextResponse.redirect(url)
+    }
+
+    if (user && isAuthRoute) {
+      // User is authenticated but trying to access auth routes
+      const redirectUrl = request.nextUrl.searchParams.get('redirect') || '/dashboard'
+      const url = request.nextUrl.clone()
+      url.pathname = redirectUrl
+      url.searchParams.delete('redirect')
+      console.log('[Middleware] Redirecting authenticated user to:', redirectUrl)
+      return NextResponse.redirect(url)
+    }
+  } catch (error: any) {
+    console.error('[Middleware] Unexpected error:', error.message)
+    // In case of error, allow the request to continue
   }
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is. If you're
@@ -90,8 +115,9 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - api routes (they handle their own auth)
      * Feel free to modify this pattern to include more paths.
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
-} 
+}
