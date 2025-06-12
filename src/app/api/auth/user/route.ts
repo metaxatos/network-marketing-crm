@@ -1,110 +1,127 @@
 // src/app/api/auth/user/route.ts
-// This version doesn't use withAuth wrapper to avoid circular dependency
+// Simplified version to fix infinite loading
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+// Add timeout wrapper
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  const timeout = new Promise<T>((_, reject) => 
+    setTimeout(() => reject(new Error('Operation timed out')), timeoutMs)
+  )
+  return Promise.race([promise, timeout])
+}
+
 export async function GET(req: NextRequest) {
+  console.log('[API /auth/user] Starting request')
+  
   try {
-    console.log('API /auth/user - Starting request')
     const supabase = await createClient()
     
-    // Get the current user session
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    // Get user with timeout
+    const { data: { user }, error: authError } = await withTimeout(
+      supabase.auth.getUser(),
+      3000 // 3 second timeout
+    )
     
-    console.log('API /auth/user - Auth check:', { userId: user?.id, error: authError })
+    console.log('[API /auth/user] Auth result:', { 
+      hasUser: !!user, 
+      userId: user?.id,
+      error: authError?.message 
+    })
     
-    if (authError || !user) {
-      console.log('API /auth/user - No authenticated user')
+    if (!user) {
       return NextResponse.json(
         { error: 'Not authenticated' },
         { status: 401 }
       )
     }
 
-    // Get member with profile - simplified query first
-    console.log('API /auth/user - Fetching member data for:', user.id)
-    
-    const { data: member, error: memberError } = await supabase
-      .from('members')
-      .select(`
-        *,
-        member_profiles!member_id (
-          first_name,
-          last_name,
-          avatar_url,
-          timezone,
-          preferences
-        )
-      `)
-      .eq('id', user.id)
-      .single()
-
-    console.log('API /auth/user - Member query result:', { member, error: memberError })
-
-    if (memberError) {
-      console.error('API /auth/user - Member query error:', memberError)
-      
-      // If member doesn't exist, try to create it
-      if (memberError.code === 'PGRST116') {
-        console.log('API /auth/user - Member not found, creating...')
-        
-        const { data: newMember, error: createError } = await supabase
+    // Try to get member data with timeout
+    try {
+      const { data: member, error: memberError } = await withTimeout(
+        supabase
           .from('members')
-          .insert({
-            id: user.id,
-            company_id: '00000000-0000-0000-0000-000000000001',
-            email: user.email,
-            status: 'active',
-            level: 1
-          })
-          .select()
-          .single()
+          .select(`
+            *,
+            member_profiles!member_id (
+              first_name,
+              last_name,
+              avatar_url,
+              timezone,
+              preferences
+            )
+          `)
+          .eq('id', user.id)
+          .single(),
+        3000 // 3 second timeout
+      )
 
-        if (createError) {
-          console.error('API /auth/user - Failed to create member:', createError)
-          return NextResponse.json(
-            { error: 'Failed to create member record' },
-            { status: 500 }
-          )
-        }
-
-        // Create profile
-        await supabase
-          .from('member_profiles')
-          .insert({
-            member_id: user.id,
-            first_name: 'New',
-            last_name: 'User',
-            preferences: {
-              notifications_enabled: true,
-              email_reminders: true,
-              celebration_animations: true,
-              theme: 'light'
-            }
-          })
-
+      if (memberError) {
+        console.error('[API /auth/user] Member query error:', memberError)
+        
+        // Return basic user data even if member query fails
         return NextResponse.json({
           user: {
             id: user.id,
             email: user.email
           },
-          member: newMember,
-          profile: {
-            first_name: 'New',
-            last_name: 'User',
-            preferences: {
-              notifications_enabled: true,
-              email_reminders: true,
-              celebration_animations: true,
-              theme: 'light'
-            }
-          },
+          member: null,
+          profile: null,
           company: null
         })
       }
+
+      // Get company if member exists
+      let company = null
+      if (member?.company_id) {
+        try {
+          const { data: companyData } = await withTimeout(
+            supabase
+              .from('companies')
+              .select('id, name, domain')
+              .eq('id', member.company_id)
+              .single(),
+            2000 // 2 second timeout
+          )
+          company = companyData
+        } catch (error) {
+          console.warn('[API /auth/user] Company query failed:', error)
+        }
+      }
+
+      // Format response
+      const userProfile = member?.member_profiles?.[0] || null
+
+      return NextResponse.json({
+        user: {
+          id: user.id,
+          email: user.email
+        },
+        member: member ? {
+          id: member.id,
+          company_id: member.company_id,
+          email: member.email,
+          username: member.username,
+          status: member.status,
+          level: member.level,
+          sponsor_id: member.sponsor_id,
+          created_at: member.created_at
+        } : null,
+        profile: userProfile ? {
+          first_name: userProfile.first_name,
+          last_name: userProfile.last_name,
+          avatar_url: userProfile.avatar_url,
+          timezone: userProfile.timezone,
+          preferences: userProfile.preferences
+        } : null,
+        company
+      })
       
-      // Other errors - return basic user info
+    } catch (queryError: any) {
+      console.error('[API /auth/user] Database query error:', queryError)
+      
+      // Still return basic user data
       return NextResponse.json({
         user: {
           id: user.id,
@@ -115,61 +132,26 @@ export async function GET(req: NextRequest) {
         company: null
       })
     }
-
-    // Get user's company info
-    let company = null
-    if (member?.company_id) {
-      console.log('API /auth/user - Fetching company data for:', member.company_id)
-      const { data: companyData, error: companyError } = await supabase
-        .from('companies')
-        .select('id, name, domain')
-        .eq('id', member.company_id)
-        .single()
-      
-      console.log('API /auth/user - Company query result:', { companyData, error: companyError })
-      company = companyData
+    
+  } catch (error: any) {
+    console.error('[API /auth/user] Fatal error:', error)
+    
+    // Check if it's a timeout
+    if (error.message === 'Operation timed out') {
+      return NextResponse.json(
+        { error: 'Request timeout - please try again' },
+        { status: 504 }
+      )
     }
-
-    // Format response
-    const userProfile = member?.member_profiles?.[0] || null
-
-    const response = {
-      user: {
-        id: user.id,
-        email: user.email
-      },
-      member: member ? {
-        id: member.id,
-        company_id: member.company_id,
-        email: member.email,
-        username: member.username,
-        status: member.status,
-        level: member.level,
-        sponsor_id: member.sponsor_id,
-        created_at: member.created_at
-      } : null,
-      profile: userProfile ? {
-        first_name: userProfile.first_name,
-        last_name: userProfile.last_name,
-        avatar_url: userProfile.avatar_url,
-        timezone: userProfile.timezone,
-        preferences: userProfile.preferences
-      } : null,
-      company
-    }
-
-    console.log('API /auth/user - Sending response')
-    return NextResponse.json(response)
-  } catch (error) {
-    console.error('API /auth/user - Unexpected error:', error)
+    
     return NextResponse.json(
-      { error: 'Failed to retrieve user information' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }
 }
 
-// Also handle OPTIONS for CORS
+// Handle CORS
 export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, {
     status: 200,
@@ -179,4 +161,4 @@ export async function OPTIONS(req: NextRequest) {
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   })
-} 
+}
