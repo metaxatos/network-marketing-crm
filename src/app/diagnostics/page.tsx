@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useUserStore } from '@/stores/userStore'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function DiagnosticsPage() {
   const [diagnostics, setDiagnostics] = useState<any>({})
@@ -124,76 +123,52 @@ export default function DiagnosticsPage() {
           <Button onClick={runDiagnostics} disabled={loading}>
             {loading ? 'Running...' : 'Run Diagnostics'}
           </Button>
-          <Button onClick={reinitializeUser} variant="outline" disabled={loading}>
+          <Button onClick={reinitializeUser} variant="secondary" disabled={loading}>
             Reinitialize User Store
           </Button>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Authentication Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <pre className="text-sm bg-gray-100 p-4 rounded overflow-auto">
-              {JSON.stringify(diagnostics.session || {}, null, 2)}
-            </pre>
-          </CardContent>
-        </Card>
+        <div className="bg-white border rounded-lg p-6">
+          <h2 className="text-xl font-semibold mb-4">Authentication Status</h2>
+          <pre className="text-sm bg-gray-100 p-4 rounded overflow-auto">
+            {JSON.stringify(diagnostics.session || {}, null, 2)}
+          </pre>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>User Store State</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <pre className="text-sm bg-gray-100 p-4 rounded overflow-auto">
-              {JSON.stringify(diagnostics.userStore || {}, null, 2)}
-            </pre>
-          </CardContent>
-        </Card>
+        <div className="bg-white border rounded-lg p-6">
+          <h2 className="text-xl font-semibold mb-4">User Store State</h2>
+          <pre className="text-sm bg-gray-100 p-4 rounded overflow-auto">
+            {JSON.stringify(diagnostics.userStore || {}, null, 2)}
+          </pre>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Test DB Endpoint</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <pre className="text-sm bg-gray-100 p-4 rounded overflow-auto">
-              {JSON.stringify(diagnostics.testDb || {}, null, 2)}
-            </pre>
-          </CardContent>
-        </Card>
+        <div className="bg-white border rounded-lg p-6">
+          <h2 className="text-xl font-semibold mb-4">Test DB Endpoint</h2>
+          <pre className="text-sm bg-gray-100 p-4 rounded overflow-auto">
+            {JSON.stringify(diagnostics.testDb || {}, null, 2)}
+          </pre>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Simplified User Endpoint</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <pre className="text-sm bg-gray-100 p-4 rounded overflow-auto">
-              {JSON.stringify(diagnostics.userSimple || {}, null, 2)}
-            </pre>
-          </CardContent>
-        </Card>
+        <div className="bg-white border rounded-lg p-6">
+          <h2 className="text-xl font-semibold mb-4">Simplified User Endpoint</h2>
+          <pre className="text-sm bg-gray-100 p-4 rounded overflow-auto">
+            {JSON.stringify(diagnostics.userSimple || {}, null, 2)}
+          </pre>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Original User Endpoint</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <pre className="text-sm bg-gray-100 p-4 rounded overflow-auto">
-              {JSON.stringify(diagnostics.userOriginal || {}, null, 2)}
-            </pre>
-          </CardContent>
-        </Card>
+        <div className="bg-white border rounded-lg p-6">
+          <h2 className="text-xl font-semibold mb-4">Original User Endpoint</h2>
+          <pre className="text-sm bg-gray-100 p-4 rounded overflow-auto">
+            {JSON.stringify(diagnostics.userOriginal || {}, null, 2)}
+          </pre>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Environment</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <pre className="text-sm bg-gray-100 p-4 rounded overflow-auto">
-              {JSON.stringify(diagnostics.environment || {}, null, 2)}
-            </pre>
-          </CardContent>
-        </Card>
+        <div className="bg-white border rounded-lg p-6">
+          <h2 className="text-xl font-semibold mb-4">Environment</h2>
+          <pre className="text-sm bg-gray-100 p-4 rounded overflow-auto">
+            {JSON.stringify(diagnostics.environment || {}, null, 2)}
+          </pre>
+        </div>
       </div>
     </div>
   )
