@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
 
     // Try to get member data with timeout
     try {
-      // Construct the full query including .single() before passing to withTimeout
+      // Construct the full query including .single()
       const memberQuery = supabase
         .from('members')
         .select(`
@@ -59,7 +59,8 @@ export async function GET(req: NextRequest) {
         .eq('id', user.id)
         .single()
 
-      const memberResult = await withTimeout(memberQuery, 3000)
+      // Convert PostgrestBuilder to Promise with .then()
+      const memberResult = await withTimeout(memberQuery.then(), 3000)
       const { data: member, error: memberError } = memberResult
 
       if (memberError) {
@@ -87,7 +88,8 @@ export async function GET(req: NextRequest) {
             .eq('id', member.company_id)
             .single()
             
-          const companyResult = await withTimeout(companyQuery, 2000)
+          // Convert PostgrestBuilder to Promise with .then()
+          const companyResult = await withTimeout(companyQuery.then(), 2000)
           const { data: companyData } = companyResult
           company = companyData
         } catch (error) {
