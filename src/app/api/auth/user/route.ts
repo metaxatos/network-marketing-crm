@@ -59,8 +59,8 @@ export async function GET(req: NextRequest) {
         .eq('id', user.id)
         .single()
 
-      // Convert PostgrestBuilder to Promise with .then()
-      const memberResult = await withTimeout(memberQuery.then(), 3000)
+      // Convert PostgrestBuilder to Promise
+      const memberResult = await withTimeout(Promise.resolve(memberQuery), 3000)
       const { data: member, error: memberError } = memberResult
 
       if (memberError) {
@@ -88,8 +88,8 @@ export async function GET(req: NextRequest) {
             .eq('id', member.company_id)
             .single()
             
-          // Convert PostgrestBuilder to Promise with .then()
-          const companyResult = await withTimeout(companyQuery.then(), 2000)
+                      // Convert PostgrestBuilder to Promise
+            const companyResult = await withTimeout(Promise.resolve(companyQuery), 2000)
           const { data: companyData } = companyResult
           company = companyData
         } catch (error) {
