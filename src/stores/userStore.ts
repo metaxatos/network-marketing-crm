@@ -258,12 +258,6 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
       return
     }
     
-    // Prevent multiple simultaneous initializations
-    if (currentState.isLoading) {
-      console.log('[UserStore] Initialization already in progress, skipping')
-      return
-    }
-    
     // Set timeout to prevent infinite loading
     const timeoutId = setTimeout(() => {
       const state = get()
