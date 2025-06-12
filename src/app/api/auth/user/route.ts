@@ -43,24 +43,23 @@ export async function GET(req: NextRequest) {
 
     // Try to get member data with timeout
     try {
-      const memberResult = await withTimeout(
-        supabase
-          .from('members')
-          .select(`
-            *,
-            member_profiles!member_id (
-              first_name,
-              last_name,
-              avatar_url,
-              timezone,
-              preferences
-            )
-          `)
-          .eq('id', user.id)
-          .single(),
-        3000 // 3 second timeout
-      )
+      // Construct the full query including .single() before passing to withTimeout
+      const memberQuery = supabase
+        .from('members')
+        .select(`
+          *,
+          member_profiles!member_id (
+            first_name,
+            last_name,
+            avatar_url,
+            timezone,
+            preferences
+          )
+        `)
+        .eq('id', user.id)
+        .single()
 
+      const memberResult = await withTimeout(memberQuery, 3000)
       const { data: member, error: memberError } = memberResult
 
       if (memberError) {
@@ -82,14 +81,13 @@ export async function GET(req: NextRequest) {
       let company = null
       if (member?.company_id) {
         try {
-          const companyResult = await withTimeout(
-            supabase
-              .from('companies')
-              .select('id, name, domain')
-              .eq('id', member.company_id)
-              .single(),
-            2000 // 2 second timeout
-          )
+          const companyQuery = supabase
+            .from('companies')
+            .select('id, name, domain')
+            .eq('id', member.company_id)
+            .single()
+            
+          const companyResult = await withTimeout(companyQuery, 2000)
           const { data: companyData } = companyResult
           company = companyData
         } catch (error) {
