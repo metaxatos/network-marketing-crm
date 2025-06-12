@@ -1,13 +1,12 @@
 // Test endpoint to verify auth fixes
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
   console.log('[API /test-auth-fix] Testing auth fixes...')
   
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = await createClient()
     
     // Test 1: Get user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -49,44 +48,44 @@ export async function GET(request: NextRequest) {
       .rpc('check_auth_uid')
       .single()
 
-    const response = {
+    return NextResponse.json({
       success: true,
-      timestamp: new Date().toISOString(),
       tests: {
-        authentication: {
-          success: true,
-          userId: user.id,
-          email: user.email
+        userAuth: {
+          passed: !!user,
+          userId: user?.id,
+          userEmail: user?.email
         },
         memberQuery: {
-          success: !memberError,
-          hasMember: !!member,
-          member: member || null,
-          error: memberError?.message
+          passed: !memberError && !!member,
+          error: memberError?.message,
+          memberId: member?.id,
+          memberName: member?.name
         },
         companyQuery: {
-          success: member?.company_id ? !!company : true,
-          hasCompany: !!company,
-          company: company || null
+          passed: member?.company_id ? !!company : true,
+          companyName: company?.name,
+          companySlug: company?.slug
         },
-        authUidCheck: {
-          success: !authCheckError,
+        authUidFunction: {
+          passed: !authCheckError,
           result: authCheck,
           error: authCheckError?.message
         }
+      },
+      data: {
+        user: user ? { id: user.id, email: user.email } : null,
+        member,
+        company
       }
-    }
+    })
 
-    console.log('[test-auth-fix] All tests completed:', response)
-    return NextResponse.json(response)
-    
-  } catch (error: any) {
-    console.error('[test-auth-fix] Fatal error:', error)
+  } catch (error) {
+    console.error('[test-auth-fix] Unexpected error:', error)
     return NextResponse.json({
       success: false,
-      error: error.message,
-      step: 'initialization',
-      timestamp: new Date().toISOString()
+      error: 'Internal server error',
+      details: String(error)
     }, { status: 500 })
   }
 } 

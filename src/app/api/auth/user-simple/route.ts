@@ -1,22 +1,29 @@
 // Simplified user endpoint to fix infinite loading
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
   console.log('[API /auth/user-simple] Starting request')
   
   try {
-    // Use the proper auth helpers for Next.js API routes
-    const supabase = createRouteHandlerClient({ cookies })
+    // Use the current server client approach
+    const supabase = await createClient()
     
     // Get user with proper auth context
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     
-    if (authError || !user) {
-      console.error('[API /auth/user-simple] Auth failed:', authError?.message)
+    if (authError) {
+      console.error('[API /auth/user-simple] Auth error:', authError?.message)
       return NextResponse.json(
-        { error: 'Authentication failed', details: authError?.message || 'No user found' },
+        { error: 'Authentication failed', details: `Auth session missing! ${authError?.message}` },
+        { status: 401 }
+      )
+    }
+
+    if (!user) {
+      console.error('[API /auth/user-simple] No user found')
+      return NextResponse.json(
+        { error: 'Authentication failed', details: 'Auth session missing!' },
         { status: 401 }
       )
     }

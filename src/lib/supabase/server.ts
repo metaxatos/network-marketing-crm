@@ -1,13 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 
-// For API route handlers - use this for better auth context
-export function createRouteClient() {
-  return createRouteHandlerClient({ cookies })
-}
-
-// For other server components and middleware
+// Main server client for API routes and server components
 export async function createClient() {
   const cookieStore = await cookies()
   

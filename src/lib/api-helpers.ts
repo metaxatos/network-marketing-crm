@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createClient } from '@/lib/supabase/server'
 import type { ApiResponse } from '@/types'
 
 // Standard API response helper
@@ -19,10 +18,10 @@ export function apiResponse<T>(
   )
 }
 
-// Error response helper
+// Standard API error helper
 export function apiError(
   message: string,
-  status: number = 400
+  status: number = 500
 ): NextResponse<ApiResponse<null>> {
   return NextResponse.json(
     {
@@ -34,14 +33,14 @@ export function apiError(
   )
 }
 
-// Authentication middleware - Updated to use proper auth helpers
+// Authentication middleware - Updated to use current approach
 export function withAuth<T = any>(
   handler: (req: NextRequest, userId: string) => Promise<NextResponse<ApiResponse<T>>>
 ) {
   return async (req: NextRequest): Promise<NextResponse<ApiResponse<null>> | NextResponse<ApiResponse<T>>> => {
     try {
-      // Use the proper auth helpers for Next.js API routes
-      const supabase = createRouteHandlerClient({ cookies })
+      // Use the current server client approach
+      const supabase = await createClient()
       
       const {
         data: { user },
@@ -67,9 +66,9 @@ export function withAuth<T = any>(
   }
 }
 
-// Get current member - Updated for proper auth context
+// Get current member - Updated for current approach
 export async function getCurrentMember(userId?: string): Promise<any> {
-  const supabase = createRouteHandlerClient({ cookies })
+  const supabase = await createClient()
   
   let userIdToUse = userId
   
