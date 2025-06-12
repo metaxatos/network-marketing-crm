@@ -16,6 +16,7 @@ The API routes were returning 404 errors because the Netlify configuration wasn'
 - Updated allowed origins for server actions
 - Added Netlify domain support
 
+
 ### 3. Added Dependencies
 - Added `@netlify/plugin-nextjs` to handle Next.js deployment
 

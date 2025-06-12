@@ -57,9 +57,19 @@ export const useUserStore = create<UserStore>()(
 
         // Initialize authentication state
         initialize: async () => {
+          const currentState = get()
+          
+          // If we already have user and member data from login, don't reinitialize
+          if (currentState.user && currentState.member && !currentState.isLoading) {
+            console.log('[UserStore] Already initialized with user and member data, skipping')
+            return
+          }
+
+          console.log('[UserStore] Initializing auth state...')
+
           // Set timeout to prevent infinite loading
           const timeoutId = setTimeout(() => {
-            console.warn('User initialization timeout after 8 seconds')
+            console.warn('Auth loading timeout')
             set({ 
               user: null, 
               member: null, 
@@ -68,7 +78,7 @@ export const useUserStore = create<UserStore>()(
               isAuthenticated: false, 
               isLoading: false 
             })
-          }, 8000) // 8 seconds timeout
+          }, 10000) // Increased to 10 seconds
 
           try {
             set({ isLoading: true })
@@ -77,22 +87,31 @@ export const useUserStore = create<UserStore>()(
             const { data: { session } } = await supabase.auth.getSession()
             
             if (session?.user) {
+              console.log('[UserStore] Session found for user:', session.user.id)
+              
               // Create AbortController for fetch timeout
               const controller = new AbortController()
-              const fetchTimeout = setTimeout(() => controller.abort(), 5000) // 5 seconds for API call
+              const fetchTimeout = setTimeout(() => {
+                console.warn('[UserStore] API call timeout, aborting')
+                controller.abort()
+              }, 8000) // 8 seconds for API call
               
               try {
-                // Fetch full user data using the simplified endpoint
+                console.log('[UserStore] Fetching user data from API...')
                 const response = await fetch('/api/auth/user-simple', {
-                  signal: controller.signal
+                  signal: controller.signal,
+                  headers: {
+                    'Cache-Control': 'no-cache'
+                  }
                 })
                 
                 clearTimeout(fetchTimeout)
                 
                 if (!response.ok) {
-                  console.error(`API error: ${response.status} ${response.statusText}`)
+                  const errorText = await response.text()
+                  console.error(`[UserStore] API error: ${response.status} ${response.statusText}`, errorText)
                   
-                  // If API fails, at least set the basic user data
+                  // If API fails, set basic user data but mark as authenticated
                   set({
                     user: session.user,
                     member: null,
@@ -106,9 +125,15 @@ export const useUserStore = create<UserStore>()(
                 }
                 
                 const result = await response.json()
+                console.log('[UserStore] API response received:', { 
+                  hasUser: !!result.user, 
+                  hasMember: !!result.member,
+                  hasProfile: !!result.profile,
+                  hasCompany: !!result.company
+                })
                 
                 if (result.error) {
-                  console.error('API returned error:', result.error)
+                  console.error('[UserStore] API returned error:', result.error)
                   // Still set basic user data
                   set({
                     user: session.user,
@@ -119,6 +144,7 @@ export const useUserStore = create<UserStore>()(
                     isLoading: false
                   })
                 } else {
+                  console.log('[UserStore] Setting user data from API response')
                   set({
                     user: session.user,
                     member: result.member,
@@ -129,13 +155,16 @@ export const useUserStore = create<UserStore>()(
                   })
                 }
               } catch (fetchError: any) {
+                clearTimeout(fetchTimeout)
+                
                 if (fetchError.name === 'AbortError') {
                   console.error('Fetch timeout - API call took too long')
                 } else {
-                  console.error('Fetch error:', fetchError)
+                  console.error('[UserStore] Fetch error:', fetchError)
                 }
                 
-                // Even if fetch fails, set basic auth state
+                // Even if fetch fails, set basic auth state so user isn't stuck
+                console.log('[UserStore] Setting fallback auth state due to fetch error')
                 set({
                   user: session.user,
                   member: null,
@@ -146,6 +175,7 @@ export const useUserStore = create<UserStore>()(
                 })
               }
             } else {
+              console.log('[UserStore] No session found, setting unauthenticated state')
               set({ 
                 user: null, 
                 member: null, 
@@ -158,7 +188,7 @@ export const useUserStore = create<UserStore>()(
             
             clearTimeout(timeoutId)
           } catch (error) {
-            console.error('Initialize error:', error)
+            console.error('[UserStore] Initialize error:', error)
             clearTimeout(timeoutId)
             set({ 
               user: null, 
