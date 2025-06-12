@@ -1,31 +1,33 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-import { supabase } from '@/lib/supabase'
-import type { User } from '@supabase/supabase-js'
-import type { Member, MemberProfile, DashboardMetrics, Activity } from '@/types'
-import { subscribeWithSelector } from 'zustand/middleware'
 import { createClient } from '@/lib/supabase/client'
-import { createClient as createServerClient } from '@/lib/supabase/server'
+import type { User } from '@supabase/supabase-js'
+import type { Member, MemberProfile } from '@/types'
 
 interface Company {
   id: string
   name: string
-  domain?: string
+  slug?: string
+  plan_type?: string
 }
 
-interface AuthState {
+
+
+interface UserState {
   user: User | null
   member: Member | null
   profile: MemberProfile | null
   company: Company | null
-  isLoading: boolean
   isAuthenticated: boolean
+  isLoading: boolean
   metrics: any | null
   activities: any[]
 }
 
-interface AuthActions {
+interface UserActions {
   initialize: () => Promise<void>
+  signOut: () => Promise<void>
+  refreshUser: () => Promise<void>
+  setUser: (userData: Partial<UserState>) => void
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   signup: (email: string, password: string, memberData: {
     first_name: string
@@ -39,26 +41,6 @@ interface AuthActions {
   updateProfile: (data: Partial<MemberProfile>) => Promise<{ success: boolean; error?: string }>
   updateMember: (data: Partial<Member>) => Promise<{ success: boolean; error?: string }>
   checkUsernameAvailability: (username: string) => Promise<boolean>
-}
-
-type UserStore = AuthState & AuthActions
-
-interface UserState {
-  user: any | null
-  member: any | null
-  profile: any | null
-  company: any | null
-  isAuthenticated: boolean
-  isLoading: boolean
-  metrics: any | null
-  activities: any[]
-}
-
-interface UserActions {
-  initialize: () => Promise<void>
-  signOut: () => Promise<void>
-  refreshUser: () => Promise<void>
-  setUser: (userData: Partial<UserState>) => void
 }
 
 export const useUserStore = create<UserState & UserActions>((set, get) => ({
@@ -85,7 +67,9 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
         profile: null, 
         company: null,
         isAuthenticated: false, 
-        isLoading: false 
+        isLoading: false,
+        metrics: null,
+        activities: []
       })
     } catch (error) {
       console.error('Sign out error:', error)
@@ -93,11 +77,165 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
   },
 
   refreshUser: async () => {
-    // Same as initialize but can be called manually
     return get().initialize()
   },
 
-  // Initialize authentication state
+  login: async (email: string, password: string) => {
+    try {
+      const supabase = createClient()
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (error) {
+        console.error('[UserStore] Login error:', error)
+        return { success: false, error: error.message }
+      }
+
+      if (data.user) {
+        // Initialize user data after successful login
+        await get().initialize()
+        return { success: true }
+      }
+
+      return { success: false, error: 'Login failed' }
+    } catch (error) {
+      console.error('[UserStore] Login exception:', error)
+      return { success: false, error: 'An unexpected error occurred' }
+    }
+  },
+
+  signup: async (email: string, password: string, memberData: {
+    first_name: string
+    last_name: string
+    username?: string
+    phone?: string
+    companyId?: string | null
+    sponsorId?: string | null
+  }) => {
+    try {
+      set({ isLoading: true })
+      
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email, 
+          password, 
+          firstName: memberData.first_name,
+          lastName: memberData.last_name,
+          username: memberData.username,
+          phone: memberData.phone,
+          companyId: memberData.companyId,
+          sponsorId: memberData.sponsorId,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        set({ isLoading: false })
+        return { success: false, error: result.error || 'Signup failed' }
+      }
+
+      set({ 
+        user: result.user, 
+        member: result.member,
+        profile: result.profile,
+        company: result.company,
+        isAuthenticated: true,
+        isLoading: false 
+      })
+      
+      return { success: true }
+    } catch (error) {
+      set({ isLoading: false })
+      return { success: false, error: 'An unexpected error occurred' }
+    }
+  },
+
+  logout: async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+      const supabase = createClient()
+      await supabase.auth.signOut()
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+    
+    set({
+      user: null,
+      member: null,
+      profile: null,
+      company: null,
+      isAuthenticated: false,
+      isLoading: false,
+      metrics: null,
+      activities: [],
+    })
+  },
+
+  updateProfile: async (data: Partial<MemberProfile>) => {
+    try {
+      const response = await fetch('/api/auth/profile', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        return { success: false, error: result.error || 'Update failed' }
+      }
+
+      set({ profile: result.profile })
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: 'An unexpected error occurred' }
+    }
+  },
+
+  updateMember: async (data: Partial<Member>) => {
+    try {
+      const response = await fetch('/api/auth/member', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        return { success: false, error: result.error || 'Update failed' }
+      }
+
+      set({ member: result.member })
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: 'An unexpected error occurred' }
+    }
+  },
+
+  checkUsernameAvailability: async (username: string) => {
+    try {
+      const response = await fetch(`/api/auth/check-username?username=${encodeURIComponent(username)}`)
+      const result = await response.json()
+      return result.available
+    } catch (error) {
+      console.error('Username check error:', error)
+      return false
+    }
+  },
+
   initialize: async () => {
     const currentState = get()
     
@@ -239,174 +377,6 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
         isAuthenticated: false, 
         isLoading: false 
       })
-    }
-  },
-
-  // Login action
-  login: async (email: string, password: string) => {
-    try {
-      set({ isLoading: true })
-      
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        set({ isLoading: false })
-        return { success: false, error: result.error || 'Login failed' }
-      }
-
-      set({ 
-        user: result.user, 
-        member: result.member,
-        profile: result.profile,
-        company: result.company,
-        isAuthenticated: true,
-        isLoading: false 
-      })
-      
-      return { success: true }
-    } catch (error) {
-      set({ isLoading: false })
-      return { success: false, error: 'An unexpected error occurred' }
-    }
-  },
-
-  // Signup action
-  signup: async (email: string, password: string, memberData: {
-    first_name: string
-    last_name: string
-    username?: string
-    phone?: string
-    companyId?: string | null
-    sponsorId?: string | null
-  }) => {
-    try {
-      set({ isLoading: true })
-      
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          email, 
-          password, 
-          firstName: memberData.first_name,
-          lastName: memberData.last_name,
-          username: memberData.username,
-          phone: memberData.phone,
-          companyId: memberData.companyId,
-          sponsorId: memberData.sponsorId,
-        }),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        set({ isLoading: false })
-        return { success: false, error: result.error || 'Signup failed' }
-      }
-
-      set({ 
-        user: result.user, 
-        member: result.member,
-        profile: result.profile,
-        company: result.company,
-        isAuthenticated: true,
-        isLoading: false 
-      })
-      
-      return { success: true }
-    } catch (error) {
-      set({ isLoading: false })
-      return { success: false, error: 'An unexpected error occurred' }
-    }
-  },
-
-  // Logout action
-  logout: async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' })
-      await supabase.auth.signOut()
-    } catch (error) {
-      console.error('Logout error:', error)
-    }
-    
-    set({
-      user: null,
-      member: null,
-      profile: null,
-      company: null,
-      isAuthenticated: false,
-      metrics: null,
-      activities: [],
-    })
-  },
-
-  // Update profile
-  updateProfile: async (data: Partial<MemberProfile>) => {
-    try {
-      const response = await fetch('/api/auth/profile', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        return { success: false, error: result.error || 'Update failed' }
-      }
-
-      set({ profile: result.profile })
-      return { success: true }
-    } catch (error) {
-      return { success: false, error: 'An unexpected error occurred' }
-    }
-  },
-
-  // Update member
-  updateMember: async (data: Partial<Member>) => {
-    try {
-      const response = await fetch('/api/auth/member', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        return { success: false, error: result.error || 'Update failed' }
-      }
-
-      set({ member: result.member })
-      return { success: true }
-    } catch (error) {
-      return { success: false, error: 'An unexpected error occurred' }
-    }
-  },
-
-  // Check username availability
-  checkUsernameAvailability: async (username: string) => {
-    try {
-      const response = await fetch(`/api/auth/check-username?username=${encodeURIComponent(username)}`)
-      const result = await response.json()
-      return result.available
-    } catch (error) {
-      console.error('Username check error:', error)
-      return false
     }
   },
 })) 
