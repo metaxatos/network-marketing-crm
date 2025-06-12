@@ -253,22 +253,31 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
     const currentState = get()
     
     // Prevent re-initialization if user already loaded and authenticated
-    if (currentState.user && currentState.isAuthenticated && !currentState.isLoading) {
-      console.log('[UserStore] User already loaded, skipping initialization')
+    if (currentState.user && currentState.isAuthenticated && currentState.member && !currentState.isLoading) {
+      console.log('[UserStore] User already loaded and complete, skipping initialization')
+      return
+    }
+    
+    // Prevent multiple simultaneous initializations
+    if (currentState.isLoading) {
+      console.log('[UserStore] Initialization already in progress, skipping')
       return
     }
     
     // Set timeout to prevent infinite loading
     const timeoutId = setTimeout(() => {
-      console.warn('[UserStore] Auth loading timeout after 10 seconds, proceeding without auth')
-      set({ 
-        user: null, 
-        member: null, 
-        profile: null, 
-        company: null,
-        isAuthenticated: false, 
-        isLoading: false 
-      })
+      const state = get()
+      if (state.isLoading) {
+        console.warn('[UserStore] Auth loading timeout after 10 seconds, proceeding without auth')
+        set({ 
+          user: null, 
+          member: null, 
+          profile: null, 
+          company: null,
+          isAuthenticated: false, 
+          isLoading: false 
+        })
+      }
     }, 10000) // 10 seconds timeout
 
     try {
