@@ -82,8 +82,8 @@ export const useUserStore = create<UserStore>()(
               const fetchTimeout = setTimeout(() => controller.abort(), 5000) // 5 seconds for API call
               
               try {
-                // Fetch full user data
-                const response = await fetch('/api/auth/user', {
+                // Fetch full user data using the simplified endpoint
+                const response = await fetch('/api/auth/user-simple', {
                   signal: controller.signal
                 })
                 
