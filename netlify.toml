@@ -1,5 +1,5 @@
 [build]
-  command = "npm run build"
+  command = "npm ci --verbose && npm run build"
 
 [build.environment]
   # Skip optional dependencies that may cause issues
@@ -8,6 +8,10 @@
   NODE_VERSION = "20"
   # Disable telemetry for faster builds
   NEXT_TELEMETRY_DISABLED = "1"
+  # Enable verbose logging
+  CI = "true"
+  # Skip husky hooks during CI
+  HUSKY = "0"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
@@ -22,3 +26,8 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+# Netlify Functions configuration
+[functions]
+  directory = ".netlify/functions"
+  node_bundler = "esbuild"
