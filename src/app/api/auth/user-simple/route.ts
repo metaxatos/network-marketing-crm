@@ -1,9 +1,9 @@
-// Simplified user endpoint to fix infinite loading
+// Simplified user endpoint to fix infinite loading - v2 (RLS policy fixed)
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
-  console.log('[API /auth/user-simple] Starting request')
+  console.log('[API /auth/user-simple] Starting request - RLS fixed')
   
   try {
     // Use the current server client approach
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     console.log('[API /auth/user-simple] User authenticated:', user.id)
 
-    // Get member data with a simple query first (no joins)
+    // Get member data with a simple query first (no joins) - RLS policy fixed
     const { data: member, error: memberError } = await supabase
       .from('members')
       .select('id, email, company_id, username, name, avatar_url, phone, status, level, sponsor_id, created_at')

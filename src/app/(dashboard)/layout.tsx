@@ -33,19 +33,22 @@ export default function DashboardLayout({
   }, [isAuthenticated, isLoading, router])
 
   useEffect(() => {
-    // Check if member setup is needed
+    // Check if member setup is needed - ALWAYS check this, even in development
     if (isAuthenticated && member && (!member.email || !member.phone || !member.username)) {
+      console.log('[DashboardLayout] Member setup needed:', {
+        hasEmail: !!member.email,
+        hasPhone: !!member.phone,
+        hasUsername: !!member.username
+      })
       setShowMemberSetup(true)
+    } else if (isAuthenticated && member) {
+      console.log('[DashboardLayout] Member profile complete')
+      setShowMemberSetup(false)
     }
   }, [isAuthenticated, member])
 
-  // In development, skip all loading and auth checks
-  if (process.env.NODE_ENV === 'development') {
-    return <>{children}</>
-  }
-
   // Show loading while checking authentication (production only)
-  if (isLoading) {
+  if (process.env.NODE_ENV === 'production' && isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-success-50 flex items-center justify-center">
         <div className="w-full max-w-sm mx-auto p-6">
@@ -69,17 +72,21 @@ export default function DashboardLayout({
   }
 
   // Don't render dashboard if not authenticated (production only)
-  if (!isAuthenticated) {
+  if (process.env.NODE_ENV === 'production' && !isAuthenticated) {
     return null
   }
 
-  // Show member setup if needed (production only)
+  // Show member setup if needed (BOTH production and development)
   if (showMemberSetup) {
     return (
       <MemberSetup 
         onComplete={() => {
+          console.log('[DashboardLayout] Member setup completed, refreshing data...')
           setShowMemberSetup(false)
-          initialize() // Reload member data
+          // Reload member data after completion
+          initialize().then(() => {
+            console.log('[DashboardLayout] Member data reloaded after setup')
+          })
         }} 
       />
     )
