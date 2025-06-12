@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import type { ApiResponse } from '@/types'
 
 // Standard API response helper
@@ -33,13 +34,14 @@ export function apiError(
   )
 }
 
-// Authentication middleware
+// Authentication middleware - Updated to use proper auth helpers
 export function withAuth<T = any>(
   handler: (req: NextRequest, userId: string) => Promise<NextResponse<ApiResponse<T>>>
 ) {
   return async (req: NextRequest): Promise<NextResponse<ApiResponse<null>> | NextResponse<ApiResponse<T>>> => {
     try {
-      const supabase = await createClient()
+      // Use the proper auth helpers for Next.js API routes
+      const supabase = createRouteHandlerClient({ cookies })
       
       const {
         data: { user },
@@ -47,27 +49,30 @@ export function withAuth<T = any>(
       } = await supabase.auth.getUser()
 
       if (error) {
-        console.error('Auth error in withAuth:', error)
+        console.error('[withAuth] Auth error:', error)
         return apiError('Authentication failed: ' + error.message, 401)
       }
 
       if (!user) {
+        console.log('[withAuth] No authenticated user found')
         return apiError('No authenticated user found', 401)
       }
 
+      console.log('[withAuth] User authenticated:', user.id)
       return handler(req, user.id)
     } catch (error) {
-      console.error('Unexpected error in withAuth:', error)
+      console.error('[withAuth] Unexpected error:', error)
       return apiError('Authentication system error', 500)
     }
   }
 }
 
-// Get current member details
+// Get current member details - Updated to use proper auth helpers
 export async function getCurrentMember(userId: string) {
   try {
-    const supabase = await createClient()
+    const supabase = createRouteHandlerClient({ cookies })
     
+    console.log('[getCurrentMember] Fetching member for user:', userId)
     const { data: member, error } = await supabase
       .from('members')
       .select(`
@@ -78,17 +83,19 @@ export async function getCurrentMember(userId: string) {
       .single()
 
     if (error) {
-      console.error('Database error in getCurrentMember:', error)
+      console.error('[getCurrentMember] Database error:', error)
       throw new Error(`Failed to get member details: ${error.message}`)
     }
 
     if (!member) {
+      console.warn('[getCurrentMember] Member not found for user:', userId)
       throw new Error('Member not found')
     }
 
+    console.log('[getCurrentMember] Member found:', member.id)
     return member
   } catch (error) {
-    console.error('Error in getCurrentMember:', error)
+    console.error('[getCurrentMember] Error:', error)
     throw error
   }
 }
