@@ -39,6 +39,8 @@ export function withAuth<T = any>(
 ) {
   return async (req: NextRequest): Promise<NextResponse<ApiResponse<null>> | NextResponse<ApiResponse<T>>> => {
     try {
+      console.log('[withAuth] Authenticating request to:', req.nextUrl.pathname)
+      
       // Use the current server client approach
       const supabase = await createClient()
       
@@ -48,7 +50,7 @@ export function withAuth<T = any>(
       } = await supabase.auth.getUser()
 
       if (error) {
-        console.error('[withAuth] Auth error:', error)
+        console.error('[withAuth] Auth error:', error.message)
         return apiError('Authentication failed: ' + error.message, 401)
       }
 
@@ -58,7 +60,9 @@ export function withAuth<T = any>(
       }
 
       console.log('[withAuth] User authenticated:', user.id)
-      return handler(req, user.id)
+      const response = await handler(req, user.id)
+      console.log('[withAuth] Handler completed for user:', user.id)
+      return response
     } catch (error) {
       console.error('[withAuth] Unexpected error:', error)
       return apiError('Authentication system error', 500)

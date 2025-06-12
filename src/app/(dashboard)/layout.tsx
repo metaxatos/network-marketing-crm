@@ -34,18 +34,30 @@ export default function DashboardLayout({
 
   useEffect(() => {
     // Check if member setup is needed - ALWAYS check this, even in development
-    if (isAuthenticated && member && (!member.email || !member.phone || !member.username)) {
-      console.log('[DashboardLayout] Member setup needed:', {
+    if (isAuthenticated && member) {
+      const needsSetup = !member.email || !member.phone || !member.username
+      
+      console.log('[DashboardLayout] Member profile check:', {
         hasEmail: !!member.email,
         hasPhone: !!member.phone,
-        hasUsername: !!member.username
+        hasUsername: !!member.username,
+        email: member.email || 'null',
+        phone: member.phone || 'null', 
+        username: member.username || 'null',
+        needsSetup
       })
-      setShowMemberSetup(true)
-    } else if (isAuthenticated && member) {
-      console.log('[DashboardLayout] Member profile complete')
-      setShowMemberSetup(false)
+      
+      if (needsSetup) {
+        console.log('[DashboardLayout] Member setup needed')
+        setShowMemberSetup(true)
+      } else {
+        console.log('[DashboardLayout] Member profile complete')
+        setShowMemberSetup(false)
+      }
+    } else if (isAuthenticated && !member) {
+      console.log('[DashboardLayout] Authenticated but no member data')
     }
-  }, [isAuthenticated, member])
+  }, [isAuthenticated, member, member?.email, member?.phone, member?.username])
 
   // Show loading while checking authentication (production only)
   if (process.env.NODE_ENV === 'production' && isLoading) {

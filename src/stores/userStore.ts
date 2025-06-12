@@ -204,6 +204,8 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
 
   updateMember: async (data: Partial<Member>) => {
     try {
+      console.log('[UserStore] Updating member with data:', data)
+      
       const response = await fetch('/api/auth/member', {
         method: 'PATCH',
         headers: {
@@ -215,12 +217,23 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
       const result = await response.json()
 
       if (!response.ok) {
+        console.error('[UserStore] Member update failed:', result.error)
         return { success: false, error: result.error || 'Update failed' }
       }
 
+      console.log('[UserStore] Member update successful:', result.member)
+      
+      // Update the member in state
       set({ member: result.member })
+      
+      // Re-initialize to ensure all data is fresh
+      setTimeout(() => {
+        get().initialize()
+      }, 100)
+      
       return { success: true }
     } catch (error) {
+      console.error('[UserStore] Member update error:', error)
       return { success: false, error: 'An unexpected error occurred' }
     }
   },

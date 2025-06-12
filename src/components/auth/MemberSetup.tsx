@@ -67,6 +67,8 @@ export default function MemberSetup({ onComplete }: MemberSetupProps) {
     setIsLoading(true)
     setErrors({})
 
+    console.log('[MemberSetup] Form submission started with data:', formData)
+
     // Validate form
     const newErrors: Record<string, string> = {}
     
@@ -85,16 +87,28 @@ export default function MemberSetup({ onComplete }: MemberSetupProps) {
     }
 
     if (Object.keys(newErrors).length > 0) {
+      console.log('[MemberSetup] Form validation errors:', newErrors)
       setErrors(newErrors)
       setIsLoading(false)
       return
     }
 
     try {
-      await updateMember(formData)
-      onComplete()
+      console.log('[MemberSetup] Calling updateMember...')
+      const result = await updateMember(formData)
+      
+      console.log('[MemberSetup] updateMember result:', result)
+      
+      if (result.success) {
+        console.log('[MemberSetup] Member update successful, calling onComplete')
+        onComplete()
+      } else {
+        console.error('[MemberSetup] Member update failed:', result.error)
+        setErrors({ general: result.error || 'Update failed' })
+      }
     } catch (error) {
-      console.error('Member setup error:', error)
+      console.error('[MemberSetup] Form submission error:', error)
+      setErrors({ general: 'An unexpected error occurred' })
     } finally {
       setIsLoading(false)
     }
@@ -110,6 +124,12 @@ export default function MemberSetup({ onComplete }: MemberSetupProps) {
           </p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {errors.general && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{errors.general}</p>
+            </div>
+          )}
+          
           <div className="space-y-2">
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
               Email Address

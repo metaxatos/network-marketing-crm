@@ -18,12 +18,22 @@ export const useContacts = (filters?: {
         params.append('status', filters.statusFilter)
       }
       
-      const response = await fetch(`/api/contacts?${params.toString()}`)
+      const url = `/api/contacts?${params.toString()}`
+      console.log('[useContacts] Fetching contacts from:', url)
+      
+      const response = await fetch(url)
+      
+      console.log('[useContacts] Response status:', response.status)
+      
       if (!response.ok) {
+        const errorText = await response.text()
+        console.error('[useContacts] Fetch failed:', response.status, errorText)
         throw new Error('Failed to fetch contacts')
       }
       
       const data = await response.json()
+      console.log('[useContacts] Received data:', data)
+      
       return data.contacts as Contact[]
     },
     staleTime: 5 * 60 * 1000, // 5 minutes

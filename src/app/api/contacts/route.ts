@@ -6,11 +6,15 @@ import type { ContactListResponse, CreateContactRequest } from '@/types/api'
 // GET /api/contacts - List contacts with search/filter
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
+    console.log('[Contacts API] GET request from user:', userId)
+    
     const supabase = await createClient()
     const searchParams = req.nextUrl.searchParams
     const { page = 1, limit = 20, cursor } = getPaginationParams(searchParams)
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status') || ''
+
+    console.log('[Contacts API] Query params:', { search, status, page, limit })
 
     // Build query
     let query = supabase
@@ -44,8 +48,11 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
     const { data: contacts, error } = await query.limit(limit)
 
     if (error) {
+      console.error('[Contacts API] Database error:', error)
       throw error
     }
+
+    console.log('[Contacts API] Found', contacts?.length || 0, 'contacts')
 
     const response: ContactListResponse = {
       contacts: contacts?.map(contact => ({
