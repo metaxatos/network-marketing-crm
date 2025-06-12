@@ -4,12 +4,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-// Add timeout wrapper
+// Add timeout wrapper with proper typing
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  const timeout = new Promise<T>((_, reject) => 
-    setTimeout(() => reject(new Error('Operation timed out')), timeoutMs)
-  )
-  return Promise.race([promise, timeout])
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => 
+      setTimeout(() => reject(new Error('Operation timed out')), timeoutMs)
+    )
+  ])
 }
 
 export async function GET(req: NextRequest) {
@@ -19,10 +21,12 @@ export async function GET(req: NextRequest) {
     const supabase = await createClient()
     
     // Get user with timeout
-    const { data: { user }, error: authError } = await withTimeout(
+    const authResult = await withTimeout(
       supabase.auth.getUser(),
       3000 // 3 second timeout
     )
+    
+    const { data: { user }, error: authError } = authResult
     
     console.log('[API /auth/user] Auth result:', { 
       hasUser: !!user, 
@@ -39,7 +43,7 @@ export async function GET(req: NextRequest) {
 
     // Try to get member data with timeout
     try {
-      const { data: member, error: memberError } = await withTimeout(
+      const memberResult = await withTimeout(
         supabase
           .from('members')
           .select(`
@@ -56,6 +60,8 @@ export async function GET(req: NextRequest) {
           .single(),
         3000 // 3 second timeout
       )
+
+      const { data: member, error: memberError } = memberResult
 
       if (memberError) {
         console.error('[API /auth/user] Member query error:', memberError)
@@ -76,7 +82,7 @@ export async function GET(req: NextRequest) {
       let company = null
       if (member?.company_id) {
         try {
-          const { data: companyData } = await withTimeout(
+          const companyResult = await withTimeout(
             supabase
               .from('companies')
               .select('id, name, domain')
@@ -84,6 +90,7 @@ export async function GET(req: NextRequest) {
               .single(),
             2000 // 2 second timeout
           )
+          const { data: companyData } = companyResult
           company = companyData
         } catch (error) {
           console.warn('[API /auth/user] Company query failed:', error)
