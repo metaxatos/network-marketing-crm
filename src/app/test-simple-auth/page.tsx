@@ -59,34 +59,45 @@ export default function TestSimpleAuth() {
     try {
       console.log('👤 Loading member data for:', user.id)
       
+      // Get member data with simple query first
       const { data: member, error } = await supabase
         .from('members')
-        .select(`
-          id,
-          name,
-          email,
-          avatar_url,
-          company_id,
-          companies (
-            id,
-            name,
-            slug,
-            plan_type
-          )
-        `)
+        .select('id, email, company_id, username, name, avatar_url, phone, status, level, sponsor_id, created_at')
         .eq('id', user.id)
         .single()
 
       if (error) {
         console.error('❌ Member query error:', error)
         setMember(null)
-      } else if (member) {
-        console.log('✅ Member loaded:', member.name || member.email)
-        setMember(member)
-      } else {
+        return
+      }
+
+      if (!member) {
         console.log('⚠️ No member found for user')
         setMember(null)
+        return
       }
+
+      // Get company data separately if member has a company
+      let memberWithCompany = { ...member, companies: null }
+      if (member.company_id) {
+        try {
+          const { data: companyData } = await supabase
+            .from('companies')
+            .select('id, name, slug, plan_type')
+            .eq('id', member.company_id)
+            .single()
+          
+          if (companyData) {
+            memberWithCompany.companies = companyData
+          }
+        } catch (companyError) {
+          console.warn('⚠️ Company fetch failed:', companyError)
+        }
+      }
+
+      console.log('✅ Member loaded:', memberWithCompany.email)
+      setMember(memberWithCompany)
     } catch (error) {
       console.error('❌ Member loading exception:', error)
       setMember(null)

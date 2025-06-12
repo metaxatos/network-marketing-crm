@@ -8,17 +8,31 @@ ALTER DATABASE postgres SET "app.jwt_secret" TO 'your-jwt-secret';
 CREATE TABLE IF NOT EXISTS public.companies (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     name TEXT NOT NULL,
+    slug TEXT UNIQUE,
     domain TEXT,
     description TEXT,
+    plan_type TEXT DEFAULT 'basic' CHECK (plan_type IN ('basic', 'premium', 'enterprise')),
     settings JSONB DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Add missing columns if they don't exist (for existing databases)
+ALTER TABLE public.companies 
+ADD COLUMN IF NOT EXISTS slug TEXT,
+ADD COLUMN IF NOT EXISTS plan_type TEXT DEFAULT 'basic' CHECK (plan_type IN ('basic', 'premium', 'enterprise'));
+
+-- Update default company with missing fields
+UPDATE public.companies 
+SET slug = 'demo-company', plan_type = 'basic' 
+WHERE id = '00000000-0000-0000-0000-000000000001';
+
 -- Insert a default company for testing
-INSERT INTO public.companies (id, name, description) VALUES 
-('00000000-0000-0000-0000-000000000001', 'Demo Company', 'Default company for new users')
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.companies (id, name, slug, description, plan_type) VALUES 
+('00000000-0000-0000-0000-000000000001', 'Demo Company', 'demo-company', 'Default company for new users', 'basic')
+ON CONFLICT (id) DO UPDATE SET 
+  slug = EXCLUDED.slug,
+  plan_type = EXCLUDED.plan_type;
 
 -- Create members table (extends auth.users)
 CREATE TABLE IF NOT EXISTS public.members (
@@ -26,12 +40,21 @@ CREATE TABLE IF NOT EXISTS public.members (
     company_id UUID,
     email TEXT,
     username TEXT,
+    name TEXT, -- Full name for display
+    avatar_url TEXT, -- Profile image URL
+    phone TEXT, -- Phone number
     level INTEGER DEFAULT 1,
     status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
     sponsor_id UUID REFERENCES public.members(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Add missing columns if they don't exist (for existing databases)
+ALTER TABLE public.members 
+ADD COLUMN IF NOT EXISTS name TEXT,
+ADD COLUMN IF NOT EXISTS avatar_url TEXT,
+ADD COLUMN IF NOT EXISTS phone TEXT;
 
 -- Create member profiles table
 CREATE TABLE IF NOT EXISTS public.member_profiles (
@@ -297,13 +320,17 @@ CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
     -- Insert into members table
-    INSERT INTO public.members (id, email, company_id, level, status)
+    INSERT INTO public.members (id, email, company_id, level, status, name)
     VALUES (
         NEW.id, 
         NEW.email,
         '00000000-0000-0000-0000-000000000001', -- Default to demo company
         1, 
-        'active'
+        'active',
+        COALESCE(
+            NULLIF(TRIM(COALESCE(NEW.raw_user_meta_data->>'first_name', '') || ' ' || COALESCE(NEW.raw_user_meta_data->>'last_name', '')), ''),
+            COALESCE(NEW.raw_user_meta_data->>'full_name', 'New User')
+        )
     );
     
     -- Insert into member_profiles table

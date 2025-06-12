@@ -4,131 +4,29 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 
 export async function GET(request: NextRequest) {
-  console.log('[API /auth/user-simple] Starting simplified request')
+  console.log('[API /auth/user-simple] Starting request')
   
   try {
     // Use the proper auth helpers for Next.js API routes
     const supabase = createRouteHandlerClient({ cookies })
     
-    // First try: Get user with proper auth context
+    // Get user with proper auth context
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     
     if (authError || !user) {
-      console.log('[API /auth/user-simple] Primary auth failed, trying manual token approach')
-      
-      // Fallback: Try manual token approach (common fix for Netlify cookie issues)
-      const cookieStore = await cookies()
-      const authCookies = cookieStore.getAll()
-      console.log('[API /auth/user-simple] Available cookies:', authCookies.map((c: any) => ({ name: c.name, hasValue: !!c.value })))
-      
-      // Look for Supabase auth token in cookies (different possible names)
-      const possibleTokenNames = [
-        'sb-auth-token',
-        'supabase-auth-token',
-        'supabase.auth.token',
-        'sb-localhost-auth-token',
-        'sb-127-auth-token'
-      ]
-      
-      let authToken = null
-      for (const name of possibleTokenNames) {
-        const cookie = cookieStore.get(name)
-        if (cookie?.value) {
-          authToken = cookie.value
-          console.log('[API /auth/user-simple] Found auth token in cookie:', name)
-          break
-        }
-      }
-      
-      // Also check for tokens that might include the project ID
-      if (!authToken) {
-        const authCookie = authCookies.find((c: any) => 
-          c.name.includes('auth-token') || 
-          (c.name.startsWith('sb-') && c.name.includes('-auth-token'))
-        )
-        if (authCookie?.value) {
-          authToken = authCookie.value
-          console.log('[API /auth/user-simple] Found auth token in dynamic cookie:', authCookie.name)
-        }
-      }
-      
-      if (authToken) {
-        try {
-          // Try to parse the token if it's base64 encoded
-          let sessionData = authToken
-          if (authToken.startsWith('base64-')) {
-            sessionData = atob(authToken.substring(7))
-          }
-          
-          const session = JSON.parse(sessionData)
-          console.log('[API /auth/user-simple] Parsed session, access_token exists:', !!session.access_token)
-          
-          if (session.access_token) {
-            // Set the session manually
-            const { data: sessionUser, error: sessionError } = await supabase.auth.setSession({
-              access_token: session.access_token,
-              refresh_token: session.refresh_token
-            })
-            
-            if (sessionUser?.user && !sessionError) {
-              console.log('[API /auth/user-simple] Manual session set successfully')
-              // Now get the member data
-              const { data: member, error: memberError } = await supabase
-                .from('members')
-                .select(`
-                  id,
-                  name,
-                  email,
-                  avatar_url,
-                  company_id,
-                  companies!inner (
-                    id,
-                    name,
-                    slug,
-                    plan_type
-                  )
-                `)
-                .eq('id', sessionUser.user.id)
-                .single()
-              
-              if (member && !memberError) {
-                return NextResponse.json({
-                  user: sessionUser.user,
-                  member,
-                  company: member.companies
-                })
-              }
-            }
-          }
-        } catch (parseError) {
-          console.error('[API /auth/user-simple] Token parse error:', parseError)
-        }
-      }
-      
+      console.error('[API /auth/user-simple] Auth failed:', authError?.message)
       return NextResponse.json(
-        { error: 'Authentication failed', details: 'Auth session missing!' },
+        { error: 'Authentication failed', details: authError?.message || 'No user found' },
         { status: 401 }
       )
     }
 
     console.log('[API /auth/user-simple] User authenticated:', user.id)
 
-    // Get member data with RLS context now properly set
+    // Get member data with a simple query first (no joins)
     const { data: member, error: memberError } = await supabase
       .from('members')
-      .select(`
-        id,
-        name,
-        email,
-        avatar_url,
-        company_id,
-        companies!inner (
-          id,
-          name,
-          slug,
-          plan_type
-        )
-      `)
+      .select('id, email, company_id, username, name, avatar_url, phone, status, level, sponsor_id, created_at')
       .eq('id', user.id)
       .single()
 
@@ -152,12 +50,52 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Get company data separately if member has a company
+    let company = null
+    if (member.company_id) {
+      try {
+        const { data: companyData, error: companyError } = await supabase
+          .from('companies')
+          .select('id, name, slug, plan_type')
+          .eq('id', member.company_id)
+          .single()
+        
+        if (!companyError && companyData) {
+          company = companyData
+        } else {
+          console.warn('[API /auth/user-simple] Company fetch failed:', companyError?.message)
+        }
+      } catch (companyError) {
+        console.warn('[API /auth/user-simple] Company query error:', companyError)
+      }
+    }
+
+    // Get member profile separately
+    let profile = null
+    try {
+      const { data: profileData, error: profileError } = await supabase
+        .from('member_profiles')
+        .select('first_name, last_name, avatar_url, timezone, preferences')
+        .eq('member_id', user.id)
+        .single()
+      
+      if (!profileError && profileData) {
+        profile = profileData
+      }
+    } catch (profileError) {
+      console.warn('[API /auth/user-simple] Profile query error:', profileError)
+    }
+
     console.log('[API /auth/user-simple] Success - Member found:', member.id)
 
     return NextResponse.json({
-      user,
+      user: {
+        id: user.id,
+        email: user.email
+      },
       member,
-      company: member.companies
+      profile,
+      company
     })
 
   } catch (error) {

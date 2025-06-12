@@ -67,37 +67,33 @@ export function withAuth<T = any>(
   }
 }
 
-// Get current member details - Updated to use proper auth helpers
-export async function getCurrentMember(userId: string) {
-  try {
-    const supabase = createRouteHandlerClient({ cookies })
-    
-    console.log('[getCurrentMember] Fetching member for user:', userId)
-    const { data: member, error } = await supabase
-      .from('members')
-      .select(`
-        *,
-        member_profiles!member_id (*)
-      `)
-      .eq('id', userId)
-      .single()
-
-    if (error) {
-      console.error('[getCurrentMember] Database error:', error)
-      throw new Error(`Failed to get member details: ${error.message}`)
+// Get current member - Updated for proper auth context
+export async function getCurrentMember(userId?: string): Promise<any> {
+  const supabase = createRouteHandlerClient({ cookies })
+  
+  let userIdToUse = userId
+  
+  if (!userIdToUse) {
+    // Get user from auth context
+    const { data: { user }, error } = await supabase.auth.getUser()
+    if (error || !user) {
+      throw new Error('Not authenticated')
     }
-
-    if (!member) {
-      console.warn('[getCurrentMember] Member not found for user:', userId)
-      throw new Error('Member not found')
-    }
-
-    console.log('[getCurrentMember] Member found:', member.id)
-    return member
-  } catch (error) {
-    console.error('[getCurrentMember] Error:', error)
-    throw error
+    userIdToUse = user.id
   }
+
+  const { data: member, error } = await supabase
+    .from('members')
+    .select('id, email, company_id, username, name, avatar_url, phone, status, level, sponsor_id, created_at')
+    .eq('id', userIdToUse)
+    .single()
+
+  if (error) {
+    console.error('[getCurrentMember] Query error:', error)
+    throw new Error(`Member not found: ${error.message}`)
+  }
+
+  return member
 }
 
 // Validate request body

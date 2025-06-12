@@ -316,33 +316,39 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
         // Fallback: Try client-side data fetching when server fails
         console.log('[UserStore] Falling back to client-side data fetching')
         try {
-          // Get member data directly from client
+          // Get member data directly from client (simple query first)
           const { data: member, error: memberError } = await supabase
             .from('members')
-            .select(`
-              id,
-              name,
-              email,
-              avatar_url,
-              company_id,
-              companies (
-                id,
-                name,
-                slug,
-                plan_type
-              )
-            `)
+            .select('id, email, company_id, username, name, avatar_url, phone, status, level, sponsor_id, created_at')
             .eq('id', session.user.id)
             .single()
 
           if (member && !memberError) {
+            // Get company data separately if member has a company
+            let company = null
+            if (member.company_id) {
+              try {
+                const { data: companyData } = await supabase
+                  .from('companies')
+                  .select('id, name, slug, plan_type')
+                  .eq('id', member.company_id)
+                  .single()
+                
+                if (companyData) {
+                  company = companyData
+                }
+              } catch (companyError) {
+                console.warn('[UserStore] Company fetch failed:', companyError)
+              }
+            }
+
             console.log('[UserStore] Client-side fallback success')
             clearTimeout(timeoutId)
             set({
               user: session.user,
               member,
               profile: null, // We can add profile fetching later if needed
-              company: member.companies,
+              company,
               isAuthenticated: true,
               isLoading: false
             })
