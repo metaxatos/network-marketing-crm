@@ -68,8 +68,22 @@ const nextConfig = {
   trailingSlash: false,
   skipTrailingSlashRedirect: true,
   
+  // Webpack configuration to handle server-only modules
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Don't resolve 'fs' module on the client-side
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        crypto: false,
+      }
+    }
+    return config
+  },
+  
   // Add output configuration for Netlify
   ...(process.env.NETLIFY && { output: 'standalone' }),
 }
 
-module.exports = nextConfig 
+module.exports = nextConfig
