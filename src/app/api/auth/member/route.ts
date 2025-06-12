@@ -69,10 +69,7 @@ export const PATCH = withAuth(async (req: NextRequest, userId: string) => {
     // Update member record
     const { data: updatedMember, error } = await supabase
       .from('members')
-      .update({
-        ...body,
-        updated_at: new Date().toISOString(),
-      })
+      .update(body)
       .eq('id', userId)
       .select('id, email, company_id, username, name, avatar_url, phone, status, level, sponsor_id, created_at')
       .single()
