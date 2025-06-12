@@ -57,6 +57,19 @@ export const useUserStore = create<UserStore>()(
 
         // Initialize authentication state
         initialize: async () => {
+          // Set timeout to prevent infinite loading
+          const timeoutId = setTimeout(() => {
+            console.warn('User initialization timeout after 8 seconds')
+            set({ 
+              user: null, 
+              member: null, 
+              profile: null, 
+              company: null,
+              isAuthenticated: false, 
+              isLoading: false 
+            })
+          }, 8000) // 8 seconds timeout
+
           try {
             set({ isLoading: true })
             
@@ -64,27 +77,72 @@ export const useUserStore = create<UserStore>()(
             const { data: { session } } = await supabase.auth.getSession()
             
             if (session?.user) {
-              // Fetch full user data
-              const response = await fetch('/api/auth/user')
-              const result = await response.json()
+              // Create AbortController for fetch timeout
+              const controller = new AbortController()
+              const fetchTimeout = setTimeout(() => controller.abort(), 5000) // 5 seconds for API call
               
-              if (response.ok) {
+              try {
+                // Fetch full user data
+                const response = await fetch('/api/auth/user', {
+                  signal: controller.signal
+                })
+                
+                clearTimeout(fetchTimeout)
+                
+                if (!response.ok) {
+                  console.error(`API error: ${response.status} ${response.statusText}`)
+                  
+                  // If API fails, at least set the basic user data
+                  set({
+                    user: session.user,
+                    member: null,
+                    profile: null,
+                    company: null,
+                    isAuthenticated: true,
+                    isLoading: false
+                  })
+                  clearTimeout(timeoutId)
+                  return
+                }
+                
+                const result = await response.json()
+                
+                if (result.error) {
+                  console.error('API returned error:', result.error)
+                  // Still set basic user data
+                  set({
+                    user: session.user,
+                    member: null,
+                    profile: null,
+                    company: null,
+                    isAuthenticated: true,
+                    isLoading: false
+                  })
+                } else {
+                  set({
+                    user: session.user,
+                    member: result.member,
+                    profile: result.profile,
+                    company: result.company,
+                    isAuthenticated: true,
+                    isLoading: false
+                  })
+                }
+              } catch (fetchError: any) {
+                if (fetchError.name === 'AbortError') {
+                  console.error('Fetch timeout - API call took too long')
+                } else {
+                  console.error('Fetch error:', fetchError)
+                }
+                
+                // Even if fetch fails, set basic auth state
                 set({
                   user: session.user,
-                  member: result.member,
-                  profile: result.profile,
-                  company: result.company,
+                  member: null,
+                  profile: null,
+                  company: null,
                   isAuthenticated: true,
                   isLoading: false
-                })
-              } else {
-                set({ 
-                  user: null, 
-                  member: null, 
-                  profile: null, 
-                  company: null,
-                  isAuthenticated: false, 
-                  isLoading: false 
                 })
               }
             } else {
@@ -97,8 +155,11 @@ export const useUserStore = create<UserStore>()(
                 isLoading: false 
               })
             }
+            
+            clearTimeout(timeoutId)
           } catch (error) {
             console.error('Initialize error:', error)
+            clearTimeout(timeoutId)
             set({ 
               user: null, 
               member: null, 
