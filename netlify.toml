@@ -1,6 +1,14 @@
 [build]
   command = "npm run build"
 
+[build.environment]
+  # Skip optional dependencies that may cause issues
+  NPM_CONFIG_OMIT = "optional"
+  # Use Node.js 20 for better compatibility
+  NODE_VERSION = "20"
+  # Disable telemetry for faster builds
+  NEXT_TELEMETRY_DISABLED = "1"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
