@@ -96,6 +96,63 @@ function DefaultErrorFallback({ error, resetError }: { error?: Error; resetError
 
 // Query-specific error fallback
 export function QueryErrorFallback({ error, resetError }: { error?: Error; resetError: () => void }) {
+  const isConfigError = error?.message.includes('not configured') || 
+                       error?.message.includes('environment variables') ||
+                       error?.message.includes('Authentication not configured')
+  
+  if (isConfigError) {
+    return (
+      <div className="flex items-center justify-center p-8 min-h-[300px]">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 mx-auto mb-4 text-amber-500">
+            <svg
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              className="w-full h-full"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z"
+              />
+            </svg>
+          </div>
+          
+          <h4 className="text-lg font-semibold text-gray-900 mb-3">
+            Environment Setup Required
+          </h4>
+          
+          <p className="text-sm text-gray-600 mb-4">
+            To run this application locally, you need to create a <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">.env.local</code> file with your Supabase credentials.
+          </p>
+          
+          <div className="bg-gray-50 rounded-lg p-4 mb-4 text-left">
+            <p className="text-xs font-medium text-gray-700 mb-2">Create .env.local with:</p>
+            <pre className="text-xs text-gray-600 whitespace-pre-wrap">
+{`NEXT_PUBLIC_SUPABASE_URL=https://utvasathtyasoxelnxuf.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0dmFzYXRodHlhc294ZWxueHVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkzMjE3NDEsImV4cCI6MjA2NDg5Nzc0MX0.MrpNzlPGVJPIXq7R_wiHoomYtjLActFmbKVgSJLlq8E
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_NAME=Network Marketing CRM`}
+            </pre>
+          </div>
+          
+          <p className="text-xs text-gray-500 mb-4">
+            After creating the file, restart your development server.
+          </p>
+          
+          <button
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+          >
+            Reload Page
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-center justify-center p-6 min-h-[200px]">
       <div className="text-center max-w-sm">

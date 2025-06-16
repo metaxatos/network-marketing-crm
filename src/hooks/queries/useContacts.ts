@@ -24,6 +24,17 @@ export const useContacts = (filters?: {
       if (!response.ok) {
         const errorText = await response.text()
         console.error('[useContacts] Fetch failed:', response.status, errorText)
+        
+        // Check if it's an authentication error
+        if (response.status === 401) {
+          throw new Error('Authentication not configured. Please set up your environment variables.')
+        }
+        
+        // Check if it's a configuration error
+        if (errorText.includes('Supabase not configured') || errorText.includes('Missing Supabase environment variables')) {
+          throw new Error('Supabase is not configured. Please add your environment variables to .env.local file.')
+        }
+        
         throw new Error('Failed to fetch contacts')
       }
       
@@ -31,6 +42,15 @@ export const useContacts = (filters?: {
       return data.contacts as Contact[]
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: (failureCount, error) => {
+      // Don't retry authentication or configuration errors
+      if (error.message.includes('Authentication not configured') || 
+          error.message.includes('Supabase is not configured')) {
+        return false
+      }
+      // Retry other errors up to 3 times
+      return failureCount < 3
+    },
   })
 }
 

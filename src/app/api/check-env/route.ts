@@ -4,25 +4,21 @@ export async function GET() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const appName = process.env.NEXT_PUBLIC_APP_NAME;
   
-  const status = {
-    supabaseUrl: {
-      exists: !!supabaseUrl,
-      value: supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'NOT SET',
-      expected: 'Should start with https://'
+  return NextResponse.json({
+    configured: {
+      supabaseUrl: !!supabaseUrl,
+      supabaseAnonKey: !!supabaseAnonKey,
+      appUrl: !!appUrl,
+      appName: !!appName,
     },
-    supabaseAnonKey: {
-      exists: !!supabaseAnonKey,
-      value: supabaseAnonKey ? supabaseAnonKey.substring(0, 20) + '...' : 'NOT SET',
-      expected: 'Should be a JWT token'
+    values: {
+      supabaseUrl: supabaseUrl ? `${supabaseUrl.substring(0, 20)}...` : 'Missing',
+      supabaseAnonKey: supabaseAnonKey ? `${supabaseAnonKey.substring(0, 20)}...` : 'Missing',
+      appUrl: appUrl || 'Missing',
+      appName: appName || 'Missing',
     },
-    appUrl: {
-      exists: !!appUrl,
-      value: appUrl || 'NOT SET',
-      expected: 'Should be your Netlify URL'
-    },
-    timestamp: new Date().toISOString()
-  };
-
-  return NextResponse.json(status);
+    timestamp: new Date().toISOString(),
+  });
 }
