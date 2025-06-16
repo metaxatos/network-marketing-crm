@@ -26,6 +26,8 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status') || ''
 
+    console.log('[Contacts API] Fetching contacts for user:', userId)
+
     // Build query
     let query = supabase
       .from('contacts')
@@ -48,19 +50,15 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
       query = query.lt('id', cursor)
     }
 
-    // Get total count
-    const { count: totalCount } = await supabase
-      .from('contacts')
-      .select('*', { count: 'exact', head: true })
-      .eq('member_id', userId)
-
     // Execute query with pagination
-    const { data: contacts, error } = await query.limit(limit)
+    const { data: contacts, error, count } = await query.limit(limit)
 
     if (error) {
       console.error('[Contacts API] Database error:', error)
       throw error
     }
+
+    console.log('[Contacts API] Found contacts:', contacts?.length || 0, 'Total count:', count)
 
     const response: ContactListResponse = {
       contacts: contacts?.map((contact: DatabaseContact) => ({
