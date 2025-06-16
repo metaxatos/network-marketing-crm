@@ -10,9 +10,27 @@ export async function createClient() {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      'Missing Supabase environment variables. Please check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set in Netlify.'
-    )
+    console.warn('[Supabase Server] Environment variables not configured for local development')
+    
+    // In development, provide a mock client to prevent crashes
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Supabase Server] Using development mock client')
+      return {
+        auth: {
+          getUser: async () => ({ data: { user: null }, error: null }),
+          signOut: async () => ({ error: null }),
+        },
+        from: () => ({
+          select: () => Promise.resolve({ data: [], error: null }),
+          insert: () => Promise.resolve({ data: null, error: { message: 'Development mode' } }),
+          update: () => Promise.resolve({ data: null, error: { message: 'Development mode' } }),
+          delete: () => Promise.resolve({ data: null, error: { message: 'Development mode' } }),
+        }),
+      } as any
+    }
+    
+    // Only throw error in production
+    throw new Error('Missing Supabase environment variables in production')
   }
 
   return createServerClient(
