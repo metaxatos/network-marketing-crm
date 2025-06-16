@@ -3,6 +3,16 @@ import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth } from '@/lib/api-helpers'
 import type { LandingPageResponse } from '@/types/api'
 
+// Define the database landing page type
+interface DatabaseLandingPage {
+  id: string
+  slug: string
+  title: string
+  is_published: boolean
+  created_at: string
+  updated_at: string
+}
+
 // GET /api/landing-pages - Get user's landing pages
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
@@ -28,7 +38,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
 
     // Get visit and lead stats for each page
     const pagesWithStats = await Promise.all(
-      (pages || []).map(async (page) => {
+      (pages || []).map(async (page: DatabaseLandingPage) => {
         // Get visit count
         const { count: visits } = await supabase
           .from('page_visits')
