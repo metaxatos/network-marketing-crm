@@ -258,11 +258,11 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
       return
     }
     
-    // Set timeout to prevent infinite loading
+    // Set timeout to prevent infinite loading (reduced from 10s to 5s)
     const timeoutId = setTimeout(() => {
       const state = get()
       if (state.isLoading) {
-        console.warn('[UserStore] Auth loading timeout after 10 seconds, proceeding without auth')
+        console.warn('[UserStore] Auth loading timeout after 5 seconds, proceeding without auth')
         set({ 
           user: null, 
           member: null, 
@@ -272,7 +272,7 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
           isLoading: false 
         })
       }
-    }, 10000) // 10 seconds timeout
+    }, 5000) // Reduced from 10 seconds to 5 seconds
 
     try {
       set({ isLoading: true })
@@ -290,7 +290,7 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
           const fetchTimeout = setTimeout(() => {
             console.warn('[UserStore] Fetch timeout - API call took too long')
             controller.abort()
-          }, 8000) // 8 seconds for fetch
+          }, 4000) // Reduced from 8 seconds to 4 seconds
 
           // Try server-side API first
           const response = await fetch('/api/auth/user-simple', {

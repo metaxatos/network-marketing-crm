@@ -58,13 +58,13 @@ export default function AuthProvider({ children }: AuthProviderProps) {
 
     getInitialSession()
 
-    // Fallback: Ensure loading doesn't get stuck (increased timeout for slow connections)
+    // Fallback: Ensure loading doesn't get stuck (reduced timeout)
     timeoutId = setTimeout(() => {
       if (isMounted && loading) {
-        console.warn('Auth loading timeout after 10 seconds, proceeding without auth')
+        console.warn('Auth loading timeout after 5 seconds, proceeding without auth')
         setLoading(false)
       }
-    }, 10000) // Increased from 3 seconds to 10 seconds
+    }, 5000) // Reduced from 10 seconds to 5 seconds
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(

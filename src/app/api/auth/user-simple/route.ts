@@ -1,114 +1,87 @@
-// Simplified user endpoint to fix infinite loading - v2 (RLS policy fixed)
+// Simple user endpoint to fix auth timeouts
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
-  console.log('[API /auth/user-simple] Starting request - RLS fixed')
+  console.log('[API /auth/user-simple] Starting simple request')
   
   try {
-    // Use the current server client approach
     const supabase = await createClient()
     
-    // Get user with proper auth context
+    // Get user with basic timeout
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     
-    if (authError) {
-      console.error('[API /auth/user-simple] Auth error:', authError?.message)
+    if (authError || !user) {
+      console.error('[API /auth/user-simple] Auth failed:', authError?.message)
       return NextResponse.json(
-        { error: 'Authentication failed', details: `Auth session missing! ${authError?.message}` },
-        { status: 401 }
-      )
-    }
-
-    if (!user) {
-      console.error('[API /auth/user-simple] No user found')
-      return NextResponse.json(
-        { error: 'Authentication failed', details: 'Auth session missing!' },
+        { error: 'Not authenticated' },
         { status: 401 }
       )
     }
 
     console.log('[API /auth/user-simple] User authenticated:', user.id)
 
-    // Get member data with a simple query first (no joins) - RLS policy fixed
+    // Get member data
     const { data: member, error: memberError } = await supabase
       .from('members')
       .select('id, email, company_id, username, name, avatar_url, phone, status, level, sponsor_id, created_at')
       .eq('id', user.id)
       .single()
 
-    if (memberError) {
-      console.error('[API /auth/user-simple] Member fetch error:', memberError)
-      return NextResponse.json(
-        { 
-          error: 'Member data not found', 
-          details: memberError.message,
-          userId: user.id 
-        },
-        { status: 404 }
-      )
+    if (memberError || !member) {
+      console.error('[API /auth/user-simple] Member not found:', memberError?.message)
+      // Return basic user data
+      return NextResponse.json({
+        user: { id: user.id, email: user.email },
+        member: null,
+        profile: null,
+        company: null
+      })
     }
 
-    if (!member) {
-      console.log('[API /auth/user-simple] No member found for user:', user.id)
-      return NextResponse.json(
-        { error: 'Member not found', userId: user.id },
-        { status: 404 }
-      )
-    }
-
-    // Get company data separately if member has a company
+    // Get company if member has one
     let company = null
     if (member.company_id) {
       try {
-        const { data: companyData, error: companyError } = await supabase
+        const { data: companyData } = await supabase
           .from('companies')
           .select('id, name, slug, plan_type')
           .eq('id', member.company_id)
           .single()
         
-        if (!companyError && companyData) {
-          company = companyData
-        } else {
-          console.warn('[API /auth/user-simple] Company fetch failed:', companyError?.message)
-        }
-      } catch (companyError) {
-        console.warn('[API /auth/user-simple] Company query error:', companyError)
+        company = companyData
+      } catch (error) {
+        console.warn('[API /auth/user-simple] Company query failed, continuing without it')
       }
     }
 
-    // Get member profile separately
+    // Get profile
     let profile = null
     try {
-      const { data: profileData, error: profileError } = await supabase
+      const { data: profileData } = await supabase
         .from('member_profiles')
         .select('first_name, last_name, avatar_url, timezone, preferences')
         .eq('member_id', user.id)
         .single()
       
-      if (!profileError && profileData) {
-        profile = profileData
-      }
-    } catch (profileError) {
-      console.warn('[API /auth/user-simple] Profile query error:', profileError)
+      profile = profileData
+    } catch (error) {
+      console.warn('[API /auth/user-simple] Profile query failed, continuing without it')
     }
 
-    console.log('[API /auth/user-simple] Success - Member found:', member.id)
+    console.log('[API /auth/user-simple] Success - returning complete data')
 
     return NextResponse.json({
-      user: {
-        id: user.id,
-        email: user.email
-      },
+      user: { id: user.id, email: user.email },
       member,
       profile,
       company
     })
-
-  } catch (error) {
-    console.error('[API /auth/user-simple] Unexpected error:', error)
+    
+  } catch (error: any) {
+    console.error('[API /auth/user-simple] Request failed:', error.message)
     return NextResponse.json(
-      { error: 'Internal server error', details: String(error) },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }
