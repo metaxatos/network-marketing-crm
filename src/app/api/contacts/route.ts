@@ -3,6 +3,20 @@ import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth, getPaginationParams, validateBody, sanitizeInput, isValidEmail, isValidPhone } from '@/lib/api-helpers'
 import type { ContactListResponse, CreateContactRequest } from '@/types/api'
 
+// Define the database contact type
+interface DatabaseContact {
+  id: string
+  name: string
+  phone?: string
+  email?: string
+  status: string
+  last_contacted_at?: string
+  created_at: string
+  member_id: string
+  tags?: string[]
+  custom_fields?: any
+}
+
 // GET /api/contacts - List contacts with search/filter
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
@@ -49,7 +63,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
     }
 
     const response: ContactListResponse = {
-      contacts: contacts?.map(contact => ({
+      contacts: contacts?.map((contact: DatabaseContact) => ({
         id: contact.id,
         name: contact.name,
         phone: contact.phone,
