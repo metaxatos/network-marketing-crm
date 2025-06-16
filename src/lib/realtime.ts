@@ -83,12 +83,12 @@ export function createRealtimeSubscription(
 export function createMultipleSubscriptions(
   subscriptions: Array<{ name: string; config: SubscriptionConfig }>
 ): () => void {
-  const subs = subscriptions.map(sub => 
+  const subs = subscriptions.map((sub: { name: string; config: SubscriptionConfig }) => 
     createRealtimeSubscription(sub.name, sub.config)
   )
 
   return () => {
-    subs.forEach(sub => {
+    subs.forEach((sub: RealtimeSubscription) => {
       try {
         sub.unsubscribe()
       } catch (error) {

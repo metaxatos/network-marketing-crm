@@ -87,7 +87,12 @@ export function useMultipleRealtimeSubscriptions(
   const cleanupRef = useRef<(() => void) | null>(null)
   
   // Stabilize callbacks to prevent re-subscriptions
-  const stableSubscriptions = subscriptions.map(sub => ({
+  const stableSubscriptions = subscriptions.map((sub: {
+    table: string
+    event: DatabaseEvent
+    callback: (payload: RealtimePostgresChangesPayload<any>) => void
+    filter?: string
+  }) => ({
     ...sub,
     callback: useCallback(sub.callback, [])
   }))
@@ -103,7 +108,7 @@ export function useMultipleRealtimeSubscriptions(
       cleanupRef.current = null
     }
 
-    const configs = stableSubscriptions.map((sub, index) => ({
+    const configs = stableSubscriptions.map((sub: typeof stableSubscriptions[0], index: number) => ({
       name: `${sub.table}_${sub.event}_${user.id}_multi_${index}`,
       config: {
         table: sub.table,

@@ -344,10 +344,21 @@ With birthday wishes,
   },
 ]
 
+// Define the template type for the DEFAULT_EMAIL_TEMPLATES
+interface DefaultTemplateType {
+  name: string
+  subject: string
+  body_html: string
+  body_text: string
+  category: string
+  variables: string[]
+  is_active: boolean
+}
+
 // Function to create default templates for a company
 export async function createDefaultTemplates(companyId: string) {
   // This would be implemented with Supabase insert
-  return DEFAULT_EMAIL_TEMPLATES.map(template => ({
+  return DEFAULT_EMAIL_TEMPLATES.map((template: DefaultTemplateType) => ({
     ...template,
     id: crypto.randomUUID(),
     company_id: companyId,

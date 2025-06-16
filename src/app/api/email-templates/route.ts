@@ -3,6 +3,16 @@ import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth, getCurrentMember } from '@/lib/api-helpers'
 import type { EmailTemplateResponse } from '@/types/api'
 
+// Define the database email template type
+interface DatabaseEmailTemplate {
+  id: string
+  name: string
+  subject: string
+  body_html: string
+  category: string
+  variables?: string[]
+}
+
 // GET /api/email-templates - Get available email templates
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
@@ -29,7 +39,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
     }
 
     const response: EmailTemplateResponse = {
-      templates: templates?.map(template => ({
+      templates: templates?.map((template: DatabaseEmailTemplate) => ({
         id: template.id,
         name: template.name,
         category: template.category,

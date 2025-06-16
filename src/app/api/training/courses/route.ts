@@ -3,6 +3,23 @@ import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth, getCurrentMember } from '@/lib/api-helpers'
 import type { CourseListResponse } from '@/types/api'
 
+// Define the database course type
+interface DatabaseCourse {
+  id: string
+  title: string
+  description?: string
+  thumbnail_url?: string
+  duration_minutes: number
+  order_index: number
+  is_required: boolean
+  member_course_progress?: Array<{
+    completion_percentage: number
+    last_video_id?: string
+    last_position_seconds?: number
+    completed_at?: string
+  }>
+}
+
 // GET /api/training/courses - Get courses with progress
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
@@ -89,17 +106,17 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
     // Find recommended next course
     let recommendedNext: string | undefined
     const incompleteCourses = courses?.filter(
-      course => !course.member_course_progress?.[0]?.completed_at
+      (course: DatabaseCourse) => !course.member_course_progress?.[0]?.completed_at
     ) || []
 
     if (incompleteCourses.length > 0) {
       // Prioritize required courses
-      const requiredIncomplete = incompleteCourses.find(c => c.is_required)
+      const requiredIncomplete = incompleteCourses.find((c: DatabaseCourse) => c.is_required)
       recommendedNext = requiredIncomplete?.id || incompleteCourses[0].id
     }
 
     const response: CourseListResponse = {
-      courses: courses?.map(course => ({
+      courses: courses?.map((course: DatabaseCourse) => ({
         id: course.id,
         title: course.title,
         thumbnailUrl: course.thumbnail_url,

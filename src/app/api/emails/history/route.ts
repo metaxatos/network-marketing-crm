@@ -3,6 +3,20 @@ import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth, getPaginationParams } from '@/lib/api-helpers'
 import type { EmailHistoryResponse } from '@/types/api'
 
+// Define the database email type
+interface DatabaseEmail {
+  id: string
+  subject: string
+  status: string
+  sent_at: string
+  opened_at?: string
+  clicked_at?: string
+  contact?: Array<{
+    id: string
+    name: string
+  }>
+}
+
 // GET /api/emails/history - Get sent emails history
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
@@ -40,7 +54,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
     }
 
     const response: EmailHistoryResponse = {
-      emails: emails?.map(email => ({
+      emails: emails?.map((email: DatabaseEmail) => ({
         id: email.id,
         contactName: email.contact?.[0]?.name || 'Unknown',
         subject: email.subject,

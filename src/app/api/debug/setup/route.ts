@@ -3,6 +3,16 @@ import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth } from '@/lib/api-helpers'
 import { DEFAULT_EMAIL_TEMPLATES } from '@/lib/email-templates'
 
+// Define template type to match the DEFAULT_EMAIL_TEMPLATES structure
+interface DefaultEmailTemplate {
+  name: string
+  category: string
+  subject: string
+  body_html: string
+  variables?: string[]
+  is_active?: boolean
+}
+
 // GET /api/debug/setup - Check and optionally seed data
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
@@ -36,7 +46,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
 
     // If seed is requested and no templates exist, create them
     if (seed && templateCount === 0) {
-      const templatesToSeed = DEFAULT_EMAIL_TEMPLATES.map(template => ({
+      const templatesToSeed = DEFAULT_EMAIL_TEMPLATES.map((template: DefaultEmailTemplate) => ({
         ...template,
         company_id: member.company_id
       }))

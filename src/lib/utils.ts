@@ -73,7 +73,7 @@ export function debounce<T extends (...args: any[]) => any>(
 export function getInitials(name: string): string {
   return name
     .split(' ')
-    .map(word => word.charAt(0).toUpperCase())
+    .map((word: string) => word.charAt(0).toUpperCase())
     .slice(0, 2)
     .join('')
 }

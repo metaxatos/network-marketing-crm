@@ -2,6 +2,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
+// Define cookie type
+interface Cookie {
+  name: string
+  value: string
+}
+
 export async function GET(request: NextRequest) {
   console.log('[DEBUG /debug/cookies] Inspecting cookies...')
   
@@ -16,7 +22,7 @@ export async function GET(request: NextRequest) {
     console.log('[DEBUG] Parsed cookies count:', allCookies.length)
     
     // Look for Supabase-related cookies specifically
-    const supabaseCookies = allCookies.filter(cookie => 
+    const supabaseCookies = allCookies.filter((cookie: Cookie) => 
       cookie.name.includes('supabase') || 
       cookie.name.includes('sb-') ||
       cookie.name.includes('auth')
@@ -27,14 +33,14 @@ export async function GET(request: NextRequest) {
       data: {
         requestCookieHeader: requestCookies,
         totalCookies: allCookies.length,
-        allCookieNames: allCookies.map(c => c.name),
-        supabaseCookies: supabaseCookies.map(c => ({
+        allCookieNames: allCookies.map((c: Cookie) => c.name),
+        supabaseCookies: supabaseCookies.map((c: Cookie) => ({
           name: c.name,
           hasValue: !!c.value,
           valueLength: c.value?.length || 0
         })),
         // Don't log actual values for security
-        cookieDetails: allCookies.map(c => ({
+        cookieDetails: allCookies.map((c: Cookie) => ({
           name: c.name,
           hasValue: !!c.value,
           valueLength: c.value?.length || 0
