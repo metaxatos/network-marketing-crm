@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createApiClient } from '@/lib/supabase/api-client'
 import type { ApiResponse } from '@/types'
 
 // Standard API response helper
@@ -33,14 +33,14 @@ export function apiError(
   )
 }
 
-// Authentication middleware - Updated to use current approach
+// Authentication middleware - Updated to use API client
 export function withAuth<T = any>(
   handler: (req: NextRequest, userId: string) => Promise<NextResponse<ApiResponse<T>>>
 ) {
   return async (req: NextRequest): Promise<NextResponse<ApiResponse<null>> | NextResponse<ApiResponse<T>>> => {
     try {
-      // Use the current server client approach
-      const supabase = await createClient()
+      // Use the new API client that properly handles auth cookies
+      const supabase = await createApiClient(req)
       
       const {
         data: { user },
@@ -67,7 +67,7 @@ export function withAuth<T = any>(
 
 // Get current member - Updated for current approach
 export async function getCurrentMember(userId?: string): Promise<any> {
-  const supabase = await createClient()
+  const supabase = await createApiClient()
   
   let userIdToUse = userId
   
@@ -162,6 +162,6 @@ export function isValidEmail(email: string): boolean {
 
 // Phone validation
 export function isValidPhone(phone: string): boolean {
-  const phoneRegex = /^\+?[\d\s-()]+$/
+  const phoneRegex = /^\+?[\d\s\-()]+$/
   return phoneRegex.test(phone) && phone.replace(/\D/g, '').length >= 10
 } 
