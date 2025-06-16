@@ -2,6 +2,15 @@ import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth, getPaginationParams } from '@/lib/api-helpers'
 
+// Define the database activity type
+interface DatabaseActivity {
+  id: string
+  member_id: string
+  activity_type: string
+  metadata?: Record<string, any>
+  created_at: string
+}
+
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createClient()
@@ -26,7 +35,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
       throw error
     }
 
-    const formattedActivities = activities?.map(activity => ({
+    const formattedActivities = activities?.map((activity: DatabaseActivity) => ({
       id: activity.id,
       type: activity.activity_type,
       description: getActivityDescription(activity),
@@ -90,7 +99,7 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
   }
 })
 
-function getActivityDescription(activity: any): string {
+function getActivityDescription(activity: DatabaseActivity): string {
   switch (activity.activity_type) {
     case 'contact_added':
       return `Added new contact${activity.metadata?.contact_name ? `: ${activity.metadata.contact_name}` : ''}`
