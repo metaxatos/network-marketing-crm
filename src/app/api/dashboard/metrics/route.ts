@@ -3,6 +3,19 @@ import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth } from '@/lib/api-helpers'
 import type { DashboardMetricsResponse } from '@/types/api'
 
+// Define the database types
+interface DatabaseActivity {
+  id: string
+  member_id: string
+  activity_type: string
+  metadata?: Record<string, any>
+  created_at: string
+}
+
+interface CourseProgress {
+  completion_percentage: number
+}
+
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createClient()
@@ -37,7 +50,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
       .eq('member_id', userId)
 
     const trainingProgress = courseProgress?.length
-      ? courseProgress.reduce((sum, p) => sum + p.completion_percentage, 0) / courseProgress.length
+      ? courseProgress.reduce((sum: number, p: CourseProgress) => sum + p.completion_percentage, 0) / courseProgress.length
       : 0
 
     // Get recent activities
@@ -48,7 +61,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
       .order('created_at', { ascending: false })
       .limit(10)
 
-    const recentActivities = activities?.map(activity => ({
+    const recentActivities = activities?.map((activity: DatabaseActivity) => ({
       id: activity.id,
       type: activity.activity_type,
       description: getActivityDescription(activity),
@@ -98,7 +111,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
   }
 })
 
-function getActivityDescription(activity: any): string {
+function getActivityDescription(activity: DatabaseActivity): string {
   switch (activity.activity_type) {
     case 'contact_added':
       return `Added new contact${activity.metadata?.contact_name ? `: ${activity.metadata.contact_name}` : ''}`
