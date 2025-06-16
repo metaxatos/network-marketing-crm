@@ -2,6 +2,27 @@ import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth } from '@/lib/api-helpers'
 
+// Define the database types
+interface DatabaseContact {
+  id: string
+  name: string
+  created_at: string
+}
+
+interface DatabaseCourse {
+  id: string
+  title: string
+  member_course_progress?: Array<{
+    completion_percentage: number
+    last_position_seconds: number
+  }>
+}
+
+interface DatabaseActivity {
+  activity_type: string
+  metadata?: Record<string, any>
+}
+
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createClient()
@@ -69,14 +90,14 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
         description: `You have ${recentContacts.length} new contact${recentContacts.length > 1 ? 's' : ''} to follow up with`,
         priority: 'high',
         data: {
-          contacts: recentContacts.map(c => ({ id: c.id, name: c.name })),
+          contacts: recentContacts.map((c: DatabaseContact) => ({ id: c.id, name: c.name })),
         },
       })
     }
 
     // Suggest continuing training
     if (incompleteCourses && incompleteCourses.length > 0) {
-      const course = incompleteCourses[0]
+      const course = incompleteCourses[0] as DatabaseCourse
       suggestedActions.push({
         id: 'continue_training',
         type: 'training_continue',
