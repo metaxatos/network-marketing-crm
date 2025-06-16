@@ -13,7 +13,7 @@ export default function Home() {
         const response = await fetch('/api/check-env')
         const data = await response.json()
         
-        if (data.supabaseUrl.exists && data.supabaseAnonKey.exists) {
+        if (data.configured.supabaseUrl && data.configured.supabaseAnonKey) {
           setEnvStatus('configured')
         } else {
           setEnvStatus('missing')
