@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { User } from '@supabase/supabase-js'
 
 // Add timeout wrapper with proper typing
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
@@ -20,13 +21,17 @@ export async function GET(req: NextRequest) {
   try {
     const supabase = await createClient()
     
-    // Get user with timeout
-    const authResult = await withTimeout(
+    // Get user with timeout - add type assertion for auth response
+    const authResponse = await withTimeout(
       supabase.auth.getUser(),
       3000 // 3 second timeout
     )
     
-    const { data: { user }, error: authError } = authResult
+    // Type assertion for the auth response
+    const { data: { user }, error: authError } = authResponse as {
+      data: { user: User | null }
+      error: any
+    }
     
     console.log('[API /auth/user] Auth result:', { 
       hasUser: !!user, 
@@ -43,25 +48,30 @@ export async function GET(req: NextRequest) {
 
     // Try to get member data with timeout
     try {
-      // Construct the full query including .single()
-      const memberQuery = supabase
-        .from('members')
-        .select(`
-          *,
-          member_profiles!member_id (
-            first_name,
-            last_name,
-            avatar_url,
-            timezone,
-            preferences
-          )
-        `)
-        .eq('id', user.id)
-        .single()
-
-      // Convert PostgrestBuilder to Promise
-      const memberResult = await withTimeout(Promise.resolve(memberQuery), 3000)
-      const { data: member, error: memberError } = memberResult
+      // Execute the query and handle the result properly
+      const memberResponse = await withTimeout(
+        supabase
+          .from('members')
+          .select(`
+            *,
+            member_profiles!member_id (
+              first_name,
+              last_name,
+              avatar_url,
+              timezone,
+              preferences
+            )
+          `)
+          .eq('id', user.id)
+          .single(),
+        3000
+      )
+      
+      // Type assertion for the response
+      const { data: member, error: memberError } = memberResponse as {
+        data: any
+        error: any
+      }
 
       if (memberError) {
         console.error('[API /auth/user] Member query error:', memberError)
@@ -82,15 +92,21 @@ export async function GET(req: NextRequest) {
       let company = null
       if (member?.company_id) {
         try {
-          const companyQuery = supabase
-            .from('companies')
-            .select('id, name, domain')
-            .eq('id', member.company_id)
-            .single()
-            
-                      // Convert PostgrestBuilder to Promise
-            const companyResult = await withTimeout(Promise.resolve(companyQuery), 2000)
-          const { data: companyData } = companyResult
+          // Execute the query and handle the result properly
+          const companyResponse = await withTimeout(
+            supabase
+              .from('companies')
+              .select('id, name, domain')
+              .eq('id', member.company_id)
+              .single(),
+            2000
+          )
+          
+          // Type assertion for the response
+          const { data: companyData } = companyResponse as {
+            data: any
+            error: any
+          }
           company = companyData
         } catch (error) {
           console.warn('[API /auth/user] Company query failed:', error)
