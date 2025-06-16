@@ -3,6 +3,12 @@ import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth, validateBody } from '@/lib/api-helpers'
 import type { UpdateProgressRequest, TrainingProgressResponse } from '@/types/api'
 
+// Define course progress row type
+interface DatabaseCourseProgress {
+  completion_percentage: number
+  completed_videos?: string[]
+}
+
 // GET /api/training/progress - Get user's training progress
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
@@ -27,12 +33,12 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
 
     // Calculate overall progress
     const totalCourses = progressData?.length || 0
-    const completedCourses = progressData?.filter(p => p.completion_percentage === 1).length || 0
+    const completedCourses = progressData?.filter((p: DatabaseCourseProgress) => p.completion_percentage === 1).length || 0
     
     const response: TrainingProgressResponse = {
       progress: {
         courseCompletion: totalCourses > 0 ? completedCourses / totalCourses : 0,
-        videosCompleted: progressData?.reduce((sum, p) => sum + (p.completed_videos?.length || 0), 0) || 0,
+        videosCompleted: progressData?.reduce((sum: number, p: DatabaseCourseProgress) => sum + (p.completed_videos?.length || 0), 0) || 0,
         totalVideos: 0, // This would need to be calculated from all course videos
       },
     }
