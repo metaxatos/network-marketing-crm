@@ -33,20 +33,18 @@ export function apiError(
   )
 }
 
-// Authentication middleware - UPGRADED to handle dynamic route contexts
-type BaseHandlerContext = { params?: any; [key: string]: any };
-
+// Authentication middleware - SIMPLIFIED for dynamic route contexts
 // NEW HELPER for routes WITH a context (dynamic routes)
-export function withAuthWithContext<T = any, C extends BaseHandlerContext = BaseHandlerContext>(
+export function withAuthWithContext<T = any>(
   handler: (
     req: NextRequest,
     userId: string,
-    context: C
+    context: { params: { [key: string]: string } }
   ) => Promise<NextResponse<ApiResponse<T>>>
 ) {
   return async (
     req: NextRequest,
-    context: C
+    context: { params: { [key: string]: string } }
   ): Promise<NextResponse<ApiResponse<null>> | NextResponse<ApiResponse<T>>> => {
     try {
       const supabase = await createApiClient(req)
