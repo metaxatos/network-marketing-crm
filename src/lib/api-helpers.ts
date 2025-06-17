@@ -33,11 +33,20 @@ export function apiError(
   )
 }
 
-// Authentication middleware - Updated to use API client
-export function withAuth<T = any>(
-  handler: (req: NextRequest, userId: string) => Promise<NextResponse<ApiResponse<T>>>
+// Authentication middleware - UPGRADED to handle dynamic route contexts
+type BaseHandlerContext = { params?: any; [key: string]: any };
+
+export function withAuth<T = any, C extends BaseHandlerContext = BaseHandlerContext>(
+  handler: (
+    req: NextRequest,
+    userId: string,
+    context: C
+  ) => Promise<NextResponse<ApiResponse<T>>>
 ) {
-  return async (req: NextRequest): Promise<NextResponse<ApiResponse<null>> | NextResponse<ApiResponse<T>>> => {
+  return async (
+    req: NextRequest,
+    context: C
+  ): Promise<NextResponse<ApiResponse<null>> | NextResponse<ApiResponse<T>>> => {
     try {
       // Use the new API client that properly handles auth cookies
       const supabase = await createApiClient(req)
@@ -57,7 +66,8 @@ export function withAuth<T = any>(
         return apiError('No authenticated user found', 401)
       }
 
-      return await handler(req, user.id)
+      // Pass the context object to the handler
+      return await handler(req, user.id, context)
     } catch (error) {
       console.error('[withAuth] Unexpected error:', error)
       return apiError('Authentication system error', 500)
