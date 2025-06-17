@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createApiClient } from '@/lib/supabase/api-client'
 import { apiResponse, apiError, withAuth, getPaginationParams, validateBody, sanitizeInput, isValidEmail, isValidPhone } from '@/lib/api-helpers'
 import type { ContactListResponse, CreateContactRequest } from '@/types/api'
 
@@ -20,11 +20,13 @@ interface DatabaseContact {
 // GET /api/contacts - List contacts with search/filter
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
-    const supabase = await createClient()
+    const supabase = await createApiClient(req)
     const searchParams = req.nextUrl.searchParams
     const { page = 1, limit = 20, cursor } = getPaginationParams(searchParams)
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status') || ''
+
+    console.log('[Contacts API] Fetching contacts for user:', userId)
 
     // Build query
     let query = supabase
@@ -48,19 +50,15 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
       query = query.lt('id', cursor)
     }
 
-    // Get total count
-    const { count: totalCount } = await supabase
-      .from('contacts')
-      .select('*', { count: 'exact', head: true })
-      .eq('member_id', userId)
-
     // Execute query with pagination
-    const { data: contacts, error } = await query.limit(limit)
+    const { data: contacts, error, count } = await query.limit(limit)
 
     if (error) {
       console.error('[Contacts API] Database error:', error)
       throw error
     }
+
+    console.log('[Contacts API] Found contacts:', contacts?.length || 0, 'Total count:', count)
 
     const response: ContactListResponse = {
       contacts: contacts?.map((contact: DatabaseContact) => ({
@@ -85,7 +83,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
 // POST /api/contacts - Create new contact
 export const POST = withAuth(async (req: NextRequest, userId: string) => {
   try {
-    const supabase = await createClient()
+    const supabase = await createApiClient(req)
     
     // Validate request body
     const body = await validateBody<CreateContactRequest>(req, (data) => {
