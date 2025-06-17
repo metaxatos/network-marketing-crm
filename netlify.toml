@@ -1,5 +1,5 @@
 [build]
-  command = "rm -rf .next node_modules/.cache node_modules package-lock.json && npm install --legacy-peer-deps --verbose && npm run build"
+  command = "npm cache clean --force && rm -rf .next node_modules/.cache node_modules package-lock.json && npm install --legacy-peer-deps --verbose && npm run build"
 
 [build.environment]
   # Use Node.js 18 for better compatibility with React 18

@@ -3,12 +3,10 @@ import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuthWithContext, validateBody, sanitizeInput } from '@/lib/api-helpers'
 import type { UpdateLandingPageRequest } from '@/types/api'
 
-type RouteContext = { params: { id: string } }
-
 // PUT /api/landing-pages/[id] - Update landing page content
-export const PUT = withAuthWithContext<any, RouteContext>(async (req, userId, { params }) => {
+export const PUT = withAuthWithContext(async (req: NextRequest, userId: string, { params }: { params: Promise<{ id: string }> }) => {
   try {
-    const { id } = params
+    const { id } = await params
     if (!id) {
       return apiError('Landing page ID is required', 400)
     }

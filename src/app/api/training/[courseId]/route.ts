@@ -2,13 +2,11 @@ import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuthWithContext, getCurrentMember } from '@/lib/api-helpers'
 
-type RouteContext = { params: { courseId: string } }
-
 // GET /api/training/[courseId] - Get course details
-export const GET = withAuthWithContext<any, RouteContext>(async (req, userId, { params }) => {
+export const GET = withAuthWithContext(async (req: NextRequest, userId: string, { params }: { params: Promise<{ courseId: string }> }) => {
   try {
     const supabase = await createClient()
-    const { courseId } = params
+    const { courseId } = await params
     
     if (!courseId) {
       return apiError('Course ID is required', 400)

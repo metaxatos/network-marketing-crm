@@ -3,20 +3,14 @@ import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuthWithContext } from '@/lib/api-helpers'
 import { type ApiResponse } from '@/types'
 
-type RouteContext = {
-  params: {
-    id: string
-  }
-}
-
 // GET /api/email-templates/[id] - Get specific email template details
-export const GET = withAuthWithContext<any, RouteContext>(async (
+export const GET = withAuthWithContext(async (
   req: NextRequest,
   userId: string,
-  { params }
+  { params }: { params: Promise<{ id: string }> }
 ) => {
   try {
-    const { id } = params
+    const { id } = await params
     if (!id) {
       return apiError('Template ID is required', 400)
     }
