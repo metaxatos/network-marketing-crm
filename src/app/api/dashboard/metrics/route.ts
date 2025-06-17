@@ -19,7 +19,7 @@ interface CourseProgress {
 type RouteContext = {}
 
 // GET /api/dashboard/metrics - Fetch key dashboard metrics
-export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: string) => {
+export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: string, context: RouteContext) => {
   try {
     const supabase = await createClient()
 

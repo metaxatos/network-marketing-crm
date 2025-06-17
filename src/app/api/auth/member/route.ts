@@ -13,7 +13,7 @@ interface UpdateMemberRequest {
 type RouteContext = {}
 
 // PATCH /api/auth/member - Update member information
-export const PATCH = withAuth<any, RouteContext>(async (req: NextRequest, userId: string) => {
+export const PATCH = withAuth<any, RouteContext>(async (req: NextRequest, userId: string, context: RouteContext) => {
   try {
     const supabase = await createClient()
     

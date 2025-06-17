@@ -11,7 +11,9 @@ interface DatabaseActivity {
   created_at: string
 }
 
-export const GET = withAuth(async (req: NextRequest, userId: string) => {
+type RouteContext = {}
+
+export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: string, context: RouteContext) => {
   try {
     const supabase = await createClient()
     const { page = 1, limit = 20 } = getPaginationParams(req.nextUrl.searchParams)
@@ -58,7 +60,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
   }
 })
 
-export const POST = withAuth(async (req: NextRequest, userId: string) => {
+export const POST = withAuth<any, RouteContext>(async (req: NextRequest, userId: string, context: RouteContext) => {
   try {
     const supabase = await createClient()
     const body = await req.json()

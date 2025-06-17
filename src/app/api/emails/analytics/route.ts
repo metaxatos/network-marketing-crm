@@ -6,7 +6,7 @@ import type { EmailClickAnalytics, ClickMetrics } from '@/types/email-tracking'
 type RouteContext = {}
 
 // GET /api/emails/analytics - Get email click analytics
-export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: string) => {
+export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: string, context: RouteContext) => {
   try {
     const supabase = await createClient()
     const url = new URL(req.url)

@@ -20,7 +20,7 @@ interface DatabaseContact {
 type RouteContext = {}
 
 // GET /api/contacts - List contacts with search/filter
-export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: string) => {
+export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: string, context: RouteContext) => {
   try {
     const supabase = await createApiClient(req)
     const searchParams = req.nextUrl.searchParams
@@ -83,7 +83,7 @@ export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: 
 })
 
 // POST /api/contacts - Create new contact
-export const POST = withAuth<any, RouteContext>(async (req: NextRequest, userId: string) => {
+export const POST = withAuth<any, RouteContext>(async (req: NextRequest, userId: string, context: RouteContext) => {
   try {
     const supabase = await createApiClient(req)
     

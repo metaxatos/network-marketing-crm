@@ -26,7 +26,7 @@ interface DatabaseActivity {
 type RouteContext = {}
 
 // GET /api/dashboard/quick-actions
-export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: string) => {
+export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: string, context: RouteContext) => {
   try {
     const supabase = await createClient()
 

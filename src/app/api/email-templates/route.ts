@@ -16,7 +16,7 @@ interface DatabaseEmailTemplate {
 type RouteContext = {}
 
 // GET /api/email-templates - Get all email templates
-export const GET = withAuth<any, RouteContext>(async (req, userId) => {
+export const GET = withAuth<any, RouteContext>(async (req, userId, context: RouteContext) => {
   try {
     const supabase = await createApiClient(req)
     

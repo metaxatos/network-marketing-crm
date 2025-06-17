@@ -6,7 +6,7 @@ import type { EnrollCourseRequest } from '@/types/api'
 type RouteContext = {}
 
 // POST /api/training/enroll - Enroll in course
-export const POST = withAuth<any, RouteContext>(async (req: NextRequest, userId: string) => {
+export const POST = withAuth<any, RouteContext>(async (req: NextRequest, userId: string, context: RouteContext) => {
   try {
     const supabase = await createClient()
     
