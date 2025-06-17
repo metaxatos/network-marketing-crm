@@ -23,7 +23,10 @@ interface DatabaseActivity {
   metadata?: Record<string, any>
 }
 
-export const GET = withAuth(async (req: NextRequest, userId: string) => {
+type RouteContext = {}
+
+// GET /api/dashboard/quick-actions
+export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createClient()
 

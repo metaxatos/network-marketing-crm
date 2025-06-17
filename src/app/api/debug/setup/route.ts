@@ -13,8 +13,10 @@ interface DefaultEmailTemplate {
   is_active?: boolean
 }
 
+type RouteContext = {}
+
 // GET /api/debug/setup - Check and optionally seed data
-export const GET = withAuth(async (req: NextRequest, userId: string) => {
+export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createClient()
     const searchParams = req.nextUrl.searchParams

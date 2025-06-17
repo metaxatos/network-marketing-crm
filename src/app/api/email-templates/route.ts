@@ -13,8 +13,10 @@ interface DatabaseEmailTemplate {
   variables?: string[]
 }
 
-// GET /api/email-templates - Get available email templates
-export const GET = withAuth(async (req: NextRequest, userId: string) => {
+type RouteContext = {}
+
+// GET /api/email-templates - Get all email templates
+export const GET = withAuth<any, RouteContext>(async (req, userId) => {
   try {
     const supabase = await createApiClient(req)
     

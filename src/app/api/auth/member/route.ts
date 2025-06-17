@@ -9,8 +9,11 @@ interface UpdateMemberRequest {
   name?: string
 }
 
+// This context is for a static route, so it's empty
+type RouteContext = {}
+
 // PATCH /api/auth/member - Update member information
-export const PATCH = withAuth(async (req: NextRequest, userId: string) => {
+export const PATCH = withAuth<any, RouteContext>(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createClient()
     

@@ -3,12 +3,14 @@ import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth, validateBody, sanitizeInput, isValidEmail, isValidPhone } from '@/lib/api-helpers'
 import type { UpdateContactRequest } from '@/types/api'
 
+type RouteContext = { params: { id: string } }
+
 // GET /api/contacts/[id] - Get single contact
-export const GET = withAuth(async (req: NextRequest, userId: string) => {
+export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: string, { params }) => {
   try {
-    const id = req.nextUrl.pathname.split('/').pop()
+    const { id: contactId } = params
     
-    if (!id) {
+    if (!contactId) {
       return apiError('Contact ID is required', 400)
     }
 
@@ -31,7 +33,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
           created_at
         )
       `)
-      .eq('id', id)
+      .eq('id', contactId)
       .eq('member_id', userId)
       .single()
 
@@ -62,11 +64,11 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
 })
 
 // PUT /api/contacts/[id] - Update contact
-export const PUT = withAuth(async (req: NextRequest, userId: string) => {
+export const PUT = withAuth<any, RouteContext>(async (req: NextRequest, userId: string, { params }) => {
   try {
-    const id = req.nextUrl.pathname.split('/').pop()
+    const { id: contactId } = params
     
-    if (!id) {
+    if (!contactId) {
       return apiError('Contact ID is required', 400)
     }
 
@@ -76,7 +78,7 @@ export const PUT = withAuth(async (req: NextRequest, userId: string) => {
     const { data: existing } = await supabase
       .from('contacts')
       .select('id')
-      .eq('id', id)
+      .eq('id', contactId)
       .eq('member_id', userId)
       .single()
 
@@ -112,7 +114,7 @@ export const PUT = withAuth(async (req: NextRequest, userId: string) => {
         ...body,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', id)
+      .eq('id', contactId)
       .eq('member_id', userId)
       .select()
       .single()
@@ -124,7 +126,7 @@ export const PUT = withAuth(async (req: NextRequest, userId: string) => {
     // Log interaction if status changed
     if (body.status) {
       await supabase.from('contact_interactions').insert({
-        contact_id: id,
+        contact_id: contactId,
         interaction_type: 'status_changed',
         metadata: {
           new_status: body.status,
@@ -153,11 +155,11 @@ export const PUT = withAuth(async (req: NextRequest, userId: string) => {
 })
 
 // DELETE /api/contacts/[id] - Delete contact
-export const DELETE = withAuth(async (req: NextRequest, userId: string) => {
+export const DELETE = withAuth<any, RouteContext>(async (req: NextRequest, userId: string, { params }) => {
   try {
-    const id = req.nextUrl.pathname.split('/').pop()
+    const { id: contactId } = params
     
-    if (!id) {
+    if (!contactId) {
       return apiError('Contact ID is required', 400)
     }
 
@@ -167,7 +169,7 @@ export const DELETE = withAuth(async (req: NextRequest, userId: string) => {
     const { data: existing } = await supabase
       .from('contacts')
       .select('id, name')
-      .eq('id', id)
+      .eq('id', contactId)
       .eq('member_id', userId)
       .single()
 
@@ -179,7 +181,7 @@ export const DELETE = withAuth(async (req: NextRequest, userId: string) => {
     const { error } = await supabase
       .from('contacts')
       .delete()
-      .eq('id', id)
+      .eq('id', contactId)
       .eq('member_id', userId)
 
     if (error) {

@@ -2,8 +2,10 @@ import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth, getCurrentMember } from '@/lib/api-helpers'
 
+type RouteContext = { params: { courseId: string } }
+
 // GET /api/training/[courseId] - Get course details
-export const GET = withAuth(async (req: NextRequest, userId: string) => {
+export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: string, { params }) => {
   try {
     const courseId = req.nextUrl.pathname.split('/').pop()
     

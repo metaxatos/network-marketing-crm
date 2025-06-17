@@ -13,8 +13,10 @@ interface DatabaseLandingPage {
   updated_at: string
 }
 
-// GET /api/landing-pages - Get user's landing pages
-export const GET = withAuth(async (req: NextRequest, userId: string) => {
+type RouteContext = {}
+
+// GET /api/landing-pages - Get all landing pages for the user
+export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createClient()
 

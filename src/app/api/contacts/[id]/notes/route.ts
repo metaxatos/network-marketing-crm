@@ -3,11 +3,12 @@ import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth, validateBody, sanitizeInput } from '@/lib/api-helpers'
 import type { AddNoteRequest } from '@/types/api'
 
+type RouteContext = { params: { id: string } }
+
 // POST /api/contacts/[id]/notes - Add note to contact
-export const POST = withAuth(async (req: NextRequest, userId: string) => {
+export const POST = withAuth<any, RouteContext>(async (req, userId, { params }) => {
   try {
-    const pathParts = req.nextUrl.pathname.split('/')
-    const contactId = pathParts[pathParts.length - 2] // Get contact ID from path
+    const { id: contactId } = params
     
     if (!contactId) {
       return apiError('Contact ID is required', 400)

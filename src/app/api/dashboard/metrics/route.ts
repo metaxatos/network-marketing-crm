@@ -16,7 +16,10 @@ interface CourseProgress {
   completion_percentage: number
 }
 
-export const GET = withAuth(async (req: NextRequest, userId: string) => {
+type RouteContext = {}
+
+// GET /api/dashboard/metrics - Fetch key dashboard metrics
+export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createClient()
 
@@ -126,4 +129,4 @@ function getActivityDescription(activity: DatabaseActivity): string {
     default:
       return activity.activity_type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
   }
-} 
+}

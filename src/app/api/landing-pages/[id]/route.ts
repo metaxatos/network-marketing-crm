@@ -3,8 +3,10 @@ import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth, validateBody, sanitizeInput } from '@/lib/api-helpers'
 import type { UpdateLandingPageRequest } from '@/types/api'
 
+type RouteContext = { params: { id: string } }
+
 // PUT /api/landing-pages/[id] - Update landing page content
-export const PUT = withAuth(async (req: NextRequest, userId: string) => {
+export const PUT = withAuth<any, RouteContext>(async (req, userId, { params }) => {
   try {
     const id = req.nextUrl.pathname.split('/').pop()
     

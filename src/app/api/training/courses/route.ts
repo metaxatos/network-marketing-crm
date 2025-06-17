@@ -20,8 +20,10 @@ interface DatabaseCourse {
   }>
 }
 
-// GET /api/training/courses - Get courses with progress
-export const GET = withAuth(async (req: NextRequest, userId: string) => {
+type RouteContext = {}
+
+// GET /api/training/courses - Get all available training courses
+export const GET = withAuth<any, RouteContext>(async (req, userId) => {
   try {
     console.log('Training courses API - Starting request for user:', userId)
     const supabase = await createClient()

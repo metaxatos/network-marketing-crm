@@ -9,8 +9,10 @@ interface DatabaseCourseProgress {
   completed_videos?: string[]
 }
 
+type RouteContext = {}
+
 // GET /api/training/progress - Get user's training progress
-export const GET = withAuth(async (req: NextRequest, userId: string) => {
+export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createClient()
     
@@ -54,7 +56,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
 })
 
 // POST /api/training/progress - Update lesson progress
-export const POST = withAuth(async (req: NextRequest, userId: string) => {
+export const POST = withAuth<any, RouteContext>(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createClient()
     

@@ -3,8 +3,10 @@ import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth, validateBody, getCurrentMember } from '@/lib/api-helpers'
 import type { EnrollCourseRequest } from '@/types/api'
 
+type RouteContext = {}
+
 // POST /api/training/enroll - Enroll in course
-export const POST = withAuth(async (req: NextRequest, userId: string) => {
+export const POST = withAuth<any, RouteContext>(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createClient()
     

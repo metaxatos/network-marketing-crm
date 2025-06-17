@@ -1,16 +1,20 @@
 import { NextRequest } from 'next/server'
 import { createApiClient } from '@/lib/supabase/api-client'
 import { apiResponse, apiError, withAuth, validateBody } from '@/lib/api-helpers'
+import { sendEmail } from '@/lib/email'
 
 interface SendEmailRequest {
   contactIds: string[]
   subject: string
   body: string
   templateId?: string
+  templateVariables?: Record<string, string>
 }
 
+type RouteContext = {}
+
 // POST /api/emails/send - Send emails to selected contacts
-export const POST = withAuth(async (req: NextRequest, userId: string) => {
+export const POST = withAuth<any, RouteContext>(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createApiClient(req)
     
@@ -29,6 +33,7 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
         subject: data.subject,
         body: data.body,
         templateId: data.templateId,
+        templateVariables: data.templateVariables,
       }
     })
 
