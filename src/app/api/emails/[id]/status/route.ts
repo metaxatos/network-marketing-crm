@@ -4,9 +4,9 @@ import { apiResponse, apiError, withAuthWithContext, validateBody } from '@/lib/
 import type { UpdateEmailStatusRequest } from '@/types/api'
 
 // PUT /api/emails/[id]/status - Update email status
-export const PUT = withAuthWithContext(async (req: NextRequest, userId: string, { params }: { params: Promise<{ id: string }> }) => {
+export const PUT = withAuthWithContext(async (req: NextRequest, userId: string, { params }: { params: { id: string } }) => {
   try {
-    const { id: emailId } = await params
+    const { id: emailId } = params
     if (!emailId) {
       return apiError('Email ID is required', 400)
     }

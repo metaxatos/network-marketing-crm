@@ -4,9 +4,9 @@ import { apiResponse, apiError, withAuthWithContext, validateBody, sanitizeInput
 import type { UpdateContactRequest } from '@/types/api'
 
 // GET /api/contacts/[id] - Get single contact
-export const GET = withAuthWithContext(async (req: NextRequest, userId: string, { params }: { params: Promise<{ id: string }> }) => {
+export const GET = withAuthWithContext(async (req: NextRequest, userId: string, { params }: { params: { id: string } }) => {
   try {
-    const { id: contactId } = await params
+    const { id: contactId } = params
     
     if (!contactId) {
       return apiError('Contact ID is required', 400)
@@ -52,9 +52,9 @@ export const GET = withAuthWithContext(async (req: NextRequest, userId: string, 
 })
 
 // PUT /api/contacts/[id] - Update contact
-export const PUT = withAuthWithContext(async (req: NextRequest, userId: string, { params }: { params: Promise<{ id: string }> }) => {
+export const PUT = withAuthWithContext(async (req: NextRequest, userId: string, { params }: { params: { id: string } }) => {
   try {
-    const { id: contactId } = await params
+    const { id: contactId } = params
     
     if (!contactId) {
       return apiError('Contact ID is required', 400)
@@ -132,9 +132,9 @@ export const PUT = withAuthWithContext(async (req: NextRequest, userId: string, 
 })
 
 // DELETE /api/contacts/[id] - Delete contact
-export const DELETE = withAuthWithContext(async (req: NextRequest, userId: string, { params }: { params: Promise<{ id: string }> }) => {
+export const DELETE = withAuthWithContext(async (req: NextRequest, userId: string, { params }: { params: { id: string } }) => {
   try {
-    const { id: contactId } = await params
+    const { id: contactId } = params
     
     if (!contactId) {
       return apiError('Contact ID is required', 400)

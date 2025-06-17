@@ -4,9 +4,9 @@ import { apiResponse, apiError, withAuthWithContext, validateBody, sanitizeInput
 import type { AddNoteRequest } from '@/types/api'
 
 // POST /api/contacts/[id]/notes - Add note to contact
-export const POST = withAuthWithContext(async (req: NextRequest, userId: string, { params }: { params: Promise<{ id: string }> }) => {
+export const POST = withAuthWithContext(async (req: NextRequest, userId: string, { params }: { params: { id: string } }) => {
   try {
-    const { id: contactId } = await params
+    const { id: contactId } = params
     
     if (!contactId) {
       return apiError('Contact ID is required', 400)

@@ -7,10 +7,10 @@ import { type ApiResponse } from '@/types'
 export const GET = withAuthWithContext(async (
   req: NextRequest,
   userId: string,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) => {
   try {
-    const { id } = await params
+    const { id } = params
     if (!id) {
       return apiError('Template ID is required', 400)
     }

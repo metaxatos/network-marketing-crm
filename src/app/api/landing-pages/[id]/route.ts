@@ -4,9 +4,9 @@ import { apiResponse, apiError, withAuthWithContext, validateBody, sanitizeInput
 import type { UpdateLandingPageRequest } from '@/types/api'
 
 // PUT /api/landing-pages/[id] - Update landing page content
-export const PUT = withAuthWithContext(async (req: NextRequest, userId: string, { params }: { params: Promise<{ id: string }> }) => {
+export const PUT = withAuthWithContext(async (req: NextRequest, userId: string, { params }: { params: { id: string } }) => {
   try {
-    const { id } = await params
+    const { id } = params
     if (!id) {
       return apiError('Landing page ID is required', 400)
     }
