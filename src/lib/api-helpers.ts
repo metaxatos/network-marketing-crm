@@ -45,7 +45,7 @@ export function withAuth<T = any, C extends BaseHandlerContext = BaseHandlerCont
 ) {
   return async (
     req: NextRequest,
-    context: C
+    context?: C
   ): Promise<NextResponse<ApiResponse<null>> | NextResponse<ApiResponse<T>>> => {
     try {
       // Use the new API client that properly handles auth cookies
@@ -66,8 +66,10 @@ export function withAuth<T = any, C extends BaseHandlerContext = BaseHandlerCont
         return apiError('No authenticated user found', 401)
       }
 
+      // For static routes, context will be undefined. Provide a default empty object.
+      const handlerContext = context || ({} as C)
       // Pass the context object to the handler
-      return await handler(req, user.id, context)
+      return await handler(req, user.id, handlerContext)
     } catch (error) {
       console.error('[withAuth] Unexpected error:', error)
       return apiError('Authentication system error', 500)
