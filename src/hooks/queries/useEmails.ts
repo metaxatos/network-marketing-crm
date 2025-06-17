@@ -15,7 +15,7 @@ export const useEmailTemplates = () => {
       }
       
       const data = await response.json()
-      return data.templates as EmailTemplate[]
+      return data.data.templates as EmailTemplate[]
     },
     staleTime: 30 * 60 * 1000, // 30 minutes (templates don't change often)
   })
@@ -39,7 +39,7 @@ export const useEmailHistory = (filters?: {
       }
       
       const data = await response.json()
-      return data.emails as EmailHistory[]
+      return data.data?.emails || [] as EmailHistory[]
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
   })
@@ -56,7 +56,7 @@ export const useEmailStats = () => {
       }
       
       const data = await response.json()
-      return data.stats
+      return data.data?.stats || {}
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
   })
@@ -96,11 +96,11 @@ export const useSendEmail = () => {
       
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || 'Failed to send email')
+        throw new Error(error.message || 'Failed to send email')
       }
       
       const result = await response.json()
-      return result
+      return result.data
     },
     onMutate: async (emailData) => {
       // Optimistically add to email history
@@ -176,11 +176,11 @@ export const useCreateEmailTemplate = () => {
       
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || 'Failed to create email template')
+        throw new Error(error.message || 'Failed to create email template')
       }
       
       const result = await response.json()
-      return result.template as EmailTemplate
+      return result.data.template as EmailTemplate
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.emailTemplates() })
@@ -204,11 +204,11 @@ export const useUpdateEmailTemplate = () => {
       
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || 'Failed to update email template')
+        throw new Error(error.message || 'Failed to update email template')
       }
       
       const result = await response.json()
-      return result.template as EmailTemplate
+      return result.data.template as EmailTemplate
     },
     onMutate: async ({ id, updates }) => {
       // Cancel outgoing refetches
@@ -253,7 +253,7 @@ export const useDeleteEmailTemplate = () => {
       
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || 'Failed to delete email template')
+        throw new Error(error.message || 'Failed to delete email template')
       }
       
       return { id }

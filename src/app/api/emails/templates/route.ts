@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createApiClient } from '@/lib/supabase/api-client'
 import { apiResponse, apiError, withAuth, getCurrentMember } from '@/lib/api-helpers'
 import type { EmailTemplateResponse } from '@/types/api'
 
@@ -16,7 +16,7 @@ interface DatabaseEmailTemplate {
 // GET /api/emails/templates - Get available email templates
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
-    const supabase = await createClient()
+    const supabase = await createApiClient(req)
     
     // Get member's company ID
     const member = await getCurrentMember(userId)
