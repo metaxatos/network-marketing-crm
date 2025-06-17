@@ -3,10 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuthWithContext, validateBody, sanitizeInput, isValidEmail, isValidPhone } from '@/lib/api-helpers'
 import type { UpdateContactRequest } from '@/types/api'
 
-type RouteContext = { params: { id: string } }
-
 // GET /api/contacts/[id] - Get single contact
-export const GET = withAuthWithContext<any, RouteContext>(async (req: NextRequest, userId: string, { params }) => {
+export const GET = withAuthWithContext(async (req: NextRequest, userId: string, { params }: { params: { id: string } }) => {
   try {
     const { id: contactId } = params
     
@@ -54,7 +52,7 @@ export const GET = withAuthWithContext<any, RouteContext>(async (req: NextReques
 })
 
 // PUT /api/contacts/[id] - Update contact
-export const PUT = withAuthWithContext<any, RouteContext>(async (req: NextRequest, userId: string, { params }) => {
+export const PUT = withAuthWithContext(async (req: NextRequest, userId: string, { params }: { params: { id: string } }) => {
   try {
     const { id: contactId } = params
     
@@ -88,9 +86,6 @@ export const PUT = withAuthWithContext<any, RouteContext>(async (req: NextReques
         updates.phone = sanitizeInput(data.phone)
       }
       if (data.status) updates.status = data.status
-      if (data.notes) updates.notes = sanitizeInput(data.notes)
-      if (data.avatar_url) updates.avatar_url = data.avatar_url
-      if (data.last_contacted_at) updates.last_contacted_at = data.last_contacted_at
 
       return updates
     })
@@ -115,7 +110,7 @@ export const PUT = withAuthWithContext<any, RouteContext>(async (req: NextReques
       throw error
     }
 
-    // Add an interaction record for the update
+    // Add an interaction record for status change
     if (body.status) {
       await supabase.from('contact_interactions').insert({
         contact_id: contactId,
@@ -137,7 +132,7 @@ export const PUT = withAuthWithContext<any, RouteContext>(async (req: NextReques
 })
 
 // DELETE /api/contacts/[id] - Delete contact
-export const DELETE = withAuthWithContext<any, RouteContext>(async (req: NextRequest, userId: string, { params }) => {
+export const DELETE = withAuthWithContext(async (req: NextRequest, userId: string, { params }: { params: { id: string } }) => {
   try {
     const { id: contactId } = params
     
