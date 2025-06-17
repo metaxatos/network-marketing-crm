@@ -1,14 +1,12 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { apiResponse, apiError, withAuth, validateBody, sanitizeInput } from '@/lib/api-helpers'
+import { apiResponse, apiError, withAuthWithContext, validateBody, sanitizeInput } from '@/lib/api-helpers'
 import type { AddNoteRequest } from '@/types/api'
 
-type RouteContext = { params: { id: string } }
-
 // POST /api/contacts/[id]/notes - Add note to contact
-export const POST = withAuth<any, RouteContext>(async (req, userId, { params }) => {
+export const POST = withAuthWithContext(async (req: NextRequest, userId: string, { params }: { params: Promise<{ id: string }> }) => {
   try {
-    const { id: contactId } = params
+    const { id: contactId } = await params
     
     if (!contactId) {
       return apiError('Contact ID is required', 400)
