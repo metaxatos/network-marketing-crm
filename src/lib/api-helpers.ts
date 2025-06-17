@@ -33,18 +33,18 @@ export function apiError(
   )
 }
 
-// Authentication middleware - SIMPLIFIED for dynamic route contexts
+// Authentication middleware - NEXT.JS 15 COMPATIBLE for dynamic route contexts
 // NEW HELPER for routes WITH a context (dynamic routes)
-export function withAuthWithContext<T = any>(
+export function withAuthWithContext<T = any, P = any>(
   handler: (
     req: NextRequest,
     userId: string,
-    context: { params: { [key: string]: string } }
+    context: { params: Promise<P> }
   ) => Promise<NextResponse<ApiResponse<T>>>
 ) {
   return async (
     req: NextRequest,
-    context: { params: { [key: string]: string } }
+    context: { params: Promise<P> }
   ): Promise<NextResponse<ApiResponse<null>> | NextResponse<ApiResponse<T>>> => {
     try {
       const supabase = await createApiClient(req)
