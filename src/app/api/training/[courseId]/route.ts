@@ -1,21 +1,19 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { apiResponse, apiError, withAuth, getCurrentMember } from '@/lib/api-helpers'
+import { apiResponse, apiError, withAuthWithContext, getCurrentMember } from '@/lib/api-helpers'
 
 type RouteContext = { params: { courseId: string } }
 
 // GET /api/training/[courseId] - Get course details
-export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: string, { params }) => {
+export const GET = withAuthWithContext<any, RouteContext>(async (req, userId, { params }) => {
   try {
-    const courseId = req.nextUrl.pathname.split('/').pop()
+    const supabase = await createClient()
+    const { courseId } = params
     
     if (!courseId) {
       return apiError('Course ID is required', 400)
     }
 
-    const supabase = await createClient()
-    
-    // Get member's company ID
     const member = await getCurrentMember(userId)
     
     if (!member?.company_id) {

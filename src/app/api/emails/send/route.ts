@@ -11,10 +11,8 @@ interface SendEmailRequest {
   templateVariables?: Record<string, string>
 }
 
-type RouteContext = {}
-
-// POST /api/emails/send - Send emails to selected contacts
-export const POST = withAuth<any, RouteContext>(async (req: NextRequest, userId: string, context: RouteContext) => {
+// POST /api/emails/send - Send an email
+export const POST = withAuth(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createApiClient(req)
     

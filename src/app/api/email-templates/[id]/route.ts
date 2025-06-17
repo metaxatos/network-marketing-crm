@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { apiResponse, apiError, withAuth } from '@/lib/api-helpers'
+import { apiResponse, apiError, withAuthWithContext } from '@/lib/api-helpers'
 import { type ApiResponse } from '@/types'
 
 type RouteContext = {
@@ -10,7 +10,7 @@ type RouteContext = {
 }
 
 // GET /api/email-templates/[id] - Get specific email template details
-export const GET = withAuth<any, RouteContext>(async (
+export const GET = withAuthWithContext<any, RouteContext>(async (
   req: NextRequest,
   userId: string,
   { params }

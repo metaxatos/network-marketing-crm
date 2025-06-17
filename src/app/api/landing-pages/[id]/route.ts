@@ -1,15 +1,14 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { apiResponse, apiError, withAuth, validateBody, sanitizeInput } from '@/lib/api-helpers'
+import { apiResponse, apiError, withAuthWithContext, validateBody, sanitizeInput } from '@/lib/api-helpers'
 import type { UpdateLandingPageRequest } from '@/types/api'
 
 type RouteContext = { params: { id: string } }
 
 // PUT /api/landing-pages/[id] - Update landing page content
-export const PUT = withAuth<any, RouteContext>(async (req, userId, { params }) => {
+export const PUT = withAuthWithContext<any, RouteContext>(async (req, userId, { params }) => {
   try {
-    const id = req.nextUrl.pathname.split('/').pop()
-    
+    const { id } = params
     if (!id) {
       return apiError('Landing page ID is required', 400)
     }

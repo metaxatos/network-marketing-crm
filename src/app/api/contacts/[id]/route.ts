@@ -1,12 +1,12 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { apiResponse, apiError, withAuth, validateBody, sanitizeInput, isValidEmail, isValidPhone } from '@/lib/api-helpers'
+import { apiResponse, apiError, withAuthWithContext, validateBody, sanitizeInput, isValidEmail, isValidPhone } from '@/lib/api-helpers'
 import type { UpdateContactRequest } from '@/types/api'
 
 type RouteContext = { params: { id: string } }
 
 // GET /api/contacts/[id] - Get single contact
-export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: string, { params }) => {
+export const GET = withAuthWithContext<any, RouteContext>(async (req: NextRequest, userId: string, { params }) => {
   try {
     const { id: contactId } = params
     
@@ -15,56 +15,46 @@ export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: 
     }
 
     const supabase = await createClient()
-    
-    // Get contact with notes
     const { data: contact, error } = await supabase
       .from('contacts')
       .select(`
-        *,
-        contact_notes (
-          id,
-          content,
-          created_at
-        ),
-        contact_interactions (
-          id,
-          interaction_type,
-          metadata,
-          created_at
-        )
-      `)
+          *,
+          interactions:contact_interactions (
+            id,
+            interaction_type,
+            notes,
+            created_at
+          )
+        `)
       .eq('id', contactId)
       .eq('member_id', userId)
       .single()
 
-    if (error || !contact) {
-      return apiError('Contact not found', 404)
+    if (error) {
+      console.error('Get contact error:', error)
+      if (error.code === 'PGRST116') { // Not found
+        return apiError('Contact not found', 404)
+      }
+      throw error
     }
 
-    return apiResponse({
-      contact: {
-        id: contact.id,
-        name: contact.name,
-        phone: contact.phone,
-        email: contact.email,
-        status: contact.status,
-        tags: contact.tags,
-        customFields: contact.custom_fields,
-        lastContactedAt: contact.last_contacted_at,
-        createdAt: contact.created_at,
-        updatedAt: contact.updated_at,
-        notes: contact.contact_notes || [],
-        interactions: contact.contact_interactions || [],
-      },
-    }, 200)
+    if (!contact) {
+      return apiError('Contact not found', 404)
+    }
+    
+    return apiResponse(contact, 200)
+
   } catch (error) {
-    console.error('Get contact error:', error)
-    return apiError('Failed to retrieve contact', 500)
+    console.error('[GET CONTACT]', error)
+    return apiError(
+      error instanceof Error ? error.message : 'Failed to retrieve contact',
+      500
+    )
   }
 })
 
 // PUT /api/contacts/[id] - Update contact
-export const PUT = withAuth<any, RouteContext>(async (req: NextRequest, userId: string, { params }) => {
+export const PUT = withAuthWithContext<any, RouteContext>(async (req: NextRequest, userId: string, { params }) => {
   try {
     const { id: contactId } = params
     
@@ -73,42 +63,43 @@ export const PUT = withAuth<any, RouteContext>(async (req: NextRequest, userId: 
     }
 
     const supabase = await createClient()
-    
-    // Verify contact ownership
-    const { data: existing } = await supabase
+
+    // First, verify the contact belongs to the user
+    const { data: existingContact } = await supabase
       .from('contacts')
       .select('id')
       .eq('id', contactId)
       .eq('member_id', userId)
       .single()
-
-    if (!existing) {
-      return apiError('Contact not found', 404)
+    
+    if (!existingContact) {
+      return apiError('Contact not found or access denied', 404)
     }
 
-    // Validate request body
     const body = await validateBody<UpdateContactRequest>(req, (data) => {
-      if (data.email && !isValidEmail(data.email)) {
-        throw new Error('Invalid email format')
+      const updates: Partial<UpdateContactRequest> = {}
+      if (data.name) updates.name = sanitizeInput(data.name)
+      if (data.email) {
+        if (!isValidEmail(data.email)) throw new Error('Invalid email format')
+        updates.email = data.email.toLowerCase().trim()
       }
-
-      if (data.phone && !isValidPhone(data.phone)) {
-        throw new Error('Invalid phone number format')
+      if (data.phone) {
+        if (!isValidPhone(data.phone)) throw new Error('Invalid phone number format')
+        updates.phone = sanitizeInput(data.phone)
       }
-
-      const updates: UpdateContactRequest = {}
-      
-      if (data.name !== undefined) updates.name = sanitizeInput(data.name)
-      if (data.phone !== undefined) updates.phone = sanitizeInput(data.phone)
-      if (data.email !== undefined) updates.email = data.email.toLowerCase().trim()
-      if (data.status !== undefined) updates.status = data.status
-      if (data.tags !== undefined) updates.tags = data.tags
+      if (data.status) updates.status = data.status
+      if (data.notes) updates.notes = sanitizeInput(data.notes)
+      if (data.avatar_url) updates.avatar_url = data.avatar_url
+      if (data.last_contacted_at) updates.last_contacted_at = data.last_contacted_at
 
       return updates
     })
 
-    // Update contact
-    const { data: contact, error } = await supabase
+    if (Object.keys(body).length === 0) {
+      return apiError('No update fields provided', 400)
+    }
+
+    const { data: updatedContact, error } = await supabase
       .from('contacts')
       .update({
         ...body,
@@ -120,31 +111,22 @@ export const PUT = withAuth<any, RouteContext>(async (req: NextRequest, userId: 
       .single()
 
     if (error) {
+      console.error('Contact update error:', error)
       throw error
     }
 
-    // Log interaction if status changed
+    // Add an interaction record for the update
     if (body.status) {
       await supabase.from('contact_interactions').insert({
         contact_id: contactId,
         interaction_type: 'status_changed',
-        metadata: {
-          new_status: body.status,
-        },
+        metadata: { new_status: body.status },
+        member_id: userId,
       })
     }
 
-    return apiResponse({
-      contact: {
-        id: contact.id,
-        name: contact.name,
-        phone: contact.phone,
-        email: contact.email,
-        status: contact.status,
-        tags: contact.tags,
-        updatedAt: contact.updated_at,
-      },
-    }, 200, 'Contact updated successfully')
+    return apiResponse(updatedContact, 200)
+
   } catch (error) {
     console.error('Update contact error:', error)
     return apiError(
@@ -155,7 +137,7 @@ export const PUT = withAuth<any, RouteContext>(async (req: NextRequest, userId: 
 })
 
 // DELETE /api/contacts/[id] - Delete contact
-export const DELETE = withAuth<any, RouteContext>(async (req: NextRequest, userId: string, { params }) => {
+export const DELETE = withAuthWithContext<any, RouteContext>(async (req: NextRequest, userId: string, { params }) => {
   try {
     const { id: contactId } = params
     
@@ -164,20 +146,19 @@ export const DELETE = withAuth<any, RouteContext>(async (req: NextRequest, userI
     }
 
     const supabase = await createClient()
-    
-    // Verify contact ownership
-    const { data: existing } = await supabase
+
+    // First, verify the contact belongs to the user and get its name for logging
+    const { data: contactToDelete } = await supabase
       .from('contacts')
       .select('id, name')
       .eq('id', contactId)
       .eq('member_id', userId)
       .single()
 
-    if (!existing) {
-      return apiError('Contact not found', 404)
+    if (!contactToDelete) {
+      return apiError('Contact not found or access denied', 404)
     }
 
-    // Delete contact (cascade will handle related records)
     const { error } = await supabase
       .from('contacts')
       .delete()
@@ -185,25 +166,24 @@ export const DELETE = withAuth<any, RouteContext>(async (req: NextRequest, userI
       .eq('member_id', userId)
 
     if (error) {
+      console.error('Delete contact error:', error)
       throw error
     }
 
-    // Log activity
+    // Log the deletion
     await supabase.from('member_activities').insert({
       member_id: userId,
       activity_type: 'contact_deleted',
-      metadata: {
-        contact_name: existing.name,
-      },
+      metadata: { contact_id: contactId, contact_name: contactToDelete.name },
     })
 
-    return apiResponse(
-      { message: 'Contact deleted successfully' },
-      200,
-      'Contact deleted successfully'
-    )
+    return apiResponse({ message: 'Contact deleted successfully' }, 200)
+
   } catch (error) {
     console.error('Delete contact error:', error)
-    return apiError('Failed to delete contact', 500)
+    return apiError(
+      error instanceof Error ? error.message : 'Failed to delete contact',
+      500
+    )
   }
 }) 

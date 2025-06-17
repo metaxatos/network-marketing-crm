@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth } from '@/lib/api-helpers'
 import type { LandingPageResponse } from '@/types/api'
+import type { LandingPage } from '@/types'
 
 // Define the database landing page type
 interface DatabaseLandingPage {
@@ -13,10 +14,8 @@ interface DatabaseLandingPage {
   updated_at: string
 }
 
-type RouteContext = {}
-
 // GET /api/landing-pages - Get all landing pages for the user
-export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: string, context: RouteContext) => {
+export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createClient()
 

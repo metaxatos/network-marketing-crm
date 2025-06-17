@@ -36,7 +36,8 @@ export function apiError(
 // Authentication middleware - UPGRADED to handle dynamic route contexts
 type BaseHandlerContext = { params?: any; [key: string]: any };
 
-export function withAuth<T = any, C extends BaseHandlerContext = BaseHandlerContext>(
+// NEW HELPER for routes WITH a context (dynamic routes)
+export function withAuthWithContext<T = any, C extends BaseHandlerContext = BaseHandlerContext>(
   handler: (
     req: NextRequest,
     userId: string,
@@ -45,34 +46,40 @@ export function withAuth<T = any, C extends BaseHandlerContext = BaseHandlerCont
 ) {
   return async (
     req: NextRequest,
-    context?: C
+    context: C
   ): Promise<NextResponse<ApiResponse<null>> | NextResponse<ApiResponse<T>>> => {
     try {
-      // Use the new API client that properly handles auth cookies
       const supabase = await createApiClient(req)
-      
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser()
-
-      if (error) {
-        console.error('[withAuth] Auth error:', error.message)
-        return apiError('Authentication failed: ' + error.message, 401)
-      }
-
-      if (!user) {
-        console.log('[withAuth] No authenticated user found')
-        return apiError('No authenticated user found', 401)
-      }
-
-      // For static routes, context will be undefined. Provide a default empty object.
-      const handlerContext = context || ({} as C)
-      // Pass the context object to the handler
-      return await handler(req, user.id, handlerContext)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return apiError('Authentication required', 401)
+      return await handler(req, user.id, context)
     } catch (error) {
-      console.error('[withAuth] Unexpected error:', error)
-      return apiError('Authentication system error', 500)
+      console.error('[withAuthWithContext] Error:', error)
+      const message = error instanceof Error ? error.message : 'Authentication system error'
+      return apiError(message, 500)
+    }
+  }
+}
+
+// NEW HELPER for routes WITHOUT a context (static routes)
+export function withAuth<T = any>(
+  handler: (
+    req: NextRequest,
+    userId: string
+  ) => Promise<NextResponse<ApiResponse<T>>>
+) {
+  return async (
+    req: NextRequest
+  ): Promise<NextResponse<ApiResponse<null>> | NextResponse<ApiResponse<T>>> => {
+    try {
+      const supabase = await createApiClient(req)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return apiError('Authentication required', 401)
+      return await handler(req, user.id)
+    } catch (error) {
+      console.error('[withAuth] Error:', error)
+      const message = error instanceof Error ? error.message : 'Authentication system error'
+      return apiError(message, 500)
     }
   }
 }

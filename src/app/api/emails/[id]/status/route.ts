@@ -1,16 +1,14 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { apiResponse, apiError, withAuth, validateBody } from '@/lib/api-helpers'
+import { apiResponse, apiError, withAuthWithContext, validateBody } from '@/lib/api-helpers'
 import type { UpdateEmailStatusRequest } from '@/types/api'
 
 type RouteContext = { params: { id: string } }
 
 // PUT /api/emails/[id]/status - Update email status
-export const PUT = withAuth<any, RouteContext>(async (req, userId, { params }) => {
+export const PUT = withAuthWithContext<any, RouteContext>(async (req, userId, { params }) => {
   try {
-    const pathParts = req.nextUrl.pathname.split('/')
-    const emailId = pathParts[pathParts.length - 2] // Get email ID from path
-    
+    const { id: emailId } = params
     if (!emailId) {
       return apiError('Email ID is required', 400)
     }

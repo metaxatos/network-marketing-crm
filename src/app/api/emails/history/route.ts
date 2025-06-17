@@ -17,10 +17,8 @@ interface DatabaseEmail {
   }>
 }
 
-type RouteContext = {}
-
 // GET /api/emails/history - Get user's email history
-export const GET = withAuth<any, RouteContext>(async (req: NextRequest, userId: string, context: RouteContext) => {
+export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createClient()
     const { page = 1, limit = 20 } = getPaginationParams(req.nextUrl.searchParams)
