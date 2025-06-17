@@ -18,18 +18,13 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createApiClient(req)
     
-    // Get member's company ID
-    const member = await getCurrentMember(userId)
-    
-    if (!member?.company_id) {
-      return apiError('Company not found', 404)
-    }
+    console.log('[Email Templates API] Fetching templates for user:', userId)
 
-    // Get email templates for the company
+    // Get email templates for the user (member_id based, not company_id)
     const { data: templates, error } = await supabase
       .from('email_templates')
       .select('id, name, subject, body_html, category, variables')
-      .eq('company_id', member.company_id)
+      .eq('member_id', userId)
       .eq('is_active', true)
       .order('category', { ascending: true })
       .order('name', { ascending: true })

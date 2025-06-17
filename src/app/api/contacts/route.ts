@@ -3,18 +3,18 @@ import { createApiClient } from '@/lib/supabase/api-client'
 import { apiResponse, apiError, withAuth, getPaginationParams, validateBody, sanitizeInput, isValidEmail, isValidPhone } from '@/lib/api-helpers'
 import type { ContactListResponse, CreateContactRequest } from '@/types/api'
 
-// Define the database contact type
+// Define the database contact type - Updated to match actual schema
 interface DatabaseContact {
   id: string
-  name: string
+  first_name: string
+  last_name?: string
   phone?: string
   email?: string
   status: string
-  last_contacted_at?: string
   created_at: string
   member_id: string
   tags?: string[]
-  custom_fields?: any
+  notes?: string
 }
 
 // GET /api/contacts - List contacts with search/filter
@@ -28,16 +28,16 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
 
     console.log('[Contacts API] Fetching contacts for user:', userId)
 
-    // Build query
+    // Build query - Updated to match actual schema
     let query = supabase
       .from('contacts')
       .select('*', { count: 'exact' })
       .eq('member_id', userId)
       .order('created_at', { ascending: false })
 
-    // Apply search filter
+    // Apply search filter - Updated field names
     if (search) {
-      query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
+      query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
     }
 
     // Apply status filter
@@ -63,11 +63,11 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
     const response: ContactListResponse = {
       contacts: contacts?.map((contact: DatabaseContact) => ({
         id: contact.id,
-        name: contact.name,
+        name: `${contact.first_name}${contact.last_name ? ' ' + contact.last_name : ''}`,
         phone: contact.phone,
         email: contact.email,
         status: contact.status,
-        lastContactedAt: contact.last_contacted_at,
+        lastContactedAt: undefined, // This field doesn't exist in the schema
       })) || [],
       nextCursor: contacts && contacts.length === limit ? contacts[contacts.length - 1].id : undefined,
       hasMore: contacts ? contacts.length === limit : false,
@@ -103,10 +103,15 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
         name: sanitizeInput(data.name),
         phone: data.phone ? sanitizeInput(data.phone) : undefined,
         email: data.email ? data.email.toLowerCase().trim() : undefined,
-        status: data.status || 'lead',
+        status: data.status || 'prospect',
         tags: data.tags || [],
       }
     })
+
+    // Split name into first and last name for database
+    const nameParts = body.name.split(' ')
+    const firstName = nameParts[0]
+    const lastName = nameParts.slice(1).join(' ') || undefined
 
     // Check for duplicate contact
     if (body.email) {
@@ -122,17 +127,18 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
       }
     }
 
-    // Create contact
+    // Create contact - Updated to match schema
     const { data: contact, error } = await supabase
       .from('contacts')
       .insert({
         member_id: userId,
-        name: body.name,
+        first_name: firstName,
+        last_name: lastName,
         phone: body.phone,
         email: body.email,
         status: body.status,
         tags: body.tags,
-        custom_fields: {},
+        notes: '',
       })
       .select()
       .single()
@@ -141,29 +147,10 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
       throw error
     }
 
-    // Log activity
-    await supabase.from('member_activities').insert({
-      member_id: userId,
-      activity_type: 'contact_added',
-      metadata: {
-        contact_id: contact.id,
-        contact_name: contact.name,
-      },
-    })
-
-    // Log interaction
-    await supabase.from('contact_interactions').insert({
-      contact_id: contact.id,
-      interaction_type: 'contact_added',
-      metadata: {
-        source: 'manual',
-      },
-    })
-
     return apiResponse({
       contact: {
         id: contact.id,
-        name: contact.name,
+        name: `${contact.first_name}${contact.last_name ? ' ' + contact.last_name : ''}`,
         phone: contact.phone,
         email: contact.email,
         status: contact.status,

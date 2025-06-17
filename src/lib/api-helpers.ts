@@ -65,25 +65,14 @@ export function withAuth<T = any>(
   }
 }
 
-// Get current member - Updated for current approach
-export async function getCurrentMember(userId?: string): Promise<any> {
-  const supabase = await createApiClient()
-  
-  let userIdToUse = userId
-  
-  if (!userIdToUse) {
-    // Get user from auth context
-    const { data: { user }, error } = await supabase.auth.getUser()
-    if (error || !user) {
-      throw new Error('Not authenticated')
-    }
-    userIdToUse = user.id
-  }
+// Get current member - Fixed to use request context
+export async function getCurrentMember(userId: string, req?: NextRequest): Promise<any> {
+  const supabase = await createApiClient(req)
 
   const { data: member, error } = await supabase
     .from('members')
     .select('id, email, company_id, username, name, avatar_url, phone, status, level, sponsor_id, created_at')
-    .eq('id', userIdToUse)
+    .eq('id', userId)
     .single()
 
   if (error) {
