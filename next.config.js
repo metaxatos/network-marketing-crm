@@ -79,6 +79,14 @@ const nextConfig = {
         crypto: false,
       }
     }
+    
+    // Ensure React is properly resolved
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'react/jsx-dev-runtime': require.resolve('react/jsx-dev-runtime'),
+      'react/jsx-runtime': require.resolve('react/jsx-runtime'),
+    }
+    
     return config
   },
   

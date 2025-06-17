@@ -12,6 +12,10 @@
   CI = "true"
   # Skip husky hooks during CI
   HUSKY = "0"
+  # Use legacy peer deps to avoid conflicts
+  NPM_FLAGS = "--legacy-peer-deps"
+  # Force clean install
+  NETLIFY_USE_YARN = "false"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

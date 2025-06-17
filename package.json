@@ -11,7 +11,8 @@
     "test": "jest",
     "test:e2e": "playwright test",
     "analyze": "ANALYZE=true next build",
-    "deploy:check": "node scripts/deploy.js"
+    "deploy:check": "node scripts/deploy.js",
+    "postinstall": "node -e \"console.log('Dependencies installed successfully')\""
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
