@@ -2,7 +2,15 @@
 
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import { queryKeys, getInvalidationQueries } from '@/lib/queryKeys'
-import type { Contact, ContactNote, ContactStatus } from '@/types'
+import type { Contact, ContactStatus } from '@/types'
+
+// Simplified note type for inline storage
+interface ContactNote {
+  id: string
+  content: string
+  created_at: string
+  created_by: string
+}
 
 // Contact list query
 export const useContacts = (filters?: {
@@ -54,8 +62,26 @@ export const useContacts = (filters?: {
   })
 }
 
-// Contact detail query
+// Contact detail query (alias for backward compatibility)
 export const useContact = (id: string) => {
+  return useQuery({
+    queryKey: queryKeys.contact(id),
+    queryFn: async () => {
+      const response = await fetch(`/api/contacts/${id}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch contact')
+      }
+      
+      const data = await response.json()
+      return data.contact as Contact
+    },
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+// Detailed contact query (new key structure)
+export const useContactDetail = (id: string) => {
   return useQuery({
     queryKey: queryKeys.contactDetail(id),
     queryFn: async () => {
@@ -72,7 +98,7 @@ export const useContact = (id: string) => {
   })
 }
 
-// Contact notes query
+// Contact notes query (now reads from inline notes)
 export const useContactNotes = (contactId: string) => {
   return useQuery({
     queryKey: queryKeys.contactNotes(contactId),
@@ -87,6 +113,24 @@ export const useContactNotes = (contactId: string) => {
     },
     enabled: !!contactId,
     staleTime: 2 * 60 * 1000, // 2 minutes for notes
+  })
+}
+
+// Contact interactions/communications query (NEW - uses communications table)
+export const useContactCommunications = (contactId: string) => {
+  return useQuery({
+    queryKey: queryKeys.communicationsByContact(contactId),
+    queryFn: async () => {
+      const response = await fetch(`/api/communications?contactId=${contactId}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch contact communications')
+      }
+      
+      const data = await response.json()
+      return data.communications || []
+    },
+    enabled: !!contactId,
+    staleTime: 2 * 60 * 1000,
   })
 }
 
@@ -202,7 +246,7 @@ export const useUpdateContact = () => {
         })
       }
       
-      // Optimistically update contact lists
+      // Update in all contact lists
       const queryCache = queryClient.getQueryCache()
       const contactListQueries = queryCache.findAll({ 
         queryKey: queryKeys.contacts,
@@ -215,13 +259,12 @@ export const useUpdateContact = () => {
           if (Array.isArray(oldData)) {
             previousLists.push({ queryKey: query.queryKey, data: oldData })
             
-            const updatedData = oldData.map((contact: Contact) =>
-              contact.id === id 
+            const updatedList = oldData.map((contact: Contact) =>
+              contact.id === id
                 ? { ...contact, ...updates, updated_at: new Date().toISOString() }
                 : contact
             )
-            
-            queryClient.setQueryData(query.queryKey, updatedData)
+            queryClient.setQueryData(query.queryKey, updatedList)
           }
         }
       })
@@ -262,21 +305,20 @@ export const useDeleteContact = () => {
         throw new Error(error.error || 'Failed to delete contact')
       }
       
-      return { id }
+      return id
     },
     onMutate: async (id) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.contacts })
       
-      // Get previous data for rollback
-      const previousLists: Array<{ queryKey: any; data: any }> = []
-      
-      // Optimistically remove from all contact lists
+      // Optimistically remove from all lists
       const queryCache = queryClient.getQueryCache()
       const contactListQueries = queryCache.findAll({ 
         queryKey: queryKeys.contacts,
         type: 'active'
       })
+      
+      const previousLists: Array<{ queryKey: any; data: any }> = []
       
       contactListQueries.forEach((query) => {
         if (query.queryKey.includes('list')) {
@@ -284,8 +326,8 @@ export const useDeleteContact = () => {
           if (Array.isArray(oldData)) {
             previousLists.push({ queryKey: query.queryKey, data: oldData })
             
-            const filteredData = oldData.filter((contact: Contact) => contact.id !== id)
-            queryClient.setQueryData(query.queryKey, filteredData)
+            const filteredList = oldData.filter((contact: Contact) => contact.id !== id)
+            queryClient.setQueryData(query.queryKey, filteredList)
           }
         }
       })
@@ -308,7 +350,7 @@ export const useDeleteContact = () => {
   })
 }
 
-// Add note mutation
+// Add contact note mutation (NEW - for inline notes)
 export const useAddContactNote = () => {
   const queryClient = useQueryClient()
   
@@ -328,13 +370,58 @@ export const useAddContactNote = () => {
       }
       
       const result = await response.json()
-      return result.note as ContactNote
+      return result.note
     },
-    onSuccess: (data, { contactId }) => {
-      // Invalidate contact notes
+    onMutate: async ({ contactId, content }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.contactNotes(contactId) })
+      await queryClient.cancelQueries({ queryKey: queryKeys.contactDetail(contactId) })
+      
+      // Get current data
+      const previousNotes = queryClient.getQueryData(queryKeys.contactNotes(contactId))
+      const previousContact = queryClient.getQueryData(queryKeys.contactDetail(contactId))
+      
+      // Create optimistic note
+      const optimisticNote = {
+        id: `temp-${Date.now()}`,
+        content,
+        created_at: new Date().toISOString(),
+        created_by: 'current-user',
+      }
+      
+      // Optimistically update notes list
+      if (Array.isArray(previousNotes)) {
+        queryClient.setQueryData(queryKeys.contactNotes(contactId), [optimisticNote, ...previousNotes])
+      } else {
+        queryClient.setQueryData(queryKeys.contactNotes(contactId), [optimisticNote])
+      }
+      
+      // Update contact with new last_contacted_at
+      if (previousContact) {
+        queryClient.setQueryData(queryKeys.contactDetail(contactId), {
+          ...previousContact,
+          last_contacted_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+      }
+      
+      return { previousNotes, previousContact, optimisticNote }
+    },
+    onError: (err, { contactId }, context) => {
+      // Rollback optimistic updates
+      if (context?.previousNotes) {
+        queryClient.setQueryData(queryKeys.contactNotes(contactId), context.previousNotes)
+      }
+      if (context?.previousContact) {
+        queryClient.setQueryData(queryKeys.contactDetail(contactId), context.previousContact)
+      }
+    },
+    onSettled: (data, error, { contactId }) => {
+      // Refetch to sync with server
       queryClient.invalidateQueries({ queryKey: queryKeys.contactNotes(contactId) })
-      // Also invalidate contact detail as it might include notes
       queryClient.invalidateQueries({ queryKey: queryKeys.contactDetail(contactId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.contacts })
+      queryClient.invalidateQueries({ queryKey: queryKeys.communications })
     },
   })
 } 

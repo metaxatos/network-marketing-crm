@@ -2,277 +2,275 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/queryKeys'
-import type { Course, Lesson, UserProgress, CourseProgress } from '@/types'
+import type { TrainingVideo, MemberProgress } from '@/types/training'
 
-// Courses query
-export const useCourses = () => {
+// Training videos query (simplified from courses)
+export const useTrainingVideos = (category?: string) => {
   return useQuery({
-    queryKey: queryKeys.courses(),
+    queryKey: queryKeys.trainingVideos(category),
     queryFn: async () => {
-      const response = await fetch('/api/training/courses')
+      const params = new URLSearchParams()
+      if (category) params.append('category', category)
+      
+      const response = await fetch(`/api/training/courses?${params.toString()}`)
       if (!response.ok) {
-        throw new Error('Failed to fetch courses')
+        throw new Error('Failed to fetch training videos')
       }
       
       const data = await response.json()
-      return data.courses as Course[]
+      return data.videos as TrainingVideo[]
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
   })
 }
 
-// Course detail query
-export const useCourse = (id: string) => {
+// Video detail query (renamed from course detail)
+export const useTrainingVideo = (id: string) => {
   return useQuery({
-    queryKey: queryKeys.courseDetail(id),
+    queryKey: queryKeys.trainingVideo(id),
     queryFn: async () => {
-      const response = await fetch(`/api/training/courses/${id}`)
+      const response = await fetch(`/api/training/${id}`)
       if (!response.ok) {
-        throw new Error('Failed to fetch course')
+        throw new Error('Failed to fetch training video')
       }
       
       const data = await response.json()
-      return data.course as Course
+      return data.video as TrainingVideo
     },
     enabled: !!id,
     staleTime: 10 * 60 * 1000,
   })
 }
 
-// Lesson detail query
-export const useLesson = (courseId: string, lessonId: string) => {
+// User's video progress (simplified from course progress)
+export const useVideoProgress = () => {
   return useQuery({
-    queryKey: queryKeys.lessonDetail(courseId, lessonId),
-    queryFn: async () => {
-      const response = await fetch(`/api/training/courses/${courseId}/lessons/${lessonId}`)
-      if (!response.ok) {
-        throw new Error('Failed to fetch lesson')
-      }
-      
-      const data = await response.json()
-      return data.lesson as Lesson
-    },
-    enabled: !!courseId && !!lessonId,
-    staleTime: 15 * 60 * 1000, // 15 minutes (lessons don't change often)
-  })
-}
-
-// User's overall training progress
-export const useUserProgress = () => {
-  return useQuery({
-    queryKey: queryKeys.userProgress(),
+    queryKey: queryKeys.videoProgress(),
     queryFn: async () => {
       const response = await fetch('/api/training/progress')
       if (!response.ok) {
-        throw new Error('Failed to fetch user progress')
+        throw new Error('Failed to fetch video progress')
       }
       
       const data = await response.json()
-      return data.progress as UserProgress
+      return data.progress as MemberProgress[]
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
   })
 }
 
-// Course-specific progress
-export const useCourseProgress = (courseId: string) => {
+// Specific video progress
+export const useVideoProgressById = (videoId: string) => {
   return useQuery({
-    queryKey: queryKeys.courseProgress(courseId),
+    queryKey: queryKeys.videoProgressById(videoId),
     queryFn: async () => {
-      const response = await fetch(`/api/training/courses/${courseId}/progress`)
+      const response = await fetch(`/api/training/progress?videoId=${videoId}`)
       if (!response.ok) {
-        throw new Error('Failed to fetch course progress')
+        throw new Error('Failed to fetch video progress')
       }
       
       const data = await response.json()
-      return data.progress as CourseProgress
+      return data.progress?.find((p: MemberProgress) => p.video_id === videoId) || null
     },
-    enabled: !!courseId,
+    enabled: !!videoId,
     staleTime: 5 * 60 * 1000,
   })
 }
 
-// Enroll in course mutation
-export const useEnrollInCourse = () => {
+// Start watching video mutation (simplified from course enrollment)
+export const useStartWatchingVideo = () => {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: async (courseId: string) => {
-      const response = await fetch(`/api/training/courses/${courseId}/enroll`, {
+    mutationFn: async (videoId: string) => {
+      const response = await fetch('/api/training/enroll', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ videoId }),
       })
       
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || 'Failed to enroll in course')
+        throw new Error(error.error || 'Failed to start watching video')
       }
       
       const result = await response.json()
       return result
     },
-    onSuccess: (data, courseId) => {
+    onSuccess: (data, videoId) => {
       // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: queryKeys.courseProgress(courseId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.userProgress() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.courses() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.videoProgress() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.videoProgressById(videoId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.trainingVideos() })
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard })
     },
   })
 }
 
-// Update lesson progress mutation
-export const useUpdateLessonProgress = () => {
+// Update video progress mutation (simplified from lesson progress)
+export const useUpdateVideoProgress = () => {
   const queryClient = useQueryClient()
   
   return useMutation({
     mutationFn: async ({
-      courseId,
-      lessonId,
+      videoId,
+      progressSeconds,
       completed,
-      watchTime,
-      notes,
     }: {
-      courseId: string
-      lessonId: string
+      videoId: string
+      progressSeconds: number
       completed?: boolean
-      watchTime?: number
-      notes?: string
     }) => {
-      const response = await fetch(`/api/training/courses/${courseId}/lessons/${lessonId}/progress`, {
+      const response = await fetch('/api/training/progress', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          videoId,
+          progressSeconds,
           completed,
-          watchTime,
-          notes,
         }),
       })
       
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || 'Failed to update lesson progress')
+        throw new Error(error.error || 'Failed to update video progress')
       }
       
       const result = await response.json()
       return result.progress
     },
-    onMutate: async ({ courseId, lessonId, completed, watchTime }) => {
+    onMutate: async ({ videoId, progressSeconds, completed }) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.courseProgress(courseId) })
-      await queryClient.cancelQueries({ queryKey: queryKeys.userProgress() })
+      await queryClient.cancelQueries({ queryKey: queryKeys.videoProgress() })
+      await queryClient.cancelQueries({ queryKey: queryKeys.videoProgressById(videoId) })
       
       // Get current data
-      const previousCourseProgress = queryClient.getQueryData(queryKeys.courseProgress(courseId))
-      const previousUserProgress = queryClient.getQueryData(queryKeys.userProgress())
+      const previousVideoProgress = queryClient.getQueryData(queryKeys.videoProgressById(videoId))
+      const previousAllProgress = queryClient.getQueryData(queryKeys.videoProgress())
       
-      // Optimistically update course progress
-      if (previousCourseProgress) {
+      // Optimistically update video progress
+      if (previousVideoProgress) {
         const updatedProgress = {
-          ...previousCourseProgress,
-          lessons: (previousCourseProgress as any).lessons?.map((lesson: any) =>
-            lesson.lesson_id === lessonId
-              ? { 
-                  ...lesson, 
-                  completed: completed !== undefined ? completed : lesson.completed,
-                  watch_time: watchTime !== undefined ? watchTime : lesson.watch_time,
-                  updated_at: new Date().toISOString(),
-                }
-              : lesson
-          ),
+          ...previousVideoProgress,
+          progress_seconds: progressSeconds,
+          completed: completed !== undefined ? completed : (previousVideoProgress as any).completed,
+          last_watched_at: new Date().toISOString(),
         }
-        queryClient.setQueryData(queryKeys.courseProgress(courseId), updatedProgress)
+        queryClient.setQueryData(queryKeys.videoProgressById(videoId), updatedProgress)
+      }
+
+      // Update progress in the all progress array
+      if (Array.isArray(previousAllProgress)) {
+        const updatedAllProgress = (previousAllProgress as MemberProgress[]).map(progress =>
+          progress.video_id === videoId
+            ? {
+                ...progress,
+                progress_seconds: progressSeconds,
+                completed: completed !== undefined ? completed : progress.completed,
+                last_watched_at: new Date().toISOString(),
+              }
+            : progress
+        )
+        queryClient.setQueryData(queryKeys.videoProgress(), updatedAllProgress)
       }
       
-      return { previousCourseProgress, previousUserProgress }
+      return { previousVideoProgress, previousAllProgress }
     },
-    onError: (err, { courseId }, context) => {
+    onError: (err, { videoId }, context) => {
       // Rollback optimistic updates
-      if (context?.previousCourseProgress) {
-        queryClient.setQueryData(queryKeys.courseProgress(courseId), context.previousCourseProgress)
+      if (context?.previousVideoProgress) {
+        queryClient.setQueryData(queryKeys.videoProgressById(videoId), context.previousVideoProgress)
       }
-      if (context?.previousUserProgress) {
-        queryClient.setQueryData(queryKeys.userProgress(), context.previousUserProgress)
+      if (context?.previousAllProgress) {
+        queryClient.setQueryData(queryKeys.videoProgress(), context.previousAllProgress)
       }
     },
-    onSettled: (data, error, { courseId }) => {
-      // Refetch to sync with server
-      queryClient.invalidateQueries({ queryKey: queryKeys.courseProgress(courseId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.userProgress() })
+    onSettled: (data, error, { videoId }) => {
+      // Always refetch to ensure consistency
+      queryClient.invalidateQueries({ queryKey: queryKeys.videoProgress() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.videoProgressById(videoId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard })
     },
   })
 }
 
-// Complete course mutation
-export const useCompleteCourse = () => {
+// Complete video mutation (simplified from complete course)
+export const useCompleteVideo = () => {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: async (courseId: string) => {
-      const response = await fetch(`/api/training/courses/${courseId}/complete`, {
-        method: 'POST',
+    mutationFn: async (videoId: string) => {
+      const response = await fetch('/api/training/progress', {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          videoId,
+          completed: true,
+        }),
       })
       
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || 'Failed to complete course')
+        throw new Error(error.error || 'Failed to complete video')
       }
       
       const result = await response.json()
-      return result
+      return result.progress
     },
-    onSuccess: (data, courseId) => {
-      // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: queryKeys.courseProgress(courseId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.userProgress() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.courses() })
+    onSuccess: (data, videoId) => {
+      // Invalidate all training related queries
+      queryClient.invalidateQueries({ queryKey: queryKeys.videoProgress() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.videoProgressById(videoId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.trainingVideos() })
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard })
     },
   })
 }
 
-// Add lesson note mutation
-export const useAddLessonNote = () => {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: async ({
-      courseId,
-      lessonId,
-      content,
-    }: {
-      courseId: string
-      lessonId: string
-      content: string
-    }) => {
-      const response = await fetch(`/api/training/courses/${courseId}/lessons/${lessonId}/notes`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content }),
-      })
-      
+// Get video categories (for filtering)
+export const useVideoCategories = () => {
+  return useQuery({
+    queryKey: queryKeys.videoCategories(),
+    queryFn: async () => {
+      const response = await fetch('/api/training/courses?categoriesOnly=true')
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to add lesson note')
+        throw new Error('Failed to fetch video categories')
       }
       
-      const result = await response.json()
-      return result.note
+      const data = await response.json()
+      return data.categories as string[]
     },
-    onSuccess: (data, { courseId, lessonId }) => {
-      // Invalidate lesson and progress queries
-      queryClient.invalidateQueries({ queryKey: queryKeys.lessonDetail(courseId, lessonId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.courseProgress(courseId) })
-    },
+    staleTime: 30 * 60 * 1000, // 30 minutes (categories don't change often)
   })
+}
+
+// LEGACY HOOKS - Keep for backward compatibility but mark as deprecated
+/**
+ * @deprecated Use useTrainingVideos instead
+ */
+export const useCourses = () => {
+  console.warn('useCourses is deprecated. Use useTrainingVideos instead.')
+  return useTrainingVideos()
+}
+
+/**
+ * @deprecated Use useTrainingVideo instead
+ */
+export const useCourse = (id: string) => {
+  console.warn('useCourse is deprecated. Use useTrainingVideo instead.')
+  return useTrainingVideo(id)
+}
+
+/**
+ * @deprecated Use useVideoProgress instead
+ */
+export const useUserProgress = () => {
+  console.warn('useUserProgress is deprecated. Use useVideoProgress instead.')
+  return useVideoProgress()
 } 

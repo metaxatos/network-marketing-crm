@@ -7,7 +7,15 @@ import {
   useContactNotes, 
   useAddContactNote 
 } from '@/hooks/queries/useContacts'
-import type { Contact, ContactNote } from '@/types'
+import type { Contact } from '@/types'
+
+// Local note type for inline storage (matches hook definition)
+interface ContactNote {
+  id: string
+  content: string
+  created_at: string
+  created_by: string
+}
 import { Target, Star, Users, User, Mail, Phone, X, Edit3, Trash2, MessageCircle, Calendar, Tag } from 'lucide-react'
 
 interface ContactDetailModalProps {

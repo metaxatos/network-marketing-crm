@@ -2,26 +2,36 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { VideoPlatform } from '@/types/training';
+import { useUpdateVideoProgress } from '@/hooks/queries/useTraining';
 
 interface VideoPlayerProps {
+  videoId: string;
   url: string;
   platform: VideoPlatform;
   initialProgress?: number;
   onProgress?: (seconds: number) => void;
   onEnd?: () => void;
+  autoSave?: boolean; // Automatically save progress
 }
 
 export function VideoPlayer({ 
+  videoId,
   url, 
   platform, 
   initialProgress = 0,
   onProgress,
-  onEnd 
+  onEnd,
+  autoSave = true
 }: VideoPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const [isReady, setIsReady] = useState(false);
+  const [currentTime, setCurrentTime] = useState(initialProgress);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // React Query mutation for updating progress
+  const { mutate: updateProgress } = useUpdateVideoProgress();
 
   // Extract video ID from URL
   const getVideoId = (url: string, platform: VideoPlatform): string => {
@@ -40,10 +50,52 @@ export function VideoPlayer({
     }
   };
 
-  const videoId = getVideoId(url, platform);
+  const embeddedVideoId = getVideoId(url, platform);
+
+  // Debounced progress save
+  const saveProgress = (seconds: number, completed = false) => {
+    if (!autoSave || !videoId) return;
+
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Debounce the save to avoid too many API calls
+    saveTimeoutRef.current = setTimeout(() => {
+      updateProgress({
+        videoId,
+        progressSeconds: Math.floor(seconds),
+        completed
+      });
+    }, 2000); // Save after 2 seconds of no progress change
+  };
+
+  // Handle progress updates
+  const handleProgressUpdate = (seconds: number) => {
+    setCurrentTime(seconds);
+    onProgress?.(seconds);
+    
+    if (autoSave) {
+      saveProgress(seconds);
+    }
+  };
+
+  // Handle video completion
+  const handleVideoEnd = () => {
+    if (autoSave && videoId) {
+      // Immediately save completion
+      updateProgress({
+        videoId,
+        progressSeconds: Math.floor(currentTime),
+        completed: true
+      });
+    }
+    onEnd?.();
+  };
 
   useEffect(() => {
-    if (!videoId || !containerRef.current) return;
+    if (!embeddedVideoId || !containerRef.current) return;
 
     // Load platform-specific scripts
     switch (platform) {
@@ -63,6 +115,10 @@ export function VideoPlayer({
         clearInterval(progressIntervalRef.current);
       }
       
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      
       // Cleanup players
       if (playerRef.current) {
         switch (platform) {
@@ -78,7 +134,7 @@ export function VideoPlayer({
         }
       }
     };
-  }, [videoId, platform]);
+  }, [embeddedVideoId, platform]);
 
   const loadYouTubePlayer = () => {
     // Check if YouTube API is already loaded
@@ -98,11 +154,11 @@ export function VideoPlayer({
   const initYouTubePlayer = () => {
     if (!containerRef.current) return;
 
-    const playerId = `youtube-player-${videoId}`;
+    const playerId = `youtube-player-${embeddedVideoId}`;
     containerRef.current.innerHTML = `<div id="${playerId}"></div>`;
 
     playerRef.current = new window.YT.Player(playerId, {
-      videoId: videoId,
+      videoId: embeddedVideoId,
       height: '100%',
       width: '100%',
       playerVars: {
@@ -110,16 +166,19 @@ export function VideoPlayer({
         controls: 1,
         rel: 0,
         modestbranding: 1,
-        start: initialProgress
+        start: Math.floor(initialProgress)
       },
       events: {
         onReady: (event: any) => {
           setIsReady(true);
+          if (initialProgress > 0) {
+            event.target.seekTo(initialProgress, true);
+          }
           startProgressTracking();
         },
         onStateChange: (event: any) => {
           if (event.data === window.YT.PlayerState.ENDED) {
-            onEnd?.();
+            handleVideoEnd();
           }
         }
       }
@@ -127,10 +186,15 @@ export function VideoPlayer({
   };
 
   const loadVimeoPlayer = () => {
-    const script = document.createElement('script');
-    script.src = 'https://player.vimeo.com/api/player.js';
-    script.onload = initVimeoPlayer;
-    document.body.appendChild(script);
+    // Check if Vimeo API is already loaded
+    if (window.Vimeo) {
+      initVimeoPlayer();
+    } else {
+      const script = document.createElement('script');
+      script.src = 'https://player.vimeo.com/api/player.js';
+      script.onload = initVimeoPlayer;
+      document.body.appendChild(script);
+    }
   };
 
   const initVimeoPlayer = () => {
@@ -138,7 +202,7 @@ export function VideoPlayer({
 
     containerRef.current.innerHTML = `
       <iframe 
-        src="https://player.vimeo.com/video/${videoId}?autoplay=0#t=${initialProgress}s" 
+        src="https://player.vimeo.com/video/${embeddedVideoId}?autoplay=0#t=${Math.floor(initialProgress)}s" 
         width="100%" 
         height="100%" 
         frameborder="0" 
@@ -160,7 +224,7 @@ export function VideoPlayer({
       });
 
       playerRef.current.on('ended', () => {
-        onEnd?.();
+        handleVideoEnd();
       });
     }
   };
@@ -168,7 +232,7 @@ export function VideoPlayer({
   const loadWistiaPlayer = () => {
     // Add Wistia script
     const script1 = document.createElement('script');
-    script1.src = `https://fast.wistia.com/embed/medias/${videoId}.jsonp`;
+    script1.src = `https://fast.wistia.com/embed/medias/${embeddedVideoId}.jsonp`;
     script1.async = true;
     document.body.appendChild(script1);
 
@@ -185,12 +249,12 @@ export function VideoPlayer({
     if (!containerRef.current || !window._wq) return;
 
     containerRef.current.innerHTML = `
-      <div class="wistia_embed wistia_async_${videoId}" style="width:100%;height:100%;"></div>
+      <div class="wistia_embed wistia_async_${embeddedVideoId}" style="width:100%;height:100%;"></div>
     `;
 
     window._wq = window._wq || [];
     window._wq.push({
-      id: videoId,
+      id: embeddedVideoId,
       onReady: (video: any) => {
         playerRef.current = video;
         setIsReady(true);
@@ -199,11 +263,11 @@ export function VideoPlayer({
           video.time(initialProgress);
         }
         
-        video.bind('end', () => {
-          onEnd?.();
-        });
-        
         startProgressTracking();
+        
+        video.bind('end', () => {
+          handleVideoEnd();
+        });
       }
     });
   };
@@ -216,45 +280,50 @@ export function VideoPlayer({
     progressIntervalRef.current = setInterval(() => {
       if (!playerRef.current) return;
 
+      let currentSeconds = 0;
+
       switch (platform) {
         case 'youtube':
-          const ytTime = playerRef.current.getCurrentTime?.();
-          if (ytTime !== undefined) {
-            onProgress?.(ytTime);
+          if (playerRef.current.getCurrentTime) {
+            currentSeconds = playerRef.current.getCurrentTime();
           }
           break;
         case 'vimeo':
-          playerRef.current.getCurrentTime?.().then((seconds: number) => {
-            onProgress?.(seconds);
-          });
+          if (playerRef.current.getCurrentTime) {
+            playerRef.current.getCurrentTime().then((time: number) => {
+              handleProgressUpdate(time);
+            });
+            return; // Don't call handleProgressUpdate below for Vimeo
+          }
           break;
         case 'wistia':
-          const wistiaTime = playerRef.current.time?.();
-          if (wistiaTime !== undefined) {
-            onProgress?.(wistiaTime);
+          if (playerRef.current.time) {
+            currentSeconds = playerRef.current.time();
           }
           break;
       }
-    }, 5000); // Update every 5 seconds
+
+      if (platform !== 'vimeo') {
+        handleProgressUpdate(currentSeconds);
+      }
+    }, 1000); // Update every second
   };
 
   return (
-    <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-      <div 
-        ref={containerRef} 
-        className="absolute inset-0 bg-gray-900"
-      >
-        {!isReady && (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-white">Loading video...</div>
-          </div>
-        )}
-      </div>
+    <div className="w-full aspect-video bg-black rounded-lg overflow-hidden">
+      <div ref={containerRef} className="w-full h-full" />
+      
+      {/* Loading state */}
+      {!isReady && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50">
+          <div className="text-white text-lg">Loading video...</div>
+        </div>
+      )}
     </div>
   );
 }
 
-// Add types for global window objects
+// Window type extension for video APIs
 declare global {
   interface Window {
     YT: any;

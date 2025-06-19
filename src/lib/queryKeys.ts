@@ -8,7 +8,9 @@ export const queryKeys = {
   
   // Contacts (simplified - no more contact_notes or contact_interactions)
   contacts: ['contacts'] as const,
+  contactList: (filters?: any) => [...queryKeys.contacts, 'list', filters] as const,
   contact: (id: string) => [...queryKeys.contacts, id] as const,
+  contactDetail: (id: string) => [...queryKeys.contacts, 'detail', id] as const,
   contactNotes: (contactId: string) => [...queryKeys.contacts, contactId, 'notes'] as const, // Now stored inline
   
   // Communications (replaces sent_emails, contact_interactions, email_clicks)
@@ -27,8 +29,12 @@ export const queryKeys = {
   
   // Training (simplified from courses/modules/lessons to videos)
   training: ['training'] as const,
-  trainingVideos: () => [...queryKeys.training, 'videos'] as const,
-  trainingVideo: (id: string) => [...queryKeys.training, 'videos', id] as const,
+  trainingVideos: (category?: string) => 
+    category ? [...queryKeys.training, 'videos', category] : [...queryKeys.training, 'videos'] as const,
+  trainingVideo: (id: string) => [...queryKeys.training, 'video', id] as const,
+  videoProgress: () => [...queryKeys.training, 'progress'] as const,
+  videoProgressById: (videoId: string) => [...queryKeys.training, 'progress', videoId] as const,
+  videoCategories: () => [...queryKeys.training, 'categories'] as const,
   memberProgress: (memberId?: string) => [...queryKeys.training, 'progress', memberId] as const,
   
   // Landing pages (simplified analytics)
