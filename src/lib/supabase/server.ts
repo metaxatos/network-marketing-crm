@@ -11,21 +11,58 @@ export async function createClient() {
   
   if (!supabaseUrl || !supabaseAnonKey) {
     console.warn('[Supabase Server] Environment variables not configured for local development')
+    console.log('[Supabase Server] NEXT_PUBLIC_SUPABASE_URL:', supabaseUrl ? 'SET' : 'NOT SET')
+    console.log('[Supabase Server] NEXT_PUBLIC_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'SET' : 'NOT SET')
     
     // In development, provide a mock client to prevent crashes
     if (process.env.NODE_ENV === 'development') {
       console.log('[Supabase Server] Using development mock client')
+      
+      // Create a proper mock that includes all the chaining methods
+      const mockQuery = {
+        select: () => mockQuery,
+        insert: () => mockQuery,
+        update: () => mockQuery,
+        delete: () => mockQuery,
+        order: () => mockQuery,
+        limit: () => mockQuery,
+        filter: () => mockQuery,
+        eq: () => mockQuery,
+        neq: () => mockQuery,
+        gt: () => mockQuery,
+        gte: () => mockQuery,
+        lt: () => mockQuery,
+        lte: () => mockQuery,
+        like: () => mockQuery,
+        ilike: () => mockQuery,
+        is: () => mockQuery,
+        in: () => mockQuery,
+        contains: () => mockQuery,
+        containedBy: () => mockQuery,
+        rangeLt: () => mockQuery,
+        rangeGt: () => mockQuery,
+        rangeGte: () => mockQuery,
+        rangeLte: () => mockQuery,
+        rangeAdjacent: () => mockQuery,
+        overlaps: () => mockQuery,
+        textSearch: () => mockQuery,
+        match: () => mockQuery,
+        not: () => mockQuery,
+        or: () => mockQuery,
+        then: () => Promise.resolve({ 
+          data: [
+            { id: '1', name: 'Demo Company', description: 'Default company for development' }
+          ], 
+          error: null 
+        })
+      }
+      
       return {
         auth: {
           getUser: async () => ({ data: { user: null }, error: null }),
           signOut: async () => ({ error: null }),
         },
-        from: () => ({
-          select: () => Promise.resolve({ data: [], error: null }),
-          insert: () => Promise.resolve({ data: null, error: { message: 'Development mode' } }),
-          update: () => Promise.resolve({ data: null, error: { message: 'Development mode' } }),
-          delete: () => Promise.resolve({ data: null, error: { message: 'Development mode' } }),
-        }),
+        from: () => mockQuery,
       } as any
     }
     
