@@ -1,13 +1,13 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { PersonalEmailTemplate } from '@/types'
+import { EmailTemplate } from '@/types'
 
 // Get personal templates
 export const usePersonalTemplates = () => {
   return useQuery({
     queryKey: ['personal-templates'],
-    queryFn: async (): Promise<PersonalEmailTemplate[]> => {
+    queryFn: async (): Promise<EmailTemplate[]> => {
       const response = await fetch('/api/emails/personal-templates')
       if (!response.ok) {
         throw new Error('Failed to fetch personal templates')
@@ -29,7 +29,7 @@ export const useDuplicateTemplate = () => {
     }: { 
       template_id: string
       new_name?: string 
-    }): Promise<PersonalEmailTemplate> => {
+    }): Promise<EmailTemplate> => {
       const response = await fetch('/api/emails/personal-templates/duplicate', {
         method: 'POST',
         headers: {
@@ -62,8 +62,8 @@ export const useUpdatePersonalTemplate = () => {
       updates 
     }: { 
       id: string
-      updates: Partial<PersonalEmailTemplate> 
-    }): Promise<PersonalEmailTemplate> => {
+      updates: Partial<EmailTemplate> 
+    }): Promise<EmailTemplate> => {
       const response = await fetch(`/api/emails/personal-templates/${id}`, {
         method: 'PATCH',
         headers: {

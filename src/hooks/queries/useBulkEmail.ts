@@ -1,7 +1,18 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { BulkEmailJob } from '@/types'
+import { Communication } from '@/types'
+
+// Simplified bulk email job interface for new structure
+interface BulkEmailResult {
+  job_id: string
+  total_emails: number
+  sent_count: number
+  failed_count: number
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  created_at: string
+  updated_at: string
+}
 
 // Send bulk emails
 export const useSendBulkEmails = () => {
@@ -42,6 +53,8 @@ export const useSendBulkEmails = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bulk-email-jobs'] })
+      queryClient.invalidateQueries({ queryKey: ['communications'] })
+      queryClient.invalidateQueries({ queryKey: ['email-history'] })
     }
   })
 }
@@ -50,7 +63,7 @@ export const useSendBulkEmails = () => {
 export const useBulkEmailJob = (jobId: string | null) => {
   return useQuery({
     queryKey: ['bulk-email-job', jobId],
-    queryFn: async (): Promise<BulkEmailJob> => {
+    queryFn: async (): Promise<BulkEmailResult> => {
       if (!jobId) throw new Error('Job ID is required')
       
       const response = await fetch(`/api/emails/bulk-send?job_id=${jobId}`)
@@ -73,14 +86,32 @@ export const useBulkEmailJob = (jobId: string | null) => {
   })
 }
 
-// Get all bulk email jobs for the user
+// Get all bulk email jobs for the user (simplified - returns recent communications)
 export const useBulkEmailJobs = () => {
   return useQuery({
     queryKey: ['bulk-email-jobs'],
-    queryFn: async (): Promise<BulkEmailJob[]> => {
+    queryFn: async (): Promise<BulkEmailResult[]> => {
+      // Note: This could be simplified to query communications table
+      // For now, keeping compatibility with existing API structure
       const response = await fetch('/api/emails/bulk-jobs')
       if (!response.ok) {
         throw new Error('Failed to fetch bulk email jobs')
+      }
+      
+      const result = await response.json()
+      return result.data
+    }
+  })
+}
+
+// NEW: Get recent bulk communications (alternative approach)
+export const useBulkCommunications = () => {
+  return useQuery({
+    queryKey: ['bulk-communications'],
+    queryFn: async (): Promise<Communication[]> => {
+      const response = await fetch('/api/emails/history?type=bulk')
+      if (!response.ok) {
+        throw new Error('Failed to fetch bulk communications')
       }
       
       const result = await response.json()

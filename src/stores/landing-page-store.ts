@@ -1,19 +1,11 @@
 import { create } from 'zustand';
-import type { 
-  LandingPage, 
-  LeadSubmission, 
-  PageVisit, 
-  PageAnalytics,
-  PageTemplate 
-} from '@/types/landing-pages';
+import type { LandingPage, LeadCapture } from '@/types';
 import toast from 'react-hot-toast';
 
 interface LandingPageStore {
   // State
   landingPage: LandingPage | null;
-  leads: LeadSubmission[];
-  analytics: PageAnalytics[];
-  templates: PageTemplate[];
+  leads: LeadCapture[];
   isLoading: boolean;
   error: string | null;
 
@@ -22,9 +14,6 @@ interface LandingPageStore {
   updateLandingPage: (updates: Partial<LandingPage>) => Promise<void>;
   publishLandingPage: (publish: boolean) => Promise<void>;
   fetchLeads: () => Promise<void>;
-  fetchAnalytics: (days?: number) => Promise<void>;
-  fetchTemplates: () => Promise<void>;
-  trackPageVisit: (username: string, utm?: any) => Promise<void>;
   submitLead: (pageId: string, leadData: any) => Promise<{ success: boolean }>;
   reset: () => void;
 }
@@ -33,8 +22,6 @@ export const useLandingPageStore = create<LandingPageStore>((set, get) => ({
   // Initial state
   landingPage: null,
   leads: [],
-  analytics: [],
-  templates: [],
   isLoading: false,
   error: null,
 
@@ -98,17 +85,20 @@ export const useLandingPageStore = create<LandingPageStore>((set, get) => ({
     toast.success(publish ? 'Landing page published! 🚀' : 'Landing page unpublished');
   },
 
-  // Fetch leads (placeholder - could be implemented as separate API endpoint)
+  // Fetch leads from the simplified landing page
   fetchLeads: async () => {
     set({ isLoading: true, error: null });
     
     try {
-      // For now, get leads from landing page analytics
-      // TODO: Implement separate leads API endpoint if needed
       const { landingPage } = get();
       if (landingPage) {
-        // Could fetch leads here from a dedicated endpoint
-        set({ leads: [], isLoading: false });
+        const response = await fetch(`/api/landing-pages/${landingPage.id}/leads`);
+        if (response.ok) {
+          const data = await response.json();
+          set({ leads: data.leads || [], isLoading: false });
+        } else {
+          set({ leads: [], isLoading: false });
+        }
       } else {
         set({ isLoading: false });
       }
@@ -118,54 +108,9 @@ export const useLandingPageStore = create<LandingPageStore>((set, get) => ({
     }
   },
 
-  // Fetch analytics (placeholder - could be implemented as separate API endpoint)
-  fetchAnalytics: async (days = 30) => {
-    set({ isLoading: true, error: null });
-    
-    try {
-      // For now, use basic analytics from landing page data
-      // TODO: Implement dedicated analytics API endpoint if needed
-      const { landingPage } = get();
-      if (landingPage) {
-        // Could fetch detailed analytics here from a dedicated endpoint
-        set({ analytics: [], isLoading: false });
-      } else {
-        set({ isLoading: false });
-      }
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
-      set({ error: 'Failed to fetch analytics', isLoading: false });
-    }
-  },
-
-  // Fetch available templates (placeholder - could be implemented as separate API endpoint)
-  fetchTemplates: async () => {
-    set({ isLoading: true, error: null });
-    
-    try {
-      // TODO: Implement templates API endpoint if needed
-      set({ templates: [], isLoading: false });
-    } catch (error) {
-      console.error('Error fetching templates:', error);
-      set({ error: 'Failed to fetch templates', isLoading: false });
-    }
-  },
-
-  // Track page visit (uses public API endpoint)
-  trackPageVisit: async (username: string, utm?: any) => {
-    try {
-      // This would be called from the public landing page
-      // The public landing page route already handles visit tracking
-      console.log('Page visit tracked for:', username, utm);
-    } catch (error) {
-      console.error('Error tracking page visit:', error);
-    }
-  },
-
   // Submit lead (uses public API endpoint)
   submitLead: async (pageId: string, leadData: any) => {
     try {
-      // Get the page slug for the API call
       const { landingPage } = get();
       if (!landingPage) {
         return { success: false };
@@ -200,8 +145,6 @@ export const useLandingPageStore = create<LandingPageStore>((set, get) => ({
     set({
       landingPage: null,
       leads: [],
-      analytics: [],
-      templates: [],
       isLoading: false,
       error: null,
     });

@@ -1,10 +1,10 @@
 import { create } from 'zustand'
-import type { EmailTemplate, SentEmail } from '@/types'
+import type { EmailTemplate, Communication } from '@/types'
 
 interface EmailStore {
   // State
   templates: EmailTemplate[]
-  sentEmails: SentEmail[]
+  sentEmails: Communication[]
   analytics: any[]
   clickMetrics: any | null
   isLoading: boolean

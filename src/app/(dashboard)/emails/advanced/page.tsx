@@ -295,9 +295,7 @@ export default function AdvancedEmailsPage() {
                                 <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-600">
                                   Personal
                                 </span>
-                                {template.is_favorite && (
-                                  <span className="text-yellow-500">⭐</span>
-                                )}
+
                               </div>
                             </div>
                           </div>

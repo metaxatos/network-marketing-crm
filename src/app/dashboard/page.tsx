@@ -77,7 +77,9 @@ export default function DashboardPage() {
   
   // Calculate training progress from courses and user progress
   const totalCourses = courses.length
-  const completedCourses = userProgress?.completed_courses ?? 0
+  const completedCourses = Array.isArray(userProgress) 
+    ? userProgress.filter(p => p.completed).length 
+    : 0
   const trainingProgress = totalCourses > 0 ? Math.round((completedCourses / totalCourses) * 100) : 0
 
   // Mock smart suggestion - in real app this would come from AI/analytics

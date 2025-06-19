@@ -1,5 +1,13 @@
 import { create } from 'zustand'
-import type { Contact, ContactStatus, ContactNote } from '@/types'
+import type { Contact, ContactStatus } from '@/types'
+
+// Local note type for inline storage
+interface ContactNote {
+  id: string
+  content: string
+  created_at: string
+  created_by: string
+}
 import { useRealtimeSubscription } from '@/hooks/useRealtime'
 
 interface ContactStore {

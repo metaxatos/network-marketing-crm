@@ -37,7 +37,6 @@ export default function LandingPageDashboard() {
     if (landingPage) {
       setFormData({
         title: landingPage.title || '',
-        meta_title: landingPage.meta_title || '',
         meta_description: landingPage.meta_description || '',
         content: {
           headline: landingPage.content?.headline || '',

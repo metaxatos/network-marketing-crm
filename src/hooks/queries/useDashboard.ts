@@ -7,7 +7,7 @@ import type { DashboardMetrics, Activity, Contact } from '@/types'
 // Dashboard metrics query
 export const useDashboardMetrics = () => {
   return useQuery({
-    queryKey: queryKeys.metrics(),
+    queryKey: queryKeys.dashboardMetrics(),
     queryFn: async () => {
       const response = await fetch('/api/dashboard/metrics')
       if (!response.ok) {
@@ -28,7 +28,7 @@ export const useActivityFeed = (filters?: {
   limit?: number
 }) => {
   return useInfiniteQuery({
-    queryKey: queryKeys.activities(filters),
+    queryKey: queryKeys.dashboardActivities(),
     queryFn: async ({ pageParam = 0 }) => {
       const params = new URLSearchParams()
       params.append('page', pageParam.toString())
@@ -57,7 +57,7 @@ export const useActivityFeed = (filters?: {
 // Recent contacts query
 export const useRecentContacts = () => {
   return useQuery({
-    queryKey: queryKeys.recentContacts(),
+    queryKey: queryKeys.contactList({ recent: true }),
     queryFn: async () => {
       const response = await fetch('/api/dashboard/recent-contacts')
       if (!response.ok) {

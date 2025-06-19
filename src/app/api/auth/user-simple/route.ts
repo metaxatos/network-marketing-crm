@@ -1,5 +1,5 @@
 // Simple user endpoint to fix auth timeouts
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createApiClient } from '@/lib/supabase/api-client'
 import { apiResponse, apiError } from '@/lib/api-helpers'
 
