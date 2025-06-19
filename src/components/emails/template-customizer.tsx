@@ -1,16 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { EmailTemplate, PersonalEmailTemplate } from '@/types'
+import { EmailTemplate } from '@/types'
 import { useDuplicateTemplate, useUpdatePersonalTemplate } from '@/hooks/queries/usePersonalTemplates'
 import { Button } from '@/components/ui/button'
 import { Copy, Eye, Save, Sparkles } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface TemplateCustomizerProps {
-  template: EmailTemplate | PersonalEmailTemplate
+  template: EmailTemplate
   isPersonalTemplate?: boolean
-  onSave?: (template: PersonalEmailTemplate) => void
+  onSave?: (template: EmailTemplate) => void
 }
 
 // Variable helper component

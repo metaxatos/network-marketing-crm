@@ -21,7 +21,7 @@ import {
   WrenchScrewdriverIcon,
   UsersIcon
 } from '@heroicons/react/24/outline'
-import { EmailTemplate, PersonalEmailTemplate } from '@/types'
+import { EmailTemplate } from '@/types'
 
 type ViewMode = 'overview' | 'customize' | 'bulk-send'
 
@@ -35,7 +35,7 @@ export default function AdvancedEmailsPage() {
   
   const [viewMode, setViewMode] = useState<ViewMode>('overview')
   const [selectedTemplate, setSelectedTemplate] = useState<{
-    template: EmailTemplate | PersonalEmailTemplate
+    template: EmailTemplate
     isPersonal: boolean
   } | null>(null)
 
@@ -50,7 +50,7 @@ export default function AdvancedEmailsPage() {
     }
   }
 
-  const handleTemplateSelect = (template: EmailTemplate | PersonalEmailTemplate, isPersonal: boolean) => {
+  const handleTemplateSelect = (template: EmailTemplate, isPersonal: boolean) => {
     setSelectedTemplate({ template, isPersonal })
     setViewMode('customize')
   }
