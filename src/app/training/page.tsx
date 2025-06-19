@@ -236,11 +236,11 @@ function LearningPathStep({
 }
 
 export default function TrainingPage() {
-  const { courses, fetchCourses } = useTrainingStore();
+  const { videos, fetchVideos } = useTrainingStore();
 
   useEffect(() => {
-    fetchCourses();
-  }, [fetchCourses]);
+    fetchVideos();
+  }, [fetchVideos]);
 
   // Sample data - replace with real data from store
   const stats = {

@@ -12,7 +12,7 @@ export default function TestAPIPage() {
   const { metrics, activities } = useUserStore()
   const { contacts, isLoading: contactsLoading } = useContactStoreCompat()
   const { templates, sentEmails, isLoading: emailsLoading } = useEmailStore()
-  const { courses, isLoading: trainingLoading } = useTrainingStore()
+  const { videos, isLoading: trainingLoading } = useTrainingStore()
 
   const [testResults, setTestResults] = useState<string[]>([])
 
@@ -60,10 +60,10 @@ export default function TestAPIPage() {
   }, [sentEmails, emailsLoading])
 
   useEffect(() => {
-    if (!trainingLoading && courses.length >= 0) {
-      addTestResult(`🎓 Training courses loaded: ${courses.length} courses available`)
+    if (!trainingLoading && videos.length >= 0) {
+      addTestResult(`🎓 Training videos loaded: ${videos.length} videos available`)
     }
-  }, [courses, trainingLoading])
+  }, [videos, trainingLoading])
 
   const testAddContact = async () => {
     const { addContact } = useContactStoreCompat()
@@ -154,8 +154,8 @@ export default function TestAPIPage() {
             <p className="text-2xl font-bold text-purple-600">{emailsLoading ? '...' : sentEmails.length}</p>
           </div>
           <div className="bg-white rounded-lg shadow-md p-4">
-            <h3 className="font-semibold text-gray-700">Courses</h3>
-            <p className="text-2xl font-bold text-orange-600">{trainingLoading ? '...' : courses.length}</p>
+            <h3 className="font-semibold text-gray-700">Videos</h3>
+            <p className="text-2xl font-bold text-orange-600">{trainingLoading ? '...' : videos.length}</p>
           </div>
         </div>
 

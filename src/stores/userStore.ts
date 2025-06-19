@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
-import type { Member, MemberProfile } from '@/types'
+import type { Member } from '@/types'
 
 interface Company {
   id: string
@@ -15,7 +15,7 @@ interface Company {
 interface UserState {
   user: User | null
   member: Member | null
-  profile: MemberProfile | null
+  profile: Member | null // Profile merged into Member
   company: Company | null
   isAuthenticated: boolean
   isLoading: boolean
@@ -38,7 +38,7 @@ interface UserActions {
     sponsorId?: string | null
   }) => Promise<{ success: boolean; error?: string }>
   logout: () => Promise<void>
-  updateProfile: (data: Partial<MemberProfile>) => Promise<{ success: boolean; error?: string }>
+  updateProfile: (data: Partial<Member>) => Promise<{ success: boolean; error?: string }>
   updateMember: (data: Partial<Member>) => Promise<{ success: boolean; error?: string }>
   checkUsernameAvailability: (username: string) => Promise<boolean>
 }
@@ -179,7 +179,7 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
     })
   },
 
-  updateProfile: async (data: Partial<MemberProfile>) => {
+  updateProfile: async (data: Partial<Member>) => {
     try {
       const response = await fetch('/api/auth/profile', {
         method: 'PATCH',

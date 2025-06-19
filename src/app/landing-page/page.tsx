@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLandingPageStore } from '@/stores/landing-page-store';
-import { useUserStore } from '@/stores/userStore';
-import { Loader2, Globe, Edit3, Eye, EyeOff, Copy, ExternalLink } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
+import { Globe, Copy, ExternalLink, Edit3, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function LandingPageDashboard() {
-  const { member } = useUserStore();
+  const { member } = useAuth();
   const { 
     landingPage, 
     isLoading, 
@@ -20,13 +20,10 @@ export default function LandingPageDashboard() {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
-    meta_title: '',
     meta_description: '',
-    content: {
-      headline: '',
-      subheadline: '',
-      description: ''
-    }
+    headline: '',
+    subheadline: '',
+    description: ''
   });
 
   useEffect(() => {
@@ -38,17 +35,33 @@ export default function LandingPageDashboard() {
       setFormData({
         title: landingPage.title || '',
         meta_description: landingPage.meta_description || '',
-        content: {
-          headline: landingPage.content?.headline || '',
-          subheadline: landingPage.content?.subheadline || '',
-          description: landingPage.content?.description || ''
-        }
+        headline: landingPage.content?.sections?.[0]?.props?.headline || '',
+        subheadline: landingPage.content?.sections?.[0]?.props?.subheadline || '',
+        description: landingPage.content?.sections?.[0]?.props?.description || ''
       });
     }
   }, [landingPage]);
 
   const handleSave = async () => {
-    await updateLandingPage(formData);
+    // Transform form data back to the schema structure
+    const updateData = {
+      title: formData.title,
+      meta_description: formData.meta_description,
+      content: {
+        sections: [{
+          id: '1',
+          type: 'hero' as const,
+          props: {
+            headline: formData.headline,
+            subheadline: formData.subheadline,
+            description: formData.description
+          },
+          order_index: 0
+        }]
+      }
+    };
+    
+    await updateLandingPage(updateData);
     setIsEditing(false);
   };
 
@@ -206,8 +219,8 @@ export default function LandingPageDashboard() {
                 <label className="block text-sm font-medium mb-1">Page Title</label>
                 <input
                   type="text"
-                  value={formData.meta_title}
-                  onChange={(e) => setFormData({ ...formData, meta_title: e.target.value })}
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   disabled={!isEditing}
                   placeholder="My Landing Page"
                   className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-50"
@@ -235,11 +248,8 @@ export default function LandingPageDashboard() {
                 <label className="block text-sm font-medium mb-1">Headline</label>
                 <input
                   type="text"
-                  value={formData.content.headline}
-                  onChange={(e) => setFormData({ 
-                    ...formData, 
-                    content: { ...formData.content, headline: e.target.value }
-                  })}
+                  value={formData.headline}
+                  onChange={(e) => setFormData({ ...formData, headline: e.target.value })}
                   disabled={!isEditing}
                   placeholder="Welcome to My Page"
                   className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-50"
@@ -249,11 +259,8 @@ export default function LandingPageDashboard() {
                 <label className="block text-sm font-medium mb-1">Subheadline</label>
                 <input
                   type="text"
-                  value={formData.content.subheadline}
-                  onChange={(e) => setFormData({ 
-                    ...formData, 
-                    content: { ...formData.content, subheadline: e.target.value }
-                  })}
+                  value={formData.subheadline}
+                  onChange={(e) => setFormData({ ...formData, subheadline: e.target.value })}
                   disabled={!isEditing}
                   placeholder="Learn more about what I do"
                   className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-50"
@@ -263,11 +270,8 @@ export default function LandingPageDashboard() {
                 <label className="block text-sm font-medium mb-1">Description</label>
                 <textarea
                   rows={4}
-                  value={formData.content.description}
-                  onChange={(e) => setFormData({ 
-                    ...formData, 
-                    content: { ...formData.content, description: e.target.value }
-                  })}
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   disabled={!isEditing}
                   placeholder="Tell visitors about yourself and what you offer..."
                   className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-50"
