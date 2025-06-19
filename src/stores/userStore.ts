@@ -10,12 +10,9 @@ interface Company {
   plan_type?: string
 }
 
-
-
 interface UserState {
   user: User | null
   member: Member | null
-  profile: Member | null // Profile merged into Member
   company: Company | null
   isAuthenticated: boolean
   isLoading: boolean
@@ -46,7 +43,6 @@ interface UserActions {
 export const useUserStore = create<UserState & UserActions>((set, get) => ({
   user: null,
   member: null,
-  profile: null,
   company: null,
   isAuthenticated: false,
   isLoading: true,
@@ -64,7 +60,6 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
       set({ 
         user: null, 
         member: null, 
-        profile: null, 
         company: null,
         isAuthenticated: false, 
         isLoading: false,
@@ -145,7 +140,6 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
       set({ 
         user: result.user, 
         member: result.member,
-        profile: result.profile,
         company: result.company,
         isAuthenticated: true,
         isLoading: false 
@@ -170,7 +164,6 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
     set({
       user: null,
       member: null,
-      profile: null,
       company: null,
       isAuthenticated: false,
       isLoading: false,
@@ -195,7 +188,7 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
         return { success: false, error: result.error || 'Update failed' }
       }
 
-      set({ profile: result.profile })
+      set({ member: result.member })
       return { success: true }
     } catch (error) {
       return { success: false, error: 'An unexpected error occurred' }
@@ -203,39 +196,8 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
   },
 
   updateMember: async (data: Partial<Member>) => {
-    try {
-      console.log('[UserStore] Updating member with data:', data)
-      
-      const response = await fetch('/api/auth/member', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        console.error('[UserStore] Member update failed:', result.error)
-        return { success: false, error: result.error || 'Update failed' }
-      }
-
-      console.log('[UserStore] Member update successful:', result.member)
-      
-      // Update the member in state
-      set({ member: result.member })
-      
-      // Re-initialize to ensure all data is fresh
-      setTimeout(() => {
-        get().initialize()
-      }, 100)
-      
-      return { success: true }
-    } catch (error) {
-      console.error('[UserStore] Member update error:', error)
-      return { success: false, error: 'An unexpected error occurred' }
-    }
+    // Since profile is merged into member, updateMember and updateProfile do the same thing
+    return get().updateProfile(data)
   },
 
   checkUsernameAvailability: async (username: string) => {
@@ -244,161 +206,61 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
       const result = await response.json()
       return result.available
     } catch (error) {
-      console.error('Username check error:', error)
+      console.error('Username check failed:', error)
       return false
     }
   },
 
   initialize: async () => {
-    const currentState = get()
-    
-    // Prevent re-initialization if user already loaded and authenticated
-    if (currentState.user && currentState.isAuthenticated && currentState.member && !currentState.isLoading) {
-      console.log('[UserStore] User already loaded and complete, skipping initialization')
-      return
-    }
-    
-    // Set timeout to prevent infinite loading (reduced from 10s to 5s)
-    const timeoutId = setTimeout(() => {
-      const state = get()
-      if (state.isLoading) {
-        console.warn('[UserStore] Auth loading timeout after 5 seconds, proceeding without auth')
-        set({ 
-          user: null, 
-          member: null, 
-          profile: null, 
-          company: null,
-          isAuthenticated: false, 
-          isLoading: false 
-        })
-      }
-    }, 5000) // Reduced from 10 seconds to 5 seconds
-
     try {
       set({ isLoading: true })
-      
-      // Get current session
       const supabase = createClient()
-      const { data: { session } } = await supabase.auth.getSession()
       
-      console.log('[UserStore] Session found for user:', session?.user?.id || 'none')
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       
-      if (session?.user) {
-        try {
-          // Create AbortController for fetch timeout
-          const controller = new AbortController()
-          const fetchTimeout = setTimeout(() => {
-            console.warn('[UserStore] Fetch timeout - API call took too long')
-            controller.abort()
-          }, 4000) // Reduced from 8 seconds to 4 seconds
-
-          // Try server-side API first
-          const response = await fetch('/api/auth/user-simple', {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            credentials: 'include',
-            signal: controller.signal
-          })
-
-          clearTimeout(fetchTimeout)
-
-          if (response.ok) {
-            const userData = await response.json()
-            console.log('[UserStore] Server API success:', !!userData.user)
-            
-            clearTimeout(timeoutId)
-            set({
-              user: userData.user,
-              member: userData.member,
-              profile: userData.profile,
-              company: userData.company,
-              isAuthenticated: true,
-              isLoading: false
-            })
-            return
-          } else {
-            console.warn('[UserStore] Server API failed:', response.status, await response.text())
-          }
-        } catch (fetchError: any) {
-          if (fetchError.name === 'AbortError') {
-            console.warn('[UserStore] Fetch aborted due to timeout')
-          } else {
-            console.error('[UserStore] Fetch error:', fetchError)
-          }
-        }
-
-        // Fallback: Try client-side data fetching when server fails
-        console.log('[UserStore] Falling back to client-side data fetching')
-        try {
-          // Get member data directly from client (simple query first)
-          const { data: member, error: memberError } = await supabase
-            .from('members')
-            .select('id, email, company_id, username, name, avatar_url, phone, status, level, sponsor_id, created_at')
-            .eq('id', session.user.id)
-            .single()
-
-          if (member && !memberError) {
-            // Get company data separately if member has a company
-            let company = null
-            if (member.company_id) {
-              try {
-                const { data: companyData } = await supabase
-                  .from('companies')
-                  .select('id, name, slug, plan_type')
-                  .eq('id', member.company_id)
-                  .single()
-                
-                if (companyData) {
-                  company = companyData
-                }
-              } catch (companyError) {
-                console.warn('[UserStore] Company fetch failed:', companyError)
-              }
-            }
-
-            console.log('[UserStore] Client-side fallback success')
-            clearTimeout(timeoutId)
-            set({
-              user: session.user,
-              member,
-              profile: null, // We can add profile fetching later if needed
-              company,
-              isAuthenticated: true,
-              isLoading: false
-            })
-            return
-          } else {
-            console.error('[UserStore] Client-side member fetch failed:', memberError)
-          }
-        } catch (clientError) {
-          console.error('[UserStore] Client-side fallback failed:', clientError)
-        }
+      if (sessionError) {
+        console.error('[UserStore] Session error:', sessionError)
+        set({ user: null, member: null, company: null, isAuthenticated: false, isLoading: false })
+        return
       }
 
-      // If we get here, authentication failed
-      clearTimeout(timeoutId)
-      set({ 
-        user: null, 
-        member: null, 
-        profile: null, 
-        company: null,
-        isAuthenticated: false, 
-        isLoading: false 
+      if (!session?.user) {
+        set({ user: null, member: null, company: null, isAuthenticated: false, isLoading: false })
+        return
+      }
+
+      // Get member data (consolidated profile included)
+      const { data: member, error: memberError } = await supabase
+        .from('members')
+        .select(`
+          *,
+          companies:company_id (
+            id,
+            name,
+            slug,
+            plan_type
+          )
+        `)
+        .eq('id', session.user.id)
+        .single()
+
+      if (memberError) {
+        console.error('[UserStore] Member fetch error:', memberError)
+        set({ user: session.user, member: null, company: null, isAuthenticated: true, isLoading: false })
+        return
+      }
+
+      set({
+        user: session.user,
+        member: member,
+        company: member.companies,
+        isAuthenticated: true,
+        isLoading: false,
       })
 
     } catch (error) {
       console.error('[UserStore] Initialize error:', error)
-      clearTimeout(timeoutId)
-      set({ 
-        user: null, 
-        member: null, 
-        profile: null, 
-        company: null,
-        isAuthenticated: false, 
-        isLoading: false 
-      })
+      set({ user: null, member: null, company: null, isAuthenticated: false, isLoading: false })
     }
   },
 })) 

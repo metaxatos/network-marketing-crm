@@ -5,7 +5,7 @@ import { apiResponse, apiError } from '@/lib/api-helpers'
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createApiClient(req)
-    const { email, password, username, firstName, lastName, companyId } = await req.json()
+    const { email, password, username, firstName, lastName, phone, companyId, sponsorId } = await req.json()
 
     console.log('[Signup API] Starting signup process for:', email)
 
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       const { data: defaultCompany } = await supabase
         .from('companies')
         .select('id')
-        .eq('is_default', true)
+        .limit(1)
         .single()
       
       finalCompanyId = defaultCompany?.id
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       return apiError('Company setup required', 500)
     }
 
-    // Create member record with profile data inline (NEW: simplified structure)
+    // Create member record with all profile data inline (Updated: following migration plan)
     const memberData = {
       id: authData.user.id,
       company_id: finalCompanyId,
@@ -69,8 +69,12 @@ export async function POST(req: NextRequest) {
       username: username || null,
       first_name: firstName || null,
       last_name: lastName || null,
+      name: `${firstName || ''} ${lastName || ''}`.trim() || 'New User',
+      phone: phone || null,
       level: 1,
       status: 'active' as const,
+      sponsor_id: sponsorId || null,
+      // Store preferences in JSONB for flexibility
       preferences: {
         notifications_enabled: true,
         email_reminders: true,
@@ -94,6 +98,13 @@ export async function POST(req: NextRequest) {
 
     console.log('[Signup API] Member created successfully:', member.id)
 
+    // Get company info for response
+    const { data: company } = await supabase
+      .from('companies')
+      .select('id, name, slug')
+      .eq('id', finalCompanyId)
+      .single()
+
     // Return success response
     return apiResponse({
       user: {
@@ -103,7 +114,8 @@ export async function POST(req: NextRequest) {
         firstName: member.first_name,
         lastName: member.last_name,
       },
-      member: member
+      member: member,
+      company: company
     }, 201)
 
   } catch (error) {

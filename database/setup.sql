@@ -39,22 +39,32 @@ CREATE TABLE IF NOT EXISTS public.members (
     id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
     company_id UUID,
     email TEXT,
-    username TEXT,
+    username TEXT UNIQUE,
+    first_name TEXT, -- From member_profiles  
+    last_name TEXT, -- From member_profiles
     name TEXT, -- Full name for display
     avatar_url TEXT, -- Profile image URL
     phone TEXT, -- Phone number
+    bio TEXT, -- From member_profiles
+    timezone TEXT DEFAULT 'UTC', -- From member_profiles
     level INTEGER DEFAULT 1,
     status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
     sponsor_id UUID REFERENCES public.members(id),
+    preferences JSONB DEFAULT '{"notifications_enabled": true, "email_reminders": true, "celebration_animations": true, "theme": "auto"}'::jsonb, -- From member_profiles
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Add missing columns if they don't exist (for existing databases)
 ALTER TABLE public.members 
+ADD COLUMN IF NOT EXISTS first_name TEXT,
+ADD COLUMN IF NOT EXISTS last_name TEXT,
 ADD COLUMN IF NOT EXISTS name TEXT,
 ADD COLUMN IF NOT EXISTS avatar_url TEXT,
-ADD COLUMN IF NOT EXISTS phone TEXT;
+ADD COLUMN IF NOT EXISTS phone TEXT,
+ADD COLUMN IF NOT EXISTS bio TEXT,
+ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'UTC',
+ADD COLUMN IF NOT EXISTS preferences JSONB DEFAULT '{"notifications_enabled": true, "email_reminders": true, "celebration_animations": true, "theme": "auto"}'::jsonb;
 
 -- Create member profiles table
 CREATE TABLE IF NOT EXISTS public.member_profiles (
@@ -199,7 +209,11 @@ ALTER TABLE public.lesson_progress ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS Policies
 
--- Companies policies
+-- Companies policies (Updated: Allow public read access for signup)
+DROP POLICY IF EXISTS "Members can view their company" ON public.companies;
+CREATE POLICY "Public can view companies for signup" ON public.companies
+    FOR SELECT USING (true);
+
 CREATE POLICY "Members can view their company" ON public.companies
     FOR SELECT USING (
         id IN (SELECT company_id FROM public.members WHERE id = auth.uid())
@@ -315,36 +329,35 @@ CREATE POLICY "Users can insert their own lesson progress" ON public.lesson_prog
 CREATE POLICY "Users can update their own lesson progress" ON public.lesson_progress
     FOR UPDATE USING (auth.uid() = member_id);
 
--- Create functions for automatic profile creation
+-- Create functions for automatic profile creation (Updated: following migration plan)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Insert into members table
-    INSERT INTO public.members (id, email, company_id, level, status, name)
+    -- Insert into members table with all profile data inline
+    INSERT INTO public.members (
+        id, 
+        email, 
+        company_id, 
+        first_name,
+        last_name,
+        name,
+        level, 
+        status,
+        preferences
+    )
     VALUES (
         NEW.id, 
         NEW.email,
         '00000000-0000-0000-0000-000000000001', -- Default to demo company
-        1, 
-        'active',
+        COALESCE(NEW.raw_user_meta_data->>'first_name', 'New'),
+        COALESCE(NEW.raw_user_meta_data->>'last_name', 'User'),
         COALESCE(
             NULLIF(TRIM(COALESCE(NEW.raw_user_meta_data->>'first_name', '') || ' ' || COALESCE(NEW.raw_user_meta_data->>'last_name', '')), ''),
             COALESCE(NEW.raw_user_meta_data->>'full_name', 'New User')
-        )
-    );
-    
-    -- Insert into member_profiles table
-    INSERT INTO public.member_profiles (member_id, first_name, last_name, preferences)
-    VALUES (
-        NEW.id,
-        COALESCE(NEW.raw_user_meta_data->>'first_name', 'New'),
-        COALESCE(NEW.raw_user_meta_data->>'last_name', 'User'),
-        '{
-            "notifications_enabled": true,
-            "email_reminders": true,
-            "celebration_animations": true,
-            "theme": "light"
-        }'::jsonb
+        ),
+        1, 
+        'active',
+        '{"notifications_enabled": true, "email_reminders": true, "celebration_animations": true, "theme": "auto"}'::jsonb
     );
     
     RETURN NEW;
