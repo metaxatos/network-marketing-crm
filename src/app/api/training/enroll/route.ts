@@ -1,21 +1,25 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth, validateBody, getCurrentMember } from '@/lib/api-helpers'
-import type { EnrollCourseRequest } from '@/types/api'
 
-// POST /api/training/enroll - Enroll in course
+// Define simplified video access request
+interface AccessVideoRequest {
+  videoId: string
+}
+
+// POST /api/training/enroll - Start watching a video (simplified from course enrollment)
 export const POST = withAuth(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createClient()
     
     // Validate request body
-    const body = await validateBody<EnrollCourseRequest>(req, (data) => {
-      if (!data.courseId) {
-        throw new Error('Course ID is required')
+    const body = await validateBody<AccessVideoRequest>(req, (data) => {
+      if (!data.videoId) {
+        throw new Error('Video ID is required')
       }
 
       return {
-        courseId: data.courseId,
+        videoId: data.videoId,
       }
     })
 
@@ -26,39 +30,48 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
       return apiError('Company not found', 404)
     }
 
-    // Verify course exists and belongs to company
-    const { data: course } = await supabase
-      .from('training_courses')
-      .select('id, title, company_id')
-      .eq('id', body.courseId)
-      .eq('company_id', member.company_id)
+    // Verify video exists and user has access
+    const { data: video } = await supabase
+      .from('training_videos')
+      .select('id, title, company_id, is_published')
+      .eq('id', body.videoId)
+      .or(`company_id.eq.${member.company_id},company_id.is.null`) // Company video or general video
+      .eq('is_published', true)
       .single()
 
-    if (!course) {
-      return apiError('Course not found', 404)
+    if (!video) {
+      return apiError('Video not found or access denied', 404)
     }
 
-    // Check if already enrolled
+    // Check if user already has progress record for this video
     const { data: existingProgress } = await supabase
-      .from('member_course_progress')
-      .select('member_id')
+      .from('member_progress')
+      .select('member_id, video_id, created_at')
       .eq('member_id', userId)
-      .eq('course_id', body.courseId)
+      .eq('video_id', body.videoId)
       .single()
 
     if (existingProgress) {
-      return apiError('Already enrolled in this course', 400)
+      return apiResponse({
+        message: 'Video access confirmed',
+        video: {
+          id: video.id,
+          title: video.title,
+          hasExistingProgress: true,
+          firstAccessedAt: existingProgress.created_at,
+        },
+      }, 200)
     }
 
-    // Create enrollment record
-    const { data: enrollment, error } = await supabase
-      .from('member_course_progress')
+    // Create initial progress record to track that user started watching
+    const { data: newProgress, error } = await supabase
+      .from('member_progress')
       .insert({
         member_id: userId,
-        course_id: body.courseId,
-        completion_percentage: 0,
-        last_position_seconds: 0,
-        completed_videos: [],
+        video_id: body.videoId,
+        progress_seconds: 0,
+        completed: false,
+        last_watched_at: new Date().toISOString(),
       })
       .select()
       .single()
@@ -67,26 +80,37 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
       throw error
     }
 
-    // Log activity
-    await supabase.from('member_activities').insert({
-      member_id: userId,
-      activity_type: 'course_enrolled',
-      metadata: {
-        course_id: body.courseId,
-        course_title: course.title,
-      },
-    })
+    // Log activity for starting a new video
+    try {
+      await supabase.from('communications').insert({
+        member_id: userId,
+        type: 'activity',
+        subject: 'Training Started',
+        content: `Started watching training video: ${video.title}`,
+        metadata: {
+          activity_type: 'training_started',
+          video_id: video.id,
+          video_title: video.title,
+        },
+      })
+    } catch (logError) {
+      console.warn('Failed to log training start:', logError)
+      // Don't fail the request if logging fails
+    }
 
     return apiResponse({
-      enrollment: {
-        courseId: enrollment.course_id,
-        enrolledAt: enrollment.updated_at,
+      message: 'Video access granted',
+      video: {
+        id: video.id,
+        title: video.title,
+        hasExistingProgress: false,
+        firstAccessedAt: newProgress.created_at,
       },
-    }, 201, 'Successfully enrolled in course')
+    }, 201)
   } catch (error) {
-    console.error('Course enrollment error:', error)
+    console.error('Video access error:', error)
     return apiError(
-      error instanceof Error ? error.message : 'Failed to enroll in course',
+      error instanceof Error ? error.message : 'Failed to access video',
       400
     )
   }

@@ -1,12 +1,13 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth, validateBody } from '@/lib/api-helpers'
-import type { UpdateProgressRequest, TrainingProgressResponse } from '@/types/api'
+import type { TrainingVideo, MemberProgress } from '@/types/training'
 
-// Define course progress row type
-interface DatabaseCourseProgress {
-  completion_percentage: number
-  completed_videos?: string[]
+// Define simplified progress update request
+interface UpdateProgressRequest {
+  videoId: string
+  progressSeconds: number
+  completed?: boolean
 }
 
 // GET /api/training/progress - Get user's training progress
@@ -14,15 +15,17 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createClient()
     
-    // Get all course progress for the user
+    // Get all video progress for the user (simplified from course progress)
     const { data: progressData, error } = await supabase
-      .from('member_course_progress')
+      .from('member_progress')
       .select(`
         *,
-        course:training_courses (
+        video:training_videos (
           id,
           title,
-          description
+          description,
+          category,
+          duration_seconds
         )
       `)
       .eq('member_id', userId)
@@ -31,19 +34,27 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
       throw error
     }
 
-    // Calculate overall progress
-    const totalCourses = progressData?.length || 0
-    const completedCourses = progressData?.filter((p: DatabaseCourseProgress) => p.completion_percentage === 1).length || 0
+    // Calculate overall progress from individual video progress
+    const totalVideos = progressData?.length || 0
+    const completedVideos = progressData?.filter((p: MemberProgress) => p.completed).length || 0
+    const totalProgressSeconds = progressData?.reduce((sum: number, p: MemberProgress) => sum + p.progress_seconds, 0) || 0
     
-    const response: TrainingProgressResponse = {
+    return apiResponse({
       progress: {
-        courseCompletion: totalCourses > 0 ? completedCourses / totalCourses : 0,
-        videosCompleted: progressData?.reduce((sum: number, p: DatabaseCourseProgress) => sum + (p.completed_videos?.length || 0), 0) || 0,
-        totalVideos: 0, // This would need to be calculated from all course videos
+        videosCompleted: completedVideos,
+        totalVideos,
+        overallCompletion: totalVideos > 0 ? Math.round((completedVideos / totalVideos) * 100) / 100 : 0,
+        totalWatchTimeSeconds: totalProgressSeconds,
       },
-    }
-
-    return apiResponse(response, 200)
+      videoProgress: progressData?.map((p: MemberProgress) => ({
+        videoId: p.video_id,
+        progressSeconds: p.progress_seconds,
+        completed: p.completed,
+        lastWatchedAt: p.last_watched_at,
+        videoTitle: (p as any).video?.title,
+        videoCategory: (p as any).video?.category,
+      })) || [],
+    }, 200)
   } catch (error) {
     console.error('Get progress error:', error)
     return apiError(
@@ -53,37 +64,33 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
   }
 })
 
-// POST /api/training/progress - Update lesson progress
+// POST /api/training/progress - Update video progress
 export const POST = withAuth(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createClient()
     
     // Validate request body
     const body = await validateBody<UpdateProgressRequest>(req, (data) => {
-      if (!data.videoId || typeof data.positionSeconds !== 'number') {
-        throw new Error('Video ID and position are required')
+      if (!data.videoId || typeof data.progressSeconds !== 'number') {
+        throw new Error('Video ID and progress seconds are required')
       }
 
       return {
         videoId: data.videoId,
-        positionSeconds: Math.max(0, data.positionSeconds),
+        progressSeconds: Math.max(0, data.progressSeconds),
         completed: data.completed || false,
       }
     })
 
-    // Get video details with course info
+    // Get video details to verify it exists
     const { data: video } = await supabase
-      .from('course_videos')
+      .from('training_videos')
       .select(`
         id,
-        course_id,
         title,
         duration_seconds,
-        order_index,
-        course:training_courses (
-          id,
-          title
-        )
+        category,
+        company_id
       `)
       .eq('id', body.videoId)
       .single()
@@ -92,78 +99,84 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
       return apiError('Video not found', 404)
     }
 
-    // Check if user is enrolled in the course
-    const { data: progress } = await supabase
-      .from('member_course_progress')
+    // Check for existing progress record
+    const { data: existingProgress } = await supabase
+      .from('member_progress')
       .select('*')
       .eq('member_id', userId)
-      .eq('course_id', video.course_id)
+      .eq('video_id', body.videoId)
       .single()
 
-    if (!progress) {
-      return apiError('Not enrolled in this course', 403)
+    let progressData
+    
+    if (existingProgress) {
+      // Update existing progress
+      const { data: updatedProgress, error } = await supabase
+        .from('member_progress')
+        .update({
+          progress_seconds: body.progressSeconds,
+          completed: body.completed,
+          last_watched_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('member_id', userId)
+        .eq('video_id', body.videoId)
+        .select()
+        .single()
+
+      if (error) {
+        throw error
+      }
+      progressData = updatedProgress
+    } else {
+      // Create new progress record
+      const { data: newProgress, error } = await supabase
+        .from('member_progress')
+        .insert({
+          member_id: userId,
+          video_id: body.videoId,
+          progress_seconds: body.progressSeconds,
+          completed: body.completed,
+          last_watched_at: new Date().toISOString(),
+        })
+        .select()
+        .single()
+
+      if (error) {
+        throw error
+      }
+      progressData = newProgress
     }
 
-    // Get all videos in the course for progress calculation
-    const { data: allVideos } = await supabase
-      .from('course_videos')
-      .select('id')
-      .eq('course_id', video.course_id)
-
-    const totalVideos = allVideos?.length || 0
-    let completedVideos = progress.completed_videos || []
-
-    // Update completed videos list if marked as completed
-    if (body.completed && !completedVideos.includes(body.videoId)) {
-      completedVideos = [...completedVideos, body.videoId]
+    // Log activity if video was just completed
+    if (body.completed && (!existingProgress || !existingProgress.completed)) {
+      try {
+        await supabase.from('communications').insert({
+          member_id: userId,
+          type: 'activity',
+          subject: 'Training Progress',
+          content: `Completed training video: ${video.title}`,
+          metadata: {
+            activity_type: 'training_completed',
+            video_id: video.id,
+            video_title: video.title,
+            video_category: video.category,
+          },
+        })
+      } catch (logError) {
+        console.warn('Failed to log training completion:', logError)
+        // Don't fail the request if logging fails
+      }
     }
 
-    // Calculate completion percentage
-    const completionPercentage = totalVideos > 0 
-      ? completedVideos.length / totalVideos 
-      : 0
-
-    // Update progress
-    const { data: updatedProgress, error } = await supabase
-      .from('member_course_progress')
-      .update({
-        last_video_id: body.videoId,
-        last_position_seconds: body.positionSeconds,
-        completed_videos: completedVideos,
-        completion_percentage: completionPercentage,
-        completed_at: completionPercentage === 1 ? new Date().toISOString() : null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('member_id', userId)
-      .eq('course_id', video.course_id)
-      .select()
-      .single()
-
-    if (error) {
-      throw error
-    }
-
-    // Log activity if course completed
-    if (completionPercentage === 1 && progress.completion_percentage < 1) {
-      await supabase.from('member_activities').insert({
-        member_id: userId,
-        activity_type: 'training_completed',
-        metadata: {
-          course_id: video.course_id,
-          course_title: video.course?.[0]?.title,
-        },
-      })
-    }
-
-    const response: TrainingProgressResponse = {
+    return apiResponse({
       progress: {
-        courseCompletion: Math.round(completionPercentage * 100) / 100,
-        videosCompleted: completedVideos.length,
-        totalVideos,
+        videoId: progressData.video_id,
+        progressSeconds: progressData.progress_seconds,
+        completed: progressData.completed,
+        lastWatchedAt: progressData.last_watched_at,
       },
-    }
-
-    return apiResponse(response, 200)
+    }, 200)
   } catch (error) {
     console.error('Update progress error:', error)
     return apiError(

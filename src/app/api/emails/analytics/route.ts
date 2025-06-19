@@ -1,9 +1,30 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth } from '@/lib/api-helpers'
-import type { EmailClickAnalytics, ClickMetrics } from '@/types/email-tracking'
 
-// GET /api/emails/analytics - Get email click analytics
+// Simplified analytics types for new schema
+interface EmailAnalytics {
+  email_id: string
+  template_id?: string
+  template_name?: string
+  subject: string
+  sent_at: string
+  total_clicks: number
+  unique_clicks: number
+  click_through_rate: number
+  clicks: any[]
+}
+
+interface ClickMetrics {
+  total_emails_sent: number
+  total_clicks: number
+  unique_contacts_clicked: number
+  average_ctr: number
+  top_clicked_links: any[]
+  recent_activity: any[]
+}
+
+// GET /api/emails/analytics - Get email analytics (using communications table)
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createClient()
@@ -32,12 +53,12 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
     }
     
     if (contactId) {
-      // Get click history for contact
-      const history = await getContactClickHistory(supabase, contactId, userId)
+      // Get interaction history for contact
+      const history = await getContactInteractionHistory(supabase, contactId, userId)
       return apiResponse({ type: 'contact', data: history })
     }
     
-    // Get overall click metrics
+    // Get overall email metrics
     const metrics = await getOverallMetrics(supabase, userId, fromDate, limit)
     return apiResponse({ type: 'metrics', data: metrics })
     
@@ -54,60 +75,43 @@ async function getEmailAnalytics(
   supabase: any,
   emailId: string,
   userId: string
-): Promise<EmailClickAnalytics | null> {
-  // Get email details
+): Promise<EmailAnalytics | null> {
+  // Get email communication record
   const { data: email, error: emailError } = await supabase
-    .from('sent_emails')
+    .from('communications')
     .select(`
       id,
       subject,
-      sent_at,
-      total_clicks,
+      content,
       template_id,
+      created_at,
+      metadata,
       email_templates(name)
     `)
     .eq('id', emailId)
     .eq('member_id', userId)
+    .eq('type', 'email')
     .single()
   
   if (emailError || !email) {
     throw new Error('Email not found')
   }
   
-  // Get all clicks for this email
-  const { data: clicks, error: clicksError } = await supabase
-    .from('email_clicks')
-    .select(`
-      id,
-      contact_id,
-      url,
-      link_position,
-      clicked_at,
-      ip_address,
-      user_agent,
-      referrer,
-      contacts(name)
-    `)
-    .eq('email_id', emailId)
-    .order('clicked_at', { ascending: false })
-  
-  if (clicksError) {
-    throw new Error('Failed to get click data')
-  }
-  
-  const uniqueClicks = new Set(clicks?.map((c: any) => c.contact_id).filter(Boolean)).size || 0
-  const totalClicks = clicks?.length || 0
+  // Extract click data from metadata
+  const clickData = email.metadata?.clicks || []
+  const totalClicks = clickData.length
+  const uniqueClicks = new Set(clickData.map((c: any) => c.contact_id).filter(Boolean)).size
   
   return {
     email_id: emailId,
     template_id: email.template_id,
     template_name: email.email_templates?.name,
     subject: email.subject,
-    sent_at: email.sent_at,
+    sent_at: email.created_at,
     total_clicks: totalClicks,
     unique_clicks: uniqueClicks,
     click_through_rate: totalClicks > 0 ? (uniqueClicks / totalClicks) : 0,
-    clicks: clicks || []
+    clicks: clickData || []
   }
 }
 
@@ -116,54 +120,51 @@ async function getTemplateAnalytics(
   templateId: string,
   userId: string,
   fromDate: Date
-): Promise<EmailClickAnalytics[]> {
+): Promise<EmailAnalytics[]> {
   // Get all emails sent with this template
   const { data: emails, error: emailsError } = await supabase
-    .from('sent_emails')
+    .from('communications')
     .select(`
       id,
       subject,
-      sent_at,
-      total_clicks,
+      created_at,
+      metadata,
       email_templates(name)
     `)
     .eq('template_id', templateId)
     .eq('member_id', userId)
-    .gte('sent_at', fromDate.toISOString())
-    .order('sent_at', { ascending: false })
+    .eq('type', 'email')
+    .gte('created_at', fromDate.toISOString())
+    .order('created_at', { ascending: false })
   
   if (emailsError) {
     throw new Error('Failed to get template emails')
   }
   
-  const analytics: EmailClickAnalytics[] = []
+  const analytics: EmailAnalytics[] = []
   
   for (const email of emails || []) {
-    const { data: clicks } = await supabase
-      .from('email_clicks')
-      .select('id, contact_id, url, clicked_at')
-      .eq('email_id', email.id)
-    
-    const uniqueClicks = new Set(clicks?.map((c: any) => c.contact_id).filter(Boolean)).size || 0
-    const totalClicks = clicks?.length || 0
+    const clickData = email.metadata?.clicks || []
+    const totalClicks = clickData.length
+    const uniqueClicks = new Set(clickData.map((c: any) => c.contact_id).filter(Boolean)).size
     
     analytics.push({
       email_id: email.id,
       template_id: templateId,
       template_name: email.email_templates?.name,
       subject: email.subject,
-      sent_at: email.sent_at,
+      sent_at: email.created_at,
       total_clicks: totalClicks,
       unique_clicks: uniqueClicks,
       click_through_rate: totalClicks > 0 ? (uniqueClicks / totalClicks) : 0,
-      clicks: clicks || []
+      clicks: clickData || []
     })
   }
   
   return analytics
 }
 
-async function getContactClickHistory(
+async function getContactInteractionHistory(
   supabase: any,
   contactId: string,
   userId: string
@@ -180,51 +181,47 @@ async function getContactClickHistory(
     throw new Error('Contact not found')
   }
   
-  // Get all clicks by this contact
-  const { data: clicks, error: clicksError } = await supabase
-    .from('email_clicks')
+  // Get all communications with this contact
+  const { data: interactions, error: interactionsError } = await supabase
+    .from('communications')
     .select(`
       id,
-      email_id,
-      url,
-      clicked_at,
-      sent_emails(subject, sent_at)
+      type,
+      subject,
+      content,
+      created_at,
+      metadata
     `)
     .eq('contact_id', contactId)
-    .order('clicked_at', { ascending: false })
+    .order('created_at', { ascending: false })
   
-  if (clicksError) {
-    throw new Error('Failed to get click history')
+  if (interactionsError) {
+    throw new Error('Failed to get interaction history')
   }
   
-  // Group clicks by email
-  const emailClicks = new Map()
-  
-  clicks?.forEach((click: any) => {
-    const emailId = click.email_id
-    if (!emailClicks.has(emailId)) {
-      emailClicks.set(emailId, {
-        email_id: emailId,
-        subject: click.sent_emails?.subject,
-        sent_at: click.sent_emails?.sent_at,
-        click_count: 0,
-        last_clicked_at: click.clicked_at
-      })
+  // Extract click history from email interactions
+  const clickHistory = []
+  for (const interaction of interactions || []) {
+    if (interaction.type === 'email' && interaction.metadata?.clicks) {
+      for (const click of interaction.metadata.clicks) {
+        clickHistory.push({
+          communication_id: interaction.id,
+          subject: interaction.subject,
+          url: click.url,
+          clicked_at: click.clicked_at,
+          email_sent_at: interaction.created_at,
+        })
+      }
     }
-    
-    const emailData = emailClicks.get(emailId)
-    emailData.click_count++
-    if (click.clicked_at > emailData.last_clicked_at) {
-      emailData.last_clicked_at = click.clicked_at
-    }
-  })
+  }
   
   return {
     contact_id: contactId,
     contact_name: contact.name,
-    total_clicks: clicks?.length || 0,
-    last_clicked_at: clicks?.[0]?.clicked_at,
-    emails_clicked: Array.from(emailClicks.values())
+    total_interactions: interactions?.length || 0,
+    total_clicks: clickHistory.length,
+    interactions: interactions || [],
+    click_history: clickHistory,
   }
 }
 
@@ -234,74 +231,68 @@ async function getOverallMetrics(
   fromDate: Date,
   limit: number
 ): Promise<ClickMetrics> {
-  // Get all clicks for user's emails in date range
-  const { data: clicks, error: clicksError } = await supabase
-    .from('email_clicks')
-    .select(`
-      id,
-      contact_id,
-      url,
-      clicked_at,
-      email_id,
-      sent_emails!inner(member_id)
-    `)
-    .eq('sent_emails.member_id', userId)
-    .gte('clicked_at', fromDate.toISOString())
-    .order('clicked_at', { ascending: false })
+  // Get all email communications in date range
+  const { data: emails, error: emailsError } = await supabase
+    .from('communications')
+    .select('id, subject, created_at, metadata, contact_id')
+    .eq('member_id', userId)
+    .eq('type', 'email')
+    .gte('created_at', fromDate.toISOString())
+    .order('created_at', { ascending: false })
     .limit(limit)
   
-  if (clicksError) {
-    throw new Error('Failed to get click metrics')
+  if (emailsError) {
+    throw new Error('Failed to get email metrics')
   }
   
-  const totalClicks = clicks?.length || 0
-  const uniqueClicks = new Set(clicks?.map((c: any) => c.contact_id).filter(Boolean)).size || 0
+  // Calculate metrics from email metadata
+  let totalClicks = 0
+  const contactsWhoClicked = new Set()
+  const linkClickCounts: { [url: string]: number } = {}
+  const recentActivity = []
   
-  // Count clicks by URL
-  const urlCounts = new Map()
-  clicks?.forEach((click: any) => {
-    const count = urlCounts.get(click.url) || { click_count: 0, unique_clicks: new Set() }
-    count.click_count++
-    if (click.contact_id) {
-      count.unique_clicks.add(click.contact_id)
+  for (const email of emails || []) {
+    const clicks = email.metadata?.clicks || []
+    totalClicks += clicks.length
+    
+    for (const click of clicks) {
+      if (click.contact_id) {
+        contactsWhoClicked.add(click.contact_id)
+      }
+      if (click.url) {
+        linkClickCounts[click.url] = (linkClickCounts[click.url] || 0) + 1
+      }
+      
+      recentActivity.push({
+        type: 'click',
+        email_id: email.id,
+        email_subject: email.subject,
+        url: click.url,
+        clicked_at: click.clicked_at,
+        contact_id: click.contact_id,
+      })
     }
-    urlCounts.set(click.url, count)
-  })
+  }
   
-  const mostClickedLinks = Array.from(urlCounts.entries())
-    .map(([url, data]) => ({
-      url,
-      click_count: data.click_count,
-      unique_clicks: data.unique_clicks.size
-    }))
-    .sort((a, b) => b.click_count - a.click_count)
+  // Sort recent activity by date
+  recentActivity.sort((a, b) => new Date(b.clicked_at).getTime() - new Date(a.clicked_at).getTime())
+  
+  // Get top clicked links
+  const topClickedLinks = Object.entries(linkClickCounts)
+    .sort(([, a], [, b]) => b - a)
     .slice(0, 10)
+    .map(([url, count]) => ({ url, clicks: count }))
   
-  // Create time series data (daily)
-  const timeSeriesMap = new Map()
-  clicks?.forEach((click: any) => {
-    const date = new Date(click.clicked_at).toISOString().split('T')[0]
-    const data = timeSeriesMap.get(date) || { clicks: 0, unique_clicks: new Set() }
-    data.clicks++
-    if (click.contact_id) {
-      data.unique_clicks.add(click.contact_id)
-    }
-    timeSeriesMap.set(date, data)
-  })
-  
-  const timeSeries = Array.from(timeSeriesMap.entries())
-    .map(([date, data]) => ({
-      date,
-      clicks: data.clicks,
-      unique_clicks: data.unique_clicks.size
-    }))
-    .sort((a, b) => a.date.localeCompare(b.date))
+  const totalEmailsSent = emails?.length || 0
+  const uniqueContactsClicked = contactsWhoClicked.size
+  const averageCtr = totalEmailsSent > 0 ? (totalClicks / totalEmailsSent) : 0
   
   return {
+    total_emails_sent: totalEmailsSent,
     total_clicks: totalClicks,
-    unique_clicks: uniqueClicks,
-    click_through_rate: totalClicks > 0 ? (uniqueClicks / totalClicks) : 0,
-    most_clicked_links: mostClickedLinks,
-    time_series: timeSeries
+    unique_contacts_clicked: uniqueContactsClicked,
+    average_ctr: Math.round(averageCtr * 100) / 100,
+    top_clicked_links: topClickedLinks,
+    recent_activity: recentActivity.slice(0, 20), // Limit recent activity
   }
 } 

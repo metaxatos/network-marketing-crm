@@ -1,22 +1,41 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth } from '@/lib/api-helpers'
-import type { DashboardMetricsResponse } from '@/types/api'
 
-// Define the database types
-interface DatabaseActivity {
+// Define simplified types for new schema
+interface DashboardMetricsResponse {
+  metrics: {
+    contactsThisWeek: number
+    emailsToday: number
+    trainingProgress: number
+  }
+  recentActivities: Array<{
+    id: string
+    type: string
+    description: string
+    timestamp: string
+  }>
+  quickActions: {
+    hasPendingFollowups: boolean
+    suggestedTraining?: string
+  }
+}
+
+interface DatabaseCommunication {
   id: string
   member_id: string
-  activity_type: string
+  type: string
+  subject: string
+  content: string
   metadata?: Record<string, any>
   created_at: string
 }
 
-interface CourseProgress {
-  completion_percentage: number
+interface VideoProgress {
+  completed: boolean
 }
 
-// GET /api/dashboard/metrics - Fetch key dashboard metrics
+// GET /api/dashboard/metrics - Fetch key dashboard metrics (using new schema)
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createClient()
@@ -37,39 +56,40 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
       .eq('member_id', userId)
       .gte('created_at', startOfWeek.toISOString())
 
-    // Get emails sent today
+    // Get emails sent today (from communications table)
     const { count: emailsToday } = await supabase
-      .from('sent_emails')
+      .from('communications')
       .select('*', { count: 'exact', head: true })
       .eq('member_id', userId)
-      .gte('sent_at', startOfDay.toISOString())
+      .eq('type', 'email')
+      .gte('created_at', startOfDay.toISOString())
 
-    // Get training progress
-    const { data: courseProgress } = await supabase
-      .from('member_course_progress')
-      .select('completion_percentage')
+    // Get training progress (from member_progress table)
+    const { data: videoProgress } = await supabase
+      .from('member_progress')
+      .select('completed')
       .eq('member_id', userId)
 
-    const trainingProgress = courseProgress?.length
-      ? courseProgress.reduce((sum: number, p: CourseProgress) => sum + p.completion_percentage, 0) / courseProgress.length
+    const trainingProgress = videoProgress?.length
+      ? videoProgress.filter((p: VideoProgress) => p.completed).length / videoProgress.length
       : 0
 
-    // Get recent activities
-    const { data: activities } = await supabase
-      .from('member_activities')
+    // Get recent activities from communications table (replaces member_activities)
+    const { data: communications } = await supabase
+      .from('communications')
       .select('*')
       .eq('member_id', userId)
       .order('created_at', { ascending: false })
       .limit(10)
 
-    const recentActivities = activities?.map((activity: DatabaseActivity) => ({
-      id: activity.id,
-      type: activity.activity_type,
-      description: getActivityDescription(activity),
-      timestamp: activity.created_at,
+    const recentActivities = communications?.map((comm: DatabaseCommunication) => ({
+      id: comm.id,
+      type: comm.type,
+      description: getCommunicationDescription(comm),
+      timestamp: comm.created_at,
     })) || []
 
-    // Check for pending follow-ups
+    // Check for pending follow-ups (contacts not contacted recently)
     const { count: pendingFollowups } = await supabase
       .from('contacts')
       .select('*', { count: 'exact', head: true })
@@ -77,19 +97,20 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
       .eq('status', 'lead')
       .or(`last_contacted_at.is.null,last_contacted_at.lt.${new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()}`)
 
-    // Get suggested training
-    const { data: incompleteCourses } = await supabase
-      .from('training_courses')
+    // Get suggested training (incomplete videos)
+    const { data: incompleteVideos } = await supabase
+      .from('training_videos')
       .select(`
         id,
         title,
-        member_course_progress!inner (
-          completion_percentage
+        member_progress!left (
+          completed
         )
       `)
-      .eq('member_course_progress.member_id', userId)
-      .lt('member_course_progress.completion_percentage', 1)
-      .order('member_course_progress.updated_at', { ascending: false })
+      .eq('member_progress.member_id', userId)
+      .eq('member_progress.completed', false)
+      .eq('is_published', true)
+      .order('order_index', { ascending: true })
       .limit(1)
 
     const response: DashboardMetricsResponse = {
@@ -101,7 +122,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
       recentActivities,
       quickActions: {
         hasPendingFollowups: (pendingFollowups || 0) > 0,
-        suggestedTraining: incompleteCourses?.[0]?.title,
+        suggestedTraining: incompleteVideos?.[0]?.title,
       },
     }
 
@@ -112,19 +133,25 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
   }
 })
 
-function getActivityDescription(activity: DatabaseActivity): string {
-  switch (activity.activity_type) {
-    case 'contact_added':
-      return `Added new contact${activity.metadata?.contact_name ? `: ${activity.metadata.contact_name}` : ''}`
-    case 'email_sent':
-      return `Sent email${activity.metadata?.contact_name ? ` to ${activity.metadata.contact_name}` : ''}`
-    case 'training_completed':
-      return `Completed training${activity.metadata?.course_title ? `: ${activity.metadata.course_title}` : ''}`
-    case 'goal_achieved':
-      return `Achieved goal${activity.metadata?.goal_name ? `: ${activity.metadata.goal_name}` : ''}`
-    case 'milestone_reached':
-      return `Reached milestone${activity.metadata?.milestone_name ? `: ${activity.metadata.milestone_name}` : ''}`
+function getCommunicationDescription(communication: DatabaseCommunication): string {
+  switch (communication.type) {
+    case 'email':
+      return `Sent email: ${communication.subject}`
+    case 'note':
+      return `Added note: ${communication.content.substring(0, 50)}${communication.content.length > 50 ? '...' : ''}`
+    case 'activity':
+      const activityType = communication.metadata?.activity_type
+      switch (activityType) {
+        case 'training_completed':
+          return `Completed training: ${communication.metadata?.video_title || 'video'}`
+        case 'training_started':
+          return `Started training: ${communication.metadata?.video_title || 'video'}`
+        case 'contact_added':
+          return `Added new contact`
+        default:
+          return communication.subject || communication.content.substring(0, 50)
+      }
     default:
-      return activity.activity_type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
+      return communication.subject || communication.content.substring(0, 50)
   }
 }
