@@ -6,6 +6,7 @@ export interface User {
   updated_at: string
 }
 
+// NEW: Simplified Member with merged profile data
 export interface Member {
   id: string
   company_id: string
@@ -13,19 +14,16 @@ export interface Member {
   email?: string
   phone?: string
   username?: string
+  // Merged from member_profiles:
+  first_name?: string
+  last_name?: string
+  avatar_url?: string
+  timezone?: string
   position?: 'left' | 'right'
   level: number
   status: 'active' | 'inactive' | 'suspended'
-  created_at: string
-}
-
-export interface MemberProfile {
-  member_id: string
-  first_name: string
-  last_name: string
-  avatar_url?: string
-  timezone?: string
-  preferences: UserPreferences
+  // Preferences stored as JSON
+  preferences?: UserPreferences
   created_at: string
   updated_at: string
 }
@@ -37,15 +35,18 @@ export interface UserPreferences {
   theme: 'light' | 'dark' | 'auto'
 }
 
-// Contact management types
+// NEW: Simplified Contact with inline notes
 export interface Contact {
   id: string
   member_id: string
+  company_id: string
   name: string
   phone?: string
   email?: string
   status: ContactStatus
   tags: string[]
+  // NEW: Notes stored inline instead of separate table
+  notes?: string
   custom_fields: Record<string, any>
   last_contacted_at?: string
   created_at: string
@@ -54,23 +55,22 @@ export interface Contact {
 
 export type ContactStatus = 'lead' | 'customer' | 'team_member' | 'inactive'
 
-export interface ContactNote {
+// NEW: Unified Communication table
+export interface Communication {
   id: string
-  contact_id: string
   member_id: string
-  content: string
-  created_at: string
-}
-
-export interface ContactInteraction {
-  id: string
-  contact_id: string
-  interaction_type: InteractionType
+  contact_id?: string
+  type: CommunicationType
+  direction: 'inbound' | 'outbound'
+  subject?: string
+  content?: string
   metadata: Record<string, any>
+  status: 'pending' | 'sent' | 'delivered' | 'opened' | 'clicked' | 'failed'
+  sent_at?: string
   created_at: string
 }
 
-export type InteractionType = 'email_sent' | 'note_added' | 'status_changed' | 'call_made' | 'meeting_scheduled'
+export type CommunicationType = 'email' | 'sms' | 'call' | 'note' | 'meeting'
 
 // Dashboard and activity types
 export interface DashboardMetrics {
@@ -91,38 +91,24 @@ export interface Activity {
 
 export type ActivityType = 'contact_added' | 'email_sent' | 'training_completed' | 'goal_achieved' | 'milestone_reached'
 
-// Email and communication types
+// NEW: Unified Email Templates (company + personal)
 export interface EmailTemplate {
   id: string
-  company_id: string
+  company_id?: string
+  member_id?: string // For personal templates
   name: string
   subject: string
   body_html: string
-  body_text: string
+  body_text?: string
   category: EmailCategory
   variables: string[]
+  template_type: 'system' | 'company' | 'personal'
   is_active: boolean
   created_at: string
   updated_at: string
 }
 
 export type EmailCategory = 'follow_up' | 'invitation' | 'welcome' | 'thank_you' | 'training'
-
-export interface SentEmail {
-  id: string
-  member_id: string
-  contact_id: string
-  template_id?: string
-  subject: string
-  body_html: string
-  status: EmailStatus
-  sent_at?: string
-  opened_at?: string
-  clicked_at?: string
-  created_at: string
-}
-
-export type EmailStatus = 'pending' | 'sent' | 'failed' | 'bounced'
 
 export interface EmailHistory {
   id: string
@@ -134,117 +120,53 @@ export interface EmailHistory {
   template_id?: string
 }
 
-// Personal template variations
-export interface PersonalEmailTemplate {
+export type EmailStatus = 'pending' | 'sent' | 'failed' | 'bounced'
+
+// NEW: Simplified Training Videos (flattened structure)
+export interface TrainingVideo {
   id: string
-  member_id: string
   company_id: string
-  parent_template_id: string
-  name: string
-  subject: string
-  body_html: string
-  body_text: string
-  variables: string[]
-  is_favorite: boolean
-  usage_count: number
-  last_used_at?: string
+  title: string
+  description?: string
+  video_url: string
+  video_platform: 'youtube' | 'vimeo' | 'wistia' | 'direct'
+  thumbnail_url?: string
+  duration_seconds?: number
+  category?: string
+  order_index: number
+  is_published: boolean
   created_at: string
   updated_at: string
 }
 
-// Bulk email jobs
-export interface BulkEmailJob {
+// NEW: Simplified Member Progress
+export interface MemberProgress {
   id: string
   member_id: string
-  company_id: string
-  template_id?: string
-  personal_template_id?: string
-  contact_ids: string[]
-  custom_variables: Record<string, any>
-  total_count: number
-  sent_count: number
-  failed_count: number
-  status: BulkEmailStatus
-  started_at?: string
-  completed_at?: string
+  video_id: string
+  progress_seconds: number
+  completed: boolean
+  last_watched_at?: string
   created_at: string
-}
-
-export type BulkEmailStatus = 'pending' | 'processing' | 'completed' | 'failed'
-
-// Training and learning types
-export interface Course {
-  id: string
-  company_id: string
-  title: string
-  description: string
-  thumbnail_url?: string
-  duration_minutes: number
-  order_index: number
-  is_required: boolean
-  lessons: Lesson[]
-  created_at: string
-}
-
-export interface TrainingCourse {
-  id: string
-  company_id: string
-  title: string
-  description: string
-  thumbnail_url?: string
-  duration_minutes: number
-  order_index: number
-  is_required: boolean
-  created_at: string
-}
-
-export interface Lesson {
-  id: string
-  course_id: string
-  title: string
-  video_url: string
-  duration_seconds: number
-  order_index: number
-  content?: string
+  updated_at: string
 }
 
 export interface UserProgress {
-  total_courses: number
-  completed_courses: number
+  total_videos: number
+  completed_videos: number
   completion_percentage: number
-  current_streak: number
   total_watch_time: number
 }
 
-export interface CourseVideo {
-  id: string
-  course_id: string
-  title: string
-  video_url: string
-  duration_seconds: number
-  order_index: number
-}
-
-export interface CourseProgress {
-  member_id: string
-  course_id: string
-  last_video_id?: string
-  last_position_seconds: number
-  completed_videos: string[]
-  completion_percentage: number
-  completed_at?: string
-  updated_at: string
-}
-
-// Landing pages and funnels types
+// NEW: Simplified Landing Pages
 export interface LandingPage {
   id: string
   member_id: string
   slug: string
   title: string
   meta_description?: string
-  template_id: string
   content: PageContent
+  views_count: number // Simplified analytics
   is_published: boolean
   created_at: string
   updated_at: string
@@ -272,6 +194,32 @@ export interface LeadCapture {
   user_agent?: string
   referrer?: string
   captured_at: string
+}
+
+// NEW: Events system
+export interface Event {
+  id: string
+  company_id: string
+  member_id: string
+  title: string
+  description?: string
+  event_type: 'training' | 'meeting' | 'webinar' | 'social'
+  start_time: string
+  end_time: string
+  timezone: string
+  location?: string
+  max_attendees?: number
+  created_at: string
+  updated_at: string
+}
+
+export interface EventRegistration {
+  id: string
+  event_id: string
+  member_id: string
+  status: 'registered' | 'attended' | 'cancelled'
+  registered_at: string
+  updated_at: string
 }
 
 // UI and component types

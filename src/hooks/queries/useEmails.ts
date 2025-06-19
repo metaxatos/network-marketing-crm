@@ -11,13 +11,23 @@ export const useEmailTemplates = () => {
     queryFn: async () => {
       const response = await fetch('/api/emails/templates')
       if (!response.ok) {
-        throw new Error('Failed to fetch email templates')
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }))
+        throw new Error(errorData.message || `HTTP ${response.status}: Failed to fetch email templates`)
       }
       
       const data = await response.json()
       return data.data.templates as EmailTemplate[]
     },
     staleTime: 30 * 60 * 1000, // 30 minutes (templates don't change often)
+    retry: (failureCount, error) => {
+      // Don't retry on auth errors (401/403) or client errors (4xx)
+      if (error.message.includes('401') || error.message.includes('403') || error.message.includes('4')) {
+        return false
+      }
+      // Only retry up to 2 times for server errors
+      return failureCount < 2
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
   })
 }
 

@@ -1,58 +1,56 @@
 // Hierarchical query keys for consistent caching
 export const queryKeys = {
-  // Contact queries
-  contacts: ['contacts'] as const,
-  contactList: (filters?: {
-    searchQuery?: string
-    statusFilter?: string
-    page?: number
-  }) => [...queryKeys.contacts, 'list', filters] as const,
-  contactDetail: (id: string) => 
-    [...queryKeys.contacts, 'detail', id] as const,
-  contactNotes: (contactId: string) =>
-    [...queryKeys.contacts, 'notes', contactId] as const,
+  // Core entities
+  auth: ['auth'] as const,
+  user: ['user'] as const,
+  members: ['members'] as const,
+  companies: ['companies'] as const,
   
-  // Email queries
+  // Contacts (simplified - no more contact_notes or contact_interactions)
+  contacts: ['contacts'] as const,
+  contact: (id: string) => [...queryKeys.contacts, id] as const,
+  contactNotes: (contactId: string) => [...queryKeys.contacts, contactId, 'notes'] as const, // Now stored inline
+  
+  // Communications (replaces sent_emails, contact_interactions, email_clicks)
+  communications: ['communications'] as const,
+  communication: (id: string) => [...queryKeys.communications, id] as const,
+  communicationsByContact: (contactId: string) => [...queryKeys.communications, 'contact', contactId] as const,
+  
+  // Email templates (unified - company and personal)
+  emailTemplates: () => ['email-templates'] as const,
+  emailTemplate: (id: string) => [...queryKeys.emailTemplates(), id] as const,
+  
+  // Emails (now using communications table)
   emails: ['emails'] as const,
-  emailTemplates: () => [...queryKeys.emails, 'templates'] as const,
-  emailHistory: (filters?: {
-    page?: number
-    status?: string
-  }) => [...queryKeys.emails, 'history', filters] as const,
+  emailHistory: (filters?: any) => [...queryKeys.emails, 'history', filters] as const,
   emailStats: () => [...queryKeys.emails, 'stats'] as const,
   
-  // Training queries
+  // Training (simplified from courses/modules/lessons to videos)
   training: ['training'] as const,
-  courses: () => [...queryKeys.training, 'courses'] as const,
-  courseDetail: (id: string) => 
-    [...queryKeys.training, 'course', id] as const,
-  lessonDetail: (courseId: string, lessonId: string) =>
-    [...queryKeys.training, 'lesson', courseId, lessonId] as const,
-  userProgress: () => [...queryKeys.training, 'progress'] as const,
-  courseProgress: (courseId: string) =>
-    [...queryKeys.training, 'progress', courseId] as const,
+  trainingVideos: () => [...queryKeys.training, 'videos'] as const,
+  trainingVideo: (id: string) => [...queryKeys.training, 'videos', id] as const,
+  memberProgress: (memberId?: string) => [...queryKeys.training, 'progress', memberId] as const,
   
-  // Dashboard queries
-  dashboard: ['dashboard'] as const,
-  metrics: () => [...queryKeys.dashboard, 'metrics'] as const,
-  activities: (filters?: {
-    page?: number
-    limit?: number
-  }) => [...queryKeys.dashboard, 'activities', filters] as const,
-  recentContacts: () => [...queryKeys.dashboard, 'recent-contacts'] as const,
-  
-  // Landing page queries
+  // Landing pages (simplified analytics)
   landingPages: ['landing-pages'] as const,
-  landingPageList: () => [...queryKeys.landingPages, 'list'] as const,
-  landingPageDetail: (id: string) =>
-    [...queryKeys.landingPages, 'detail', id] as const,
-  landingPageStats: (id: string) =>
-    [...queryKeys.landingPages, 'stats', id] as const,
+  landingPage: (id: string) => [...queryKeys.landingPages, id] as const,
+  landingPageStats: (id: string) => [...queryKeys.landingPages, id, 'stats'] as const,
   
-  // User queries
-  user: ['user'] as const,
-  userProfile: () => [...queryKeys.user, 'profile'] as const,
-  userSettings: () => [...queryKeys.user, 'settings'] as const,
+  // Events (new)
+  events: ['events'] as const,
+  event: (id: string) => [...queryKeys.events, id] as const,
+  eventRegistrations: (eventId: string) => [...queryKeys.events, eventId, 'registrations'] as const,
+  
+  // Dashboard (updated for new schema)
+  dashboard: ['dashboard'] as const,
+  dashboardMetrics: () => [...queryKeys.dashboard, 'metrics'] as const,
+  dashboardActivities: () => [...queryKeys.dashboard, 'activities'] as const,
+  quickActions: () => [...queryKeys.dashboard, 'quick-actions'] as const,
+  
+  // Analytics (simplified)
+  analytics: ['analytics'] as const,
+  emailAnalytics: () => [...queryKeys.analytics, 'emails'] as const,
+  trainingAnalytics: () => [...queryKeys.analytics, 'training'] as const,
 } as const
 
 // Helper function to invalidate related queries

@@ -1,0 +1,238 @@
+[
+  {
+    "file": "src\\types\\training.ts",
+    "table": "lesson_progress",
+    "type": "type definition",
+    "pattern": "LessonProgress"
+  },
+  {
+    "file": "src\\types\\landing-pages.ts",
+    "table": "page_analytics",
+    "type": "type definition",
+    "pattern": "PageAnalytics"
+  },
+  {
+    "file": "src\\lib\\queryKeys.ts",
+    "table": "courses",
+    "type": "table reference",
+    "line": 26,
+    "context": "courses: () => [...queryKeys.training, 'courses'] as const,"
+  },
+  {
+    "file": "src\\lib\\analytics.ts",
+    "table": "page_visits",
+    "type": "supabase query",
+    "line": 18
+  },
+  {
+    "file": "src\\lib\\analytics.ts",
+    "table": "page_analytics",
+    "type": "supabase query",
+    "line": 30
+  },
+  {
+    "file": "src\\hooks\\useRealtime.ts",
+    "table": "sent_emails",
+    "type": "table reference",
+    "line": 219,
+    "context": "'sent_emails',"
+  },
+  {
+    "file": "src\\app\\api\\training\\[courseId]\\route.ts",
+    "table": "training_courses",
+    "type": "supabase query",
+    "line": 23
+  },
+  {
+    "file": "src\\app\\api\\training\\progress\\route.ts",
+    "table": "course_videos",
+    "type": "supabase query",
+    "line": 76
+  },
+  {
+    "file": "src\\app\\api\\training\\progress\\route.ts",
+    "table": "member_course_progress",
+    "type": "supabase query",
+    "line": 19
+  },
+  {
+    "file": "src\\app\\api\\training\\enroll\\route.ts",
+    "table": "training_courses",
+    "type": "supabase query",
+    "line": 31
+  },
+  {
+    "file": "src\\app\\api\\training\\enroll\\route.ts",
+    "table": "member_course_progress",
+    "type": "supabase query",
+    "line": 43
+  },
+  {
+    "file": "src\\app\\api\\training\\courses\\route.ts",
+    "table": "training_courses",
+    "type": "supabase query",
+    "line": 50
+  },
+  {
+    "file": "src\\app\\api\\track\\click\\[emailId]\\route.ts",
+    "table": "sent_emails",
+    "type": "supabase query",
+    "line": 46
+  },
+  {
+    "file": "src\\app\\api\\track\\click\\[emailId]\\route.ts",
+    "table": "email_clicks",
+    "type": "supabase query",
+    "line": 66
+  },
+  {
+    "file": "src\\app\\api\\public\\submit-lead\\route.ts",
+    "table": "page_analytics",
+    "type": "supabase query",
+    "line": 95
+  },
+  {
+    "file": "src\\app\\api\\public\\pages\\[slug]\\route.ts",
+    "table": "page_visits",
+    "type": "supabase query",
+    "line": 66
+  },
+  {
+    "file": "src\\app\\api\\public\\pages\\[slug]\\capture\\route.ts",
+    "table": "contact_notes",
+    "type": "supabase query",
+    "line": 73
+  },
+  {
+    "file": "src\\app\\api\\public\\pages\\[slug]\\capture\\route.ts",
+    "table": "contact_interactions",
+    "type": "supabase query",
+    "line": 123
+  },
+  {
+    "file": "src\\app\\api\\landing-pages\\route.ts",
+    "table": "page_visits",
+    "type": "supabase query",
+    "line": 45
+  },
+  {
+    "file": "src\\app\\api\\emails\\[id]\\status\\route.ts",
+    "table": "sent_emails",
+    "type": "supabase query",
+    "line": 18
+  },
+  {
+    "file": "src\\app\\api\\emails\\send\\route.ts",
+    "table": "sent_emails",
+    "type": "supabase query",
+    "line": 65
+  },
+  {
+    "file": "src\\app\\api\\emails\\personal-templates\\route.ts",
+    "table": "personal_email_templates",
+    "type": "supabase query",
+    "line": 18
+  },
+  {
+    "file": "src\\app\\api\\emails\\personal-templates\\[id]\\route.ts",
+    "table": "personal_email_templates",
+    "type": "supabase query",
+    "line": 22
+  },
+  {
+    "file": "src\\app\\api\\emails\\personal-templates\\duplicate\\route.ts",
+    "table": "personal_email_templates",
+    "type": "supabase query",
+    "line": 31
+  },
+  {
+    "file": "src\\app\\api\\emails\\history\\route.ts",
+    "table": "sent_emails",
+    "type": "supabase query",
+    "line": 29
+  },
+  {
+    "file": "src\\app\\api\\emails\\bulk-send\\route.ts",
+    "table": "bulk_email_jobs",
+    "type": "supabase query",
+    "line": 73
+  },
+  {
+    "file": "src\\app\\api\\emails\\analytics\\route.ts",
+    "table": "sent_emails",
+    "type": "supabase query",
+    "line": 60
+  },
+  {
+    "file": "src\\app\\api\\emails\\analytics\\route.ts",
+    "table": "email_clicks",
+    "type": "supabase query",
+    "line": 79
+  },
+  {
+    "file": "src\\app\\api\\dashboard\\quick-actions\\route.ts",
+    "table": "training_courses",
+    "type": "supabase query",
+    "line": 50
+  },
+  {
+    "file": "src\\app\\api\\dashboard\\metrics\\route.ts",
+    "table": "sent_emails",
+    "type": "supabase query",
+    "line": 42
+  },
+  {
+    "file": "src\\app\\api\\dashboard\\metrics\\route.ts",
+    "table": "training_courses",
+    "type": "supabase query",
+    "line": 82
+  },
+  {
+    "file": "src\\app\\api\\dashboard\\metrics\\route.ts",
+    "table": "member_course_progress",
+    "type": "supabase query",
+    "line": 49
+  },
+  {
+    "file": "src\\app\\api\\contacts\\[id]\\route.ts",
+    "table": "contact_interactions",
+    "type": "supabase query",
+    "line": 115
+  },
+  {
+    "file": "src\\app\\api\\contacts\\[id]\\notes\\route.ts",
+    "table": "contact_notes",
+    "type": "supabase query",
+    "line": 42
+  },
+  {
+    "file": "src\\app\\api\\contacts\\[id]\\notes\\route.ts",
+    "table": "contact_interactions",
+    "type": "supabase query",
+    "line": 66
+  },
+  {
+    "file": "src\\app\\api\\auth\\user-simple\\route.ts",
+    "table": "member_profiles",
+    "type": "supabase query",
+    "line": 62
+  },
+  {
+    "file": "src\\app\\api\\auth\\signup\\route.ts",
+    "table": "member_profiles",
+    "type": "supabase query",
+    "line": 123
+  },
+  {
+    "file": "src\\app\\api\\auth\\login\\route.ts",
+    "table": "member_profiles",
+    "type": "supabase query",
+    "line": 54
+  },
+  {
+    "file": "src\\actions\\contact-actions.ts",
+    "table": "member_metrics",
+    "type": "supabase query",
+    "line": 19
+  }
+]

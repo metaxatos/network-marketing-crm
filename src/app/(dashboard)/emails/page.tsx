@@ -12,14 +12,20 @@ import {
   HeartIcon,
   AcademicCapIcon,
   GiftIcon,
-  SparklesIcon
+  SparklesIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline'
 
 export default function EmailsPage() {
   const { user } = useAppAuth()
   
   // React Query hooks
-  const { data: templates = [], isLoading: templatesLoading } = useEmailTemplates()
+  const { 
+    data: templates = [], 
+    isLoading: templatesLoading,
+    error: templatesError,
+    refetch: refetchTemplates
+  } = useEmailTemplates()
   const { data: sentEmails = [], isLoading: emailsLoading } = useEmailHistory()
   const { data: contacts = [], isLoading: contactsLoading } = useContacts()
   const { mutate: sendEmail, isPending: isSending } = useSendEmail()
@@ -110,8 +116,42 @@ export default function EmailsPage() {
               </div>
             )}
 
+            {/* Templates Error State */}
+            {templatesError && (
+              <div className="bg-glass-white rounded-2xl p-8 text-center space-y-4">
+                <div className="w-16 h-16 bg-action-coral/10 rounded-2xl mx-auto flex items-center justify-center">
+                  <ExclamationTriangleIcon className="w-8 h-8 text-action-coral" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-text-primary mb-2">
+                    Email Templates Not Available
+                  </h3>
+                  <p className="text-text-secondary mb-4">
+                    We're having trouble loading your email templates. This might be because the email templates table hasn't been set up in your database yet.
+                  </p>
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => refetchTemplates()}
+                      className="px-6 py-2 bg-action-purple text-white rounded-xl hover:bg-action-purple/90 transition-colors mr-3"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                  <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-left">
+                    <h4 className="font-medium text-yellow-800 mb-2">Database Setup Required</h4>
+                    <p className="text-yellow-700 text-sm">
+                      To fix this issue, run the email templates setup SQL in your Supabase dashboard:
+                    </p>
+                    <code className="block mt-2 p-2 bg-yellow-100 text-yellow-800 text-xs rounded">
+                      database/email-templates-setup.sql
+                    </code>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Loading State */}
-            {isLoading && (
+            {isLoading && !templatesError && (
               <div className="bg-glass-white rounded-2xl p-12 space-y-6">
                 <div className="text-center space-y-4">
                   <div className="w-16 h-16 bg-gray-200 rounded-xl mx-auto animate-shimmer"></div>
@@ -129,52 +169,66 @@ export default function EmailsPage() {
             )}
 
             {/* Email Builder */}
-            {!isLoading && (
+            {!isLoading && !templatesError && (
               <>
                 {/* Template Selection */}
                 <div className="bg-glass-white rounded-2xl p-6">
                   <h2 className="text-2xl font-semibold text-text-primary mb-2">Choose Email Template</h2>
                   <p className="text-text-secondary mb-6">Select from our professionally crafted templates</p>
                   
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {templates.map((template) => {
-                      const isSelected = selectedTemplate === template.id
-                      
-                      return (
-                        <div
-                          key={template.id}
-                          onClick={() => setSelectedTemplate(template.id)}
-                          className={`relative p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 ${
-                            isSelected 
-                              ? 'border-action-purple bg-action-purple/5 shadow-purple' 
-                              : 'border-gray-100 hover:border-gray-200 hover:shadow-md'
-                          }`}
-                        >
-                          <div className="flex items-start gap-4">
-                            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${
-                              isSelected ? 'bg-action-purple text-white' : 'bg-gray-100 text-text-light'
-                            } transition-colors`}>
-                              {getTemplateIcon(template.category)}
-                            </div>
-                            
-                            <div className="flex-1">
-                              <h3 className="font-semibold text-text-primary mb-1">
-                                {template.name}
-                              </h3>
-                              <p className="text-text-secondary text-sm mb-2">
-                                {template.subject}
-                              </p>
-                              <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                                isSelected ? 'bg-action-purple/20 text-action-purple' : 'bg-gray-100 text-text-light'
-                              }`}>
-                                {template.category.replace('_', ' ')}
-                              </span>
+                  {templates.length === 0 ? (
+                    <div className="text-center py-12 space-y-4">
+                      <div className="w-16 h-16 bg-gray-100 rounded-2xl mx-auto flex items-center justify-center">
+                        <EnvelopeIcon className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-medium text-text-primary mb-2">No Templates Found</h3>
+                        <p className="text-text-secondary">
+                          You need to set up email templates first. Please run the database setup script.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {templates.map((template) => {
+                        const isSelected = selectedTemplate === template.id
+                        
+                        return (
+                          <div
+                            key={template.id}
+                            onClick={() => setSelectedTemplate(template.id)}
+                            className={`relative p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 ${
+                              isSelected 
+                                ? 'border-action-purple bg-action-purple/5 shadow-purple' 
+                                : 'border-gray-100 hover:border-gray-200 hover:shadow-md'
+                            }`}
+                          >
+                            <div className="flex items-start gap-4">
+                              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${
+                                isSelected ? 'bg-action-purple text-white' : 'bg-gray-100 text-text-light'
+                              } transition-colors`}>
+                                {getTemplateIcon(template.category)}
+                              </div>
+                              
+                              <div className="flex-1">
+                                <h3 className="font-semibold text-text-primary mb-1">
+                                  {template.name}
+                                </h3>
+                                <p className="text-text-secondary text-sm mb-2">
+                                  {template.subject}
+                                </p>
+                                <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
+                                  isSelected ? 'bg-action-purple/20 text-action-purple' : 'bg-gray-100 text-text-light'
+                                }`}>
+                                  {template.category.replace('_', ' ')}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )
-                    })}
-                  </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* Custom Subject */}

@@ -3,16 +3,15 @@ export interface LandingPage {
   member_id: string;
   slug: string; // This will be the username
   title: string;
-  meta_title: string | null;
-  meta_description: string | null;
-  template_id: string | null;
+  meta_title?: string;
+  meta_description?: string;
   content: LandingPageContent;
+  views_count: number; // Simplified analytics - single counter instead of separate table
   is_published: boolean;
   created_at: string;
   updated_at: string;
   // Relations
   member?: Member;
-  template?: PageTemplate;
 }
 
 export interface LandingPageContent {
@@ -38,16 +37,6 @@ export interface LandingPageContent {
   };
 }
 
-export interface PageTemplate {
-  id: string;
-  company_id: string;
-  name: string;
-  thumbnail_url: string | null;
-  schema: any; // Template structure definition
-  default_content: any; // Default values
-  created_at: string;
-}
-
 export interface LeadSubmission {
   id: string;
   landing_page_id: string;
@@ -55,27 +44,18 @@ export interface LeadSubmission {
   // Lead information
   name: string;
   email: string;
-  phone: string | null;
-  message: string | null;
+  phone?: string;
+  message?: string;
   // Tracking
-  source_url: string | null;
-  referrer: string | null;
-  ip_address: string | null;
-  user_agent: string | null;
+  source_url?: string;
+  referrer?: string;
+  ip_address?: string;
+  user_agent?: string;
   form_data: Record<string, any>;
   created_at: string;
   // Relations
   landing_page?: LandingPage;
   contact?: Contact;
-}
-
-export interface PageVisit {
-  id: string;
-  landing_page_id: string;
-  visitor_id: string | null;
-  referrer: string | null;
-  utm_params: UTMParams;
-  visited_at: string;
 }
 
 export interface UTMParams {
@@ -86,24 +66,31 @@ export interface UTMParams {
   utm_content?: string;
 }
 
-export interface PageAnalytics {
-  date: string;
-  views: number;
-  unique_visitors: number;
-  form_submissions: number;
+// Simplified analytics data for UI display
+export interface LandingPageStats {
+  total_views: number;
+  total_leads: number;
   conversion_rate: number;
+  recent_activity: {
+    views_today: number;
+    leads_today: number;
+    views_this_week: number;
+    leads_this_week: number;
+  };
 }
 
 export interface Member {
   id: string;
-  username: string;
-  email: string | null;
-  phone: string | null;
+  username?: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  phone?: string;
 }
 
 export interface Contact {
   id: string;
   name: string;
-  email: string | null;
-  phone: string | null;
+  email?: string;
+  phone?: string;
 } 

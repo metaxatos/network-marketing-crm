@@ -1,106 +1,185 @@
 import { NextRequest } from 'next/server'
 import { createApiClient } from '@/lib/supabase/api-client'
-import { apiResponse, apiError, withAuth, validateBody } from '@/lib/api-helpers'
-import { sendEmail } from '@/lib/email'
+import { apiResponse, apiError } from '@/lib/api-helpers'
 
-interface SendEmailRequest {
-  contactIds: string[]
-  subject: string
-  body: string
-  templateId?: string
-  templateVariables?: Record<string, string>
-}
-
-// POST /api/emails/send - Send an email
-export const POST = withAuth(async (req: NextRequest, userId: string) => {
+export async function POST(req: NextRequest) {
   try {
     const supabase = await createApiClient(req)
+    const { templateId, contactIds, customSubject, customContent, to } = await req.json()
+
+    console.log('[Email Send API] Processing email send request')
+
+    // Get current user
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return apiError('Authentication required', 401)
+    }
+
+    // Get member data
+    const { data: member, error: memberError } = await supabase
+      .from('members')
+      .select('id, company_id, email, first_name, last_name')
+      .eq('id', user.id)
+      .single()
+
+    if (memberError || !member) {
+      return apiError('Member profile not found', 404)
+    }
+
+    // Validate input
+    if (!templateId && !customContent) {
+      return apiError('Template ID or custom content is required', 400)
+    }
+
+    if (!contactIds?.length && !to?.length) {
+      return apiError('Recipients are required', 400)
+    }
+
+    let template = null
+    let emailSubject = customSubject || 'Email from ' + (member.first_name || member.email)
+    let emailContent = customContent || ''
+
+    // Get template if provided
+    if (templateId) {
+      const { data: templateData, error: templateError } = await supabase
+        .from('email_templates')
+        .select('*')
+        .eq('id', templateId)
+        .eq('is_active', true)
+        .single()
+
+      if (templateError || !templateData) {
+        return apiError('Email template not found', 404)
+      }
+
+      template = templateData
+      emailSubject = customSubject || template.subject
+      emailContent = customContent || template.body_html
+    }
+
+    // Get contacts if contactIds provided
+    let contacts: any[] = []
+    if (contactIds?.length) {
+      const { data: contactsData, error: contactsError } = await supabase
+        .from('contacts')
+        .select('id, name, email')
+        .in('id', contactIds)
+        .eq('member_id', member.id)
+
+      if (contactsError) {
+        return apiError('Failed to fetch contacts', 500)
+      }
+
+      contacts = contactsData || []
+    }
+
+    // Combine recipients from contacts and direct emails
+    const recipients = [
+      ...contacts.map(c => ({ id: c.id, name: c.name, email: c.email, type: 'contact' })),
+      ...(to || []).map((email: string) => ({ email, type: 'direct' }))
+    ].filter(r => r.email)
+
+    if (recipients.length === 0) {
+      return apiError('No valid recipients found', 400)
+    }
+
+    console.log(`[Email Send API] Sending to ${recipients.length} recipients`)
+
+    // Create communication records for each recipient (NEW: using communications table)
+    const communicationPromises = recipients.map(async (recipient) => {
+      // Insert communication record
+      const communicationData = {
+        member_id: member.id,
+        contact_id: recipient.type === 'contact' ? recipient.id : null,
+        type: 'email',
+        direction: 'outbound',
+        subject: emailSubject,
+        content: emailContent,
+        status: 'pending',
+        metadata: {
+          template_id: templateId || null,
+          recipient_email: recipient.email,
+          recipient_name: recipient.name || null,
+          recipient_type: recipient.type,
+          sender_name: member.first_name ? `${member.first_name} ${member.last_name || ''}`.trim() : member.email
+        }
+      }
+
+      const { data: communication, error: commError } = await supabase
+        .from('communications')
+        .insert([communicationData])
+        .select()
+        .single()
+
+      if (commError) {
+        console.error('[Email Send API] Communication insert error:', commError)
+        throw new Error(`Failed to create communication record: ${commError.message}`)
+      }
+
+      // Here you would integrate with your email service (Resend, SendGrid, etc.)
+      // For now, we'll simulate sending and update status
+      try {
+        // TODO: Replace with actual email sending logic
+        // await emailService.send({
+        //   to: recipient.email,
+        //   subject: emailSubject,
+        //   html: emailContent,
+        //   from: member.email
+        // })
+
+        // Update communication status to sent
+        await supabase
+          .from('communications')
+          .update({ 
+            status: 'sent', 
+            sent_at: new Date().toISOString(),
+            metadata: {
+              ...communicationData.metadata,
+              sent_via: 'api'
+            }
+          })
+          .eq('id', communication.id)
+
+        return { success: true, communicationId: communication.id, recipient: recipient.email }
+      } catch (emailError) {
+        console.error('[Email Send API] Email sending failed:', emailError)
+        
+        // Update communication status to failed
+        await supabase
+          .from('communications')
+          .update({ 
+            status: 'failed',
+            metadata: {
+              ...communicationData.metadata,
+              error: emailError instanceof Error ? emailError.message : 'Unknown error'
+            }
+          })
+          .eq('id', communication.id)
+
+        return { success: false, error: emailError, recipient: recipient.email }
+      }
+    })
+
+    // Execute all email sends
+    const results = await Promise.allSettled(communicationPromises)
     
-    // Validate request body
-    const body = await validateBody<SendEmailRequest>(req, (data) => {
-      if (!data.contactIds || data.contactIds.length === 0) {
-        throw new Error('At least one contact is required')
-      }
+    const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length
+    const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success)).length
 
-      if (!data.subject || !data.body) {
-        throw new Error('Subject and body are required')
-      }
-
-      return {
-        contactIds: data.contactIds,
-        subject: data.subject,
-        body: data.body,
-        templateId: data.templateId,
-        templateVariables: data.templateVariables,
-      }
-    })
-
-    // Verify all contacts belong to the user
-    const { data: contacts, error: contactsError } = await supabase
-      .from('contacts')
-      .select('id, email, name')
-      .eq('member_id', userId)
-      .in('id', body.contactIds)
-
-    if (contactsError) {
-      throw contactsError
-    }
-
-    if (!contacts || contacts.length !== body.contactIds.length) {
-      return apiError('Some contacts were not found or do not belong to you', 400)
-    }
-
-    // Create sent_emails records for each contact
-    const sentEmails = contacts.map(contact => ({
-      member_id: userId,
-      contact_id: contact.id,
-      template_id: body.templateId || null,
-      subject: body.subject,
-      body_html: body.body,
-      status: 'sent',
-      sent_at: new Date().toISOString(),
-    }))
-
-    const { data: emailRecords, error: emailError } = await supabase
-      .from('sent_emails')
-      .insert(sentEmails)
-      .select()
-
-    if (emailError) {
-      throw emailError
-    }
-
-    // Log activity
-    await supabase.from('member_activities').insert({
-      member_id: userId,
-      activity_type: 'email_sent',
-      metadata: {
-        email_count: contacts.length,
-        subject: body.subject,
-        template_id: body.templateId,
-      },
-    })
-
-    // Update contacts' last_contacted_at
-    await supabase
-      .from('contacts')
-      .update({ last_contacted_at: new Date().toISOString() })
-      .in('id', body.contactIds)
-
-    // In a real app, you would integrate with an email service here
-    // For now, we're just recording the email as sent in the database
+    console.log(`[Email Send API] Email send completed: ${successful} successful, ${failed} failed`)
 
     return apiResponse({
-      success: true,
-      sentCount: emailRecords.length,
-      emailIds: emailRecords.map(e => e.id),
-    }, 200, 'Emails sent successfully')
-    
+      message: `Email sent to ${successful} of ${recipients.length} recipients`,
+      results: {
+        total: recipients.length,
+        successful,
+        failed
+      },
+      template_used: template ? template.name : null
+    })
+
   } catch (error) {
-    console.error('Send email error:', error)
-    return apiError(
-      error instanceof Error ? error.message : 'Failed to send emails',
-      400
-    )
+    console.error('[Email Send API] Unexpected error:', error)
+    return apiError('Internal server error during email send', 500)
   }
-})
+}
