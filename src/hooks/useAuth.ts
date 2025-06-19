@@ -5,7 +5,6 @@ export const useAppAuth = () => {
   const {
     user,
     member,
-    profile,
     company,
     isAuthenticated,
     isLoading,
@@ -26,7 +25,6 @@ export const useAppAuth = () => {
   return {
     user,
     member,
-    profile,
     company,
     isAuthenticated,
     isLoading,

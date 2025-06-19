@@ -4,15 +4,12 @@ import { useState, useEffect } from 'react'
 import { useUserStore } from '@/stores/userStore'
 
 export default function SettingsPage() {
-  const { member, profile, updateMember, updateProfile, checkUsernameAvailability } = useUserStore()
+  const { member, updateMember, checkUsernameAvailability } = useUserStore()
   
   const [memberData, setMemberData] = useState({
     email: '',
     phone: '',
     username: '',
-  })
-  
-  const [profileData, setProfileData] = useState({
     first_name: '',
     last_name: '',
     timezone: 'UTC',
@@ -30,19 +27,12 @@ export default function SettingsPage() {
         email: member.email || '',
         phone: member.phone || '',
         username: member.username || '',
+        first_name: member.first_name || '',
+        last_name: member.last_name || '',
+        timezone: member.timezone || 'UTC',
       })
     }
   }, [member])
-
-  useEffect(() => {
-    if (profile) {
-      setProfileData({
-        first_name: profile.first_name || '',
-        last_name: profile.last_name || '',
-        timezone: profile.timezone || 'UTC',
-      })
-    }
-  }, [profile])
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -110,11 +100,11 @@ export default function SettingsPage() {
       newErrors.username = 'This username is already taken'
     }
 
-    if (!profileData.first_name.trim()) {
+    if (!memberData.first_name.trim()) {
       newErrors.first_name = 'First name is required'
     }
 
-    if (!profileData.last_name.trim()) {
+    if (!memberData.last_name.trim()) {
       newErrors.last_name = 'Last name is required'
     }
 
@@ -125,11 +115,8 @@ export default function SettingsPage() {
     }
 
     try {
-      // Update member data
+      // Update member data (now includes all profile info)
       await updateMember(memberData)
-      
-      // Update profile data
-      await updateProfile(profileData)
       
       setSuccess('Settings updated successfully! 🎉')
     } catch (error) {
@@ -181,8 +168,8 @@ export default function SettingsPage() {
                 <input
                   id="first_name"
                   type="text"
-                  value={profileData.first_name}
-                  onChange={(e) => setProfileData(prev => ({ ...prev, first_name: e.target.value }))}
+                  value={memberData.first_name}
+                  onChange={(e) => setMemberData(prev => ({ ...prev, first_name: e.target.value }))}
                   className={`input ${errors.first_name ? 'border-red-500' : ''}`}
                   placeholder="John"
                 />
@@ -198,8 +185,8 @@ export default function SettingsPage() {
                 <input
                   id="last_name"
                   type="text"
-                  value={profileData.last_name}
-                  onChange={(e) => setProfileData(prev => ({ ...prev, last_name: e.target.value }))}
+                  value={memberData.last_name}
+                  onChange={(e) => setMemberData(prev => ({ ...prev, last_name: e.target.value }))}
                   className={`input ${errors.last_name ? 'border-red-500' : ''}`}
                   placeholder="Doe"
                 />
@@ -209,14 +196,14 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div>
+            <div className="mb-4">
               <label htmlFor="timezone" className="block text-sm font-medium text-warm-700 mb-2">
                 Timezone
               </label>
               <select
                 id="timezone"
-                value={profileData.timezone}
-                onChange={(e) => setProfileData(prev => ({ ...prev, timezone: e.target.value }))}
+                value={memberData.timezone}
+                onChange={(e) => setMemberData(prev => ({ ...prev, timezone: e.target.value }))}
                 className="input"
               >
                 <option value="UTC">UTC</option>
@@ -224,98 +211,111 @@ export default function SettingsPage() {
                 <option value="America/Chicago">Central Time</option>
                 <option value="America/Denver">Mountain Time</option>
                 <option value="America/Los_Angeles">Pacific Time</option>
+                <option value="Europe/London">London</option>
+                <option value="Europe/Paris">Paris</option>
+                <option value="Asia/Tokyo">Tokyo</option>
+                <option value="Australia/Sydney">Sydney</option>
               </select>
             </div>
           </div>
 
-          {/* Contact Information */}
+          {/* Account Information */}
           <div className="card">
             <h2 className="text-lg font-semibold text-warm-800 mb-4">
-              Contact Information
+              Account Information
             </h2>
             
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-warm-700 mb-2">
-                  Email Address
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  value={memberData.email}
-                  onChange={(e) => setMemberData(prev => ({ ...prev, email: e.target.value }))}
-                  className={`input ${errors.email ? 'border-red-500' : ''}`}
-                  placeholder="your@email.com"
-                />
-                {errors.email && (
-                  <p className="text-sm text-red-500 mt-1">{errors.email}</p>
-                )}
-              </div>
-
-              <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-warm-700 mb-2">
-                  Phone Number
-                </label>
-                <input
-                  id="phone"
-                  type="tel"
-                  value={memberData.phone}
-                  onChange={(e) => setMemberData(prev => ({ ...prev, phone: e.target.value }))}
-                  className={`input ${errors.phone ? 'border-red-500' : ''}`}
-                  placeholder="+1 (555) 123-4567"
-                />
-                {errors.phone && (
-                  <p className="text-sm text-red-500 mt-1">{errors.phone}</p>
-                )}
-              </div>
+            <div className="mb-4">
+              <label htmlFor="email" className="block text-sm font-medium text-warm-700 mb-2">
+                Email Address
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={memberData.email}
+                onChange={(e) => setMemberData(prev => ({ ...prev, email: e.target.value }))}
+                className={`input ${errors.email ? 'border-red-500' : ''}`}
+                placeholder="john@example.com"
+              />
+              {errors.email && (
+                <p className="text-sm text-red-500 mt-1">{errors.email}</p>
+              )}
             </div>
-          </div>
 
-          {/* Username & Affiliate Link */}
-          <div className="card">
-            <h2 className="text-lg font-semibold text-warm-800 mb-4">
-              Username & Affiliate Link
-            </h2>
-            
-            <div>
+            <div className="mb-4">
+              <label htmlFor="phone" className="block text-sm font-medium text-warm-700 mb-2">
+                Phone Number
+              </label>
+              <input
+                id="phone"
+                type="tel"
+                value={memberData.phone}
+                onChange={(e) => setMemberData(prev => ({ ...prev, phone: e.target.value }))}
+                className={`input ${errors.phone ? 'border-red-500' : ''}`}
+                placeholder="+1 (555) 123-4567"
+              />
+              {errors.phone && (
+                <p className="text-sm text-red-500 mt-1">{errors.phone}</p>
+              )}
+            </div>
+
+            <div className="mb-4">
               <label htmlFor="username" className="block text-sm font-medium text-warm-700 mb-2">
                 Username
               </label>
-              <input
-                id="username"
-                type="text"
-                value={memberData.username}
-                onChange={(e) => handleUsernameChange(e.target.value)}
-                className={`input ${
-                  errors.username ? 'border-red-500' : 
-                  usernameAvailable === true ? 'border-green-500' : ''
-                }`}
-                placeholder="your-username"
-              />
-              {usernameChecking && (
-                <p className="text-sm text-gray-500 mt-1">Checking availability...</p>
-              )}
-              {usernameAvailable === true && memberData.username !== member?.username && (
-                <p className="text-sm text-green-500 mt-1">✓ Username is available!</p>
-              )}
-              {usernameAvailable === false && memberData.username.length >= 3 && (
-                <p className="text-sm text-red-500 mt-1">✗ Username is taken</p>
+              <div className="relative">
+                <input
+                  id="username"
+                  type="text"
+                  value={memberData.username}
+                  onChange={(e) => handleUsernameChange(e.target.value)}
+                  className={`input ${errors.username ? 'border-red-500' : ''}`}
+                  placeholder="johndoe123"
+                />
+                {usernameChecking && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div className="w-4 h-4 bg-warm-300 rounded-sm animate-shimmer"></div>
+                  </div>
+                )}
+              </div>
+              {memberData.username && memberData.username.length >= 3 && (
+                <p className={`text-sm mt-1 ${
+                  usernameAvailable === true 
+                    ? 'text-green-600' 
+                    : usernameAvailable === false 
+                    ? 'text-red-500' 
+                    : 'text-warm-500'
+                }`}>
+                  {usernameAvailable === true 
+                    ? '✓ Username is available' 
+                    : usernameAvailable === false 
+                    ? '✗ Username is taken' 
+                    : 'Checking...'}
+                </p>
               )}
               {errors.username && (
                 <p className="text-sm text-red-500 mt-1">{errors.username}</p>
               )}
-              <p className="text-xs text-gray-500 mt-1">
-                Your affiliate link: yoursite.com/{memberData.username || 'username'}
+              <p className="text-xs text-warm-500 mt-1">
+                3-30 characters, lowercase letters, numbers, hyphens, and underscores only
               </p>
             </div>
           </div>
 
+          {/* Submit Button */}
           <button
             type="submit"
             disabled={isLoading || usernameAvailable === false}
-            className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary w-full text-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isLoading ? 'Saving...' : 'Save Settings'}
+            {isLoading ? (
+              <div className="flex items-center justify-center">
+                <div className="w-5 h-5 bg-white/30 rounded-sm mr-2 animate-shimmer"></div>
+                Updating...
+              </div>
+            ) : (
+              '💾 Save Settings'
+            )}
           </button>
         </form>
       </div>

@@ -27,7 +27,6 @@ export default function DiagnosticsPage() {
       results.userStore = {
         user: !!userStore.user,
         member: !!userStore.member,
-        profile: !!userStore.profile,
         company: !!userStore.company,
         isAuthenticated: userStore.isAuthenticated,
         isLoading: userStore.isLoading,
@@ -58,7 +57,6 @@ export default function DiagnosticsPage() {
           duration: Date.now() - userSimpleStart,
           hasUser: !!userSimpleData.user,
           hasMember: !!userSimpleData.member,
-          hasProfile: !!userSimpleData.profile,
           hasCompany: !!userSimpleData.company,
           error: userSimpleData.error,
         }
@@ -76,7 +74,6 @@ export default function DiagnosticsPage() {
           duration: Date.now() - userStart,
           hasUser: !!userData.user,
           hasMember: !!userData.member,
-          hasProfile: !!userData.profile,
           hasCompany: !!userData.company,
           error: userData.error,
         }

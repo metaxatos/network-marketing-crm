@@ -7,6 +7,10 @@ interface UpdateMemberRequest {
   phone?: string
   username?: string
   name?: string
+  first_name?: string
+  last_name?: string
+  timezone?: string
+  bio?: string
 }
 
 // PATCH /api/auth/member - Update member information
@@ -49,6 +53,37 @@ export const PATCH = withAuth(async (req: NextRequest, userId: string) => {
         updates.name = sanitizeInput(data.name)
       }
 
+      if (data.first_name !== undefined) {
+        updates.first_name = sanitizeInput(data.first_name)
+      }
+
+      if (data.last_name !== undefined) {
+        updates.last_name = sanitizeInput(data.last_name)
+      }
+
+      if (data.timezone !== undefined) {
+        const validTimezones = [
+          'UTC', 'America/New_York', 'America/Chicago', 'America/Denver', 
+          'America/Los_Angeles', 'Europe/London', 'Europe/Paris', 
+          'Asia/Tokyo', 'Australia/Sydney'
+        ]
+        if (!validTimezones.includes(data.timezone)) {
+          throw new Error('Invalid timezone')
+        }
+        updates.timezone = data.timezone
+      }
+
+      if (data.bio !== undefined) {
+        updates.bio = sanitizeInput(data.bio)
+      }
+
+      // Auto-update full name if first/last name is provided
+      if (updates.first_name || updates.last_name) {
+        const firstName = updates.first_name || data.first_name || ''
+        const lastName = updates.last_name || data.last_name || ''
+        updates.name = `${firstName} ${lastName}`.trim()
+      }
+
       return updates
     })
 
@@ -66,12 +101,15 @@ export const PATCH = withAuth(async (req: NextRequest, userId: string) => {
       }
     }
 
-    // Update member record
+    // Update member record with consolidated profile fields
     const { data: updatedMember, error } = await supabase
       .from('members')
       .update(body)
       .eq('id', userId)
-      .select('id, email, company_id, username, name, avatar_url, phone, status, level, sponsor_id, created_at')
+      .select(`
+        id, email, company_id, username, name, avatar_url, phone, status, level, 
+        sponsor_id, first_name, last_name, timezone, bio, created_at
+      `)
       .single()
 
     if (error) {
