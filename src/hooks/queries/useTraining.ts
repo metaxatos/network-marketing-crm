@@ -250,27 +250,8 @@ export const useVideoCategories = () => {
   })
 }
 
-// LEGACY HOOKS - Keep for backward compatibility but mark as deprecated
-/**
- * @deprecated Use useTrainingVideos instead
- */
-export const useCourses = () => {
-  console.warn('useCourses is deprecated. Use useTrainingVideos instead.')
-  return useTrainingVideos()
-}
-
-/**
- * @deprecated Use useTrainingVideo instead
- */
-export const useCourse = (id: string) => {
-  console.warn('useCourse is deprecated. Use useTrainingVideo instead.')
-  return useTrainingVideo(id)
-}
-
-/**
- * @deprecated Use useVideoProgress instead
- */
-export const useUserProgress = () => {
-  console.warn('useUserProgress is deprecated. Use useVideoProgress instead.')
-  return useVideoProgress()
-} 
+// LEGACY HOOKS REMOVED to prevent infinite warning loops
+// Use the following modern hooks instead:
+// - useTrainingVideos() instead of useCourses()  
+// - useTrainingVideo(id) instead of useCourse(id)
+// - useVideoProgress() instead of useUserProgress() 

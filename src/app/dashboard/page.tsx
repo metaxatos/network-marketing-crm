@@ -4,7 +4,7 @@ import { useAppAuth } from '@/hooks/useAuth'
 import { useDashboardMetrics, useActivityFeed, useRecentContacts } from '@/hooks/queries/useDashboard'
 import { useContacts } from '@/hooks/queries/useContacts'
 import { useEmailHistory } from '@/hooks/queries/useEmails'
-import { useCourses, useUserProgress } from '@/hooks/queries/useTraining'
+import { useTrainingVideos, useVideoProgress } from '@/hooks/queries/useTraining'
 import { useDashboardRealtime, useRealtimeConnection } from '@/hooks/useRealtime'
 import { useContactsRealtime } from '@/hooks/useContactsRealtime'
 import { DashboardLayout } from '@/components/ui/dashboard-layout'
@@ -40,8 +40,8 @@ export default function DashboardPage() {
   const { data: activitiesData, isLoading: activitiesLoading } = useActivityFeed()
   const { data: contacts = [], isLoading: contactsLoading } = useContacts()
   const { data: sentEmails = [], isLoading: emailsLoading } = useEmailHistory()
-  const { data: courses = [], isLoading: coursesLoading } = useCourses()
-  const { data: userProgress, isLoading: progressLoading } = useUserProgress()
+  const { data: courses = [], isLoading: coursesLoading } = useTrainingVideos()
+  const { data: userProgress, isLoading: progressLoading } = useVideoProgress()
   
   // Extract activities from InfiniteData if needed
   const activities = Array.isArray(activitiesData) 

@@ -237,13 +237,5 @@ export const useTrainingStore = create<TrainingStore>((set, get) => ({
 
 // Deprecated exports for backward compatibility - no need to re-export
 
-// Legacy hooks - these will show warnings
-export const useCourses = () => {
-  console.warn('useCourses is deprecated. Use useTrainingVideos from useTraining.ts instead.');
-  return useTrainingStore();
-};
-
-export const useEnrollments = () => {
-  console.warn('useEnrollments is deprecated. Video access is now automatic.');
-  return { enrollments: [], isLoading: false };
-}; 
+// Legacy hooks have been removed to prevent deprecated warnings
+// Use useTrainingVideos and useVideoProgress from '@/hooks/queries/useTraining' instead 
