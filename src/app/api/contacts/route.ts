@@ -6,13 +6,13 @@ import type { ContactListResponse, CreateContactRequest } from '@/types/api'
 // Define the database contact type - Updated to match actual schema
 interface DatabaseContact {
   id: string
-  first_name: string
-  last_name?: string
+  name: string
   phone?: string
   email?: string
   status: string
   created_at: string
   member_id: string
+  company_id: string
   tags?: string[]
   notes?: string
 }
@@ -37,7 +37,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
 
     // Apply search filter - Updated field names
     if (search) {
-      query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
+      query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
     }
 
     // Apply status filter
@@ -63,7 +63,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
     const response: ContactListResponse = {
       contacts: contacts?.map((contact: DatabaseContact) => ({
         id: contact.id,
-        name: `${contact.first_name}${contact.last_name ? ' ' + contact.last_name : ''}`,
+        name: contact.name,
         phone: contact.phone,
         email: contact.email,
         status: contact.status,
@@ -83,35 +83,56 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
 // POST /api/contacts - Create new contact
 export const POST = withAuth(async (req: NextRequest, userId: string) => {
   try {
+    console.log('[Create Contact] Starting contact creation for user:', userId)
+    
     const supabase = await createApiClient(req)
     
+    // Get current member to access company_id
+    const { data: member, error: memberError } = await supabase
+      .from('members')
+      .select('company_id')
+      .eq('id', userId)
+      .single()
+
+    if (memberError || !member) {
+      console.error('[Create Contact] Member lookup error:', memberError)
+      return apiError('Unable to find member profile', 400)
+    }
+
+    console.log('[Create Contact] Found member with company_id:', member.company_id)
+    
     // Validate request body
+    console.log('[Create Contact] Parsing request body...')
+    
     const body = await validateBody<CreateContactRequest>(req, (data) => {
+      console.log('[Create Contact] Raw request data:', JSON.stringify(data))
+      console.log('[Create Contact] Validating data:', JSON.stringify(data))
+      
       if (!data.name) {
         throw new Error('Contact name is required')
       }
 
       if (data.email && !isValidEmail(data.email)) {
+        console.error('[Create Contact] Invalid email format:', data.email)
         throw new Error('Invalid email format')
       }
 
       if (data.phone && !isValidPhone(data.phone)) {
+        console.error('[Create Contact] Invalid phone format:', data.phone)
         throw new Error('Invalid phone number format')
       }
 
-      return {
+      const validated = {
         name: sanitizeInput(data.name),
         phone: data.phone ? sanitizeInput(data.phone) : undefined,
         email: data.email ? data.email.toLowerCase().trim() : undefined,
         status: data.status || 'prospect',
         tags: data.tags || [],
       }
+      
+      console.log('[Create Contact] Validated body:', JSON.stringify(validated))
+      return validated
     })
-
-    // Split name into first and last name for database
-    const nameParts = body.name.split(' ')
-    const firstName = nameParts[0]
-    const lastName = nameParts.slice(1).join(' ') || undefined
 
     // Check for duplicate contact
     if (body.email) {
@@ -127,13 +148,20 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
       }
     }
 
-    // Create contact - Updated to match schema
+    console.log('[Create Contact] Creating contact:', { 
+      member_id: userId, 
+      company_id: member.company_id, 
+      name: body.name,
+      status: body.status 
+    })
+
+    // Create contact - Updated to match actual schema
     const { data: contact, error } = await supabase
       .from('contacts')
       .insert({
         member_id: userId,
-        first_name: firstName,
-        last_name: lastName,
+        company_id: member.company_id,
+        name: body.name,
         phone: body.phone,
         email: body.email,
         status: body.status,
@@ -144,13 +172,16 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
       .single()
 
     if (error) {
+      console.error('[Create Contact] Database error:', error)
       throw error
     }
+
+    console.log('[Create Contact] Contact created successfully:', contact.id)
 
     return apiResponse({
       contact: {
         id: contact.id,
-        name: `${contact.first_name}${contact.last_name ? ' ' + contact.last_name : ''}`,
+        name: contact.name,
         phone: contact.phone,
         email: contact.email,
         status: contact.status,

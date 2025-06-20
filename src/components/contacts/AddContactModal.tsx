@@ -67,7 +67,6 @@ export function AddContactModal({ onClose, onSuccess }: AddContactModalProps) {
         status: formData.status,
         tags: formData.tags,
         custom_fields: formData.custom_fields,
-        company_id: 'default_company_id' // TODO: Get from user context
       })
 
       toast.success(`🎉 ${formData.name} added to your network!`)

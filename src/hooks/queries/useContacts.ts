@@ -140,7 +140,7 @@ export const useCreateContact = () => {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: async (contactData: Omit<Contact, 'id' | 'member_id' | 'created_at' | 'updated_at'>) => {
+    mutationFn: async (contactData: Omit<Contact, 'id' | 'member_id' | 'company_id' | 'created_at' | 'updated_at'>) => {
       const response = await fetch('/api/contacts', {
         method: 'POST',
         headers: {
@@ -180,6 +180,7 @@ export const useCreateContact = () => {
               ...newContact,
               id: `temp-${Date.now()}`,
               member_id: 'current-user', // Will be set by server
+              company_id: 'current-company', // Will be set by server
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             } as Contact
