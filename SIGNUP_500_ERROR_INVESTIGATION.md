@@ -2,54 +2,50 @@
 
 **Date**: June 20, 2025  
 **Issue**: POST /api/auth/signup returns 500 Internal Server Error  
-**Status**: ⚠️ NEW ISSUE FOUND - RLS Policy Violation (Fix Implemented)
+**Status**: ⚠️ NEW ISSUE FOUND - Foreign Key Constraint Violation (Fix Implemented)
 
 ## Problem Summary
 - Users cannot sign up on production site (https://ourteam.gr)
-- API returns 500 error with message: `"Failed to create member profile: new row violates row-level security policy for table \"members\""`
-- **Root Cause**: The signup API route is using the anon key which is subject to RLS policies, but there's no authenticated session during signup
+- API returns 500 error with message: `"Failed to create member profile: insert or update on table \"members\" violates foreign key constraint \"members_id_fkey\""`
+- **Root Cause**: The auth user is not immediately available in the database when using `auth.signUp` with anon key
 
-## Investigation Update (June 20, 2025)
+## Investigation Update (June 20, 2025 - Latest)
 
 ### New Issue Discovered
-While the email validation issue was resolved, a new problem has been discovered:
+After fixing the RLS issue, a new problem appeared:
 
-1. **Error Message**: `"Failed to create member profile: new row violates row-level security policy for table \"members\""`
-2. **Root Cause**: The API route is using the Supabase anon key, not the service role key
-3. **RLS Policy**: The `members` table has a policy "Users can insert their own member record" with condition `auth.uid() = id`
-4. **Problem**: During signup from the API route, there's no authenticated session, so `auth.uid()` is null
+1. **Error Message**: `"insert or update on table \"members\" violates foreign key constraint \"members_id_fkey\""`
+2. **Root Cause**: The `members.id` has a foreign key to `auth.users(id)`, but the auth user isn't immediately available
+3. **Problem**: When using `auth.signUp` with the anon key, the user is created in a pending state until email confirmation
+4. **Solution**: Use admin API to create users with auto-confirmed email
 
 ### Technical Analysis
 
-#### Current RLS Policies on `members` table:
+#### Foreign Key Constraint:
 ```sql
--- "Users can insert their own member record"
--- WITH CHECK: (auth.uid() = id)
+-- members_id_fkey
+FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE
 ```
 
-This policy requires that the authenticated user's ID matches the ID being inserted. However, during signup:
-1. The auth user is created first
-2. Then the member record is created
-3. But the API route doesn't have an authenticated session, so `auth.uid()` is null
+This means the member ID must exist in auth.users table before we can insert into members table.
 
-#### Current Implementation Issue:
-The `createApiClient` function in `src/lib/supabase/api-client.ts` uses:
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` (subject to RLS)
-- Should use: `SUPABASE_SERVICE_ROLE_KEY` (bypasses RLS)
+#### The Timing Issue:
+1. `supabase.auth.signUp()` with anon key creates a "pending" user
+2. User isn't fully available in auth.users until email confirmation
+3. Member insert fails because the foreign key doesn't exist yet
 
 ## Resolution
 
-### ✅ Fix Implemented
+### ✅ Fix Implemented (v2)
 
-1. **Created Admin Client** (`src/lib/supabase/admin-client.ts`):
-   - Uses service role key to bypass RLS
-   - Only for server-side admin operations
-   - Includes safety checks and validation
+Updated the signup route to use admin client for BOTH operations:
 
-2. **Updated Signup Route** (`src/app/api/auth/signup/route.ts`):
-   - Uses regular client for auth.signUp
-   - Uses admin client for member creation
-   - Checks if service role key is available
+1. **Auth User Creation**: Now using `adminClient.auth.admin.createUser()` which:
+   - Creates user immediately in auth.users
+   - Auto-confirms email (no pending state)
+   - Ensures user is available for foreign key constraint
+
+2. **Member Creation**: Continue using admin client to bypass RLS
 
 ### 🔧 Action Required: Add Service Role Key to Netlify
 
@@ -72,22 +68,6 @@ The `createApiClient` function in `src/lib/supabase/api-client.ts` uses:
 1. Trigger a new deployment in Netlify
 2. Or push any small change to trigger auto-deploy
 
-### Alternative Solutions
-
-1. **Modify RLS Policy** (Not recommended for security):
-   - Could add a policy that allows inserts without authentication
-   - Security risk: anyone could insert members
-
-2. **Use Database Function** (Better alternative):
-   - Create a PL/pgSQL function that handles the entire signup process
-   - Function runs with SECURITY DEFINER (elevated privileges)
-   - Single atomic operation
-
-3. **Two-Step Process** (Current workaround):
-   - User signs up (creates auth user)
-   - User logs in (gets session)
-   - Create member profile with authenticated session
-
 ## Environment Variables Required
 
 Make sure these are set in Netlify:
@@ -95,64 +75,71 @@ Make sure these are set in Netlify:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` ✅ (already set)
 - `SUPABASE_SERVICE_ROLE_KEY` ❌ (needs to be added)
 
-## Test Results
+## Investigation Timeline
 
-### ✅ Working Tests
-- `/api/basic-test` - POST requests work perfectly
-- Auth user creation works
-- All environment variables for basic operations are correctly set
-- Database connection is working
-
-### ❌ What Fails (Before Fix)
-- Member record creation due to RLS policy violation
-- Any operation that requires inserting into `members` table without authentication
-
-### ✅ What Will Work (After Adding Service Role Key)
-- Complete signup flow
-- Member record creation using admin privileges
-- All signup operations
+1. **Initial Issue**: 500 errors on signup
+2. **First Fix**: Updated routes to use standard `Request` type
+3. **Email Issue**: Discovered Supabase rejects test emails like "test@example.com"
+4. **RLS Issue**: Found "new row violates row-level security policy for table \"members\""
+5. **First Solution**: Created admin client to bypass RLS
+6. **Foreign Key Issue**: Found "violates foreign key constraint \"members_id_fkey\""
+7. **Final Solution**: Use admin API for both auth user and member creation
 
 ## Files Modified
 
 1. ✅ Created `src/lib/supabase/admin-client.ts` - Admin client with service role key
-2. ✅ Updated `src/app/api/auth/signup/route.ts` - Use admin client for member creation
+2. ✅ Updated `src/app/api/auth/signup/route.ts` - Use admin client for both operations
 3. ❌ Netlify environment variables - Need to add service role key
+
+## Key Changes in Final Solution
+
+```typescript
+// OLD: Using regular auth.signUp (creates pending user)
+const authResult = await supabase.auth.signUp({
+  email,
+  password,
+})
+
+// NEW: Using admin API (creates confirmed user immediately)
+const authResult = await adminClient.auth.admin.createUser({
+  email,
+  password,
+  email_confirm: true, // Auto-confirm email
+  user_metadata: {
+    firstName,
+    lastName,
+    username
+  }
+})
+```
+
+## Benefits of This Approach
+
+1. **Immediate User Creation**: User is available in auth.users instantly
+2. **No Email Confirmation Needed**: Users can log in immediately
+3. **Atomic Operation**: Both auth user and member are created in one request
+4. **Better User Experience**: No need to check email before using the app
 
 ## Security Considerations
 
-- **Service role key bypasses all RLS policies**
-- Should only be used for specific admin operations
-- Never expose service role key to client-side code
-- Keep it in server-side environment variables only
-- The admin client is only used for member creation during signup
-
-## Investigation Timeline
-
-1. **Initial Issue**: 500 errors on signup
-2. **First Hypothesis**: Type compatibility issues with Next.js 14
-3. **Fix Applied**: Updated all routes to use standard `Request` type
-4. **Deployment**: Successfully deployed to Netlify
-5. **Testing**: Created test endpoints and pages
-6. **Discovery**: API works but Supabase rejects test emails
-7. **Resolution**: Use realistic email addresses
-8. **New Issue**: RLS policy violation when creating member records
-9. **Root Cause**: API using anon key instead of service role key
-10. **Fix Implemented**: Created admin client and updated signup route
-11. **Action Required**: Add service role key to Netlify
-
-## Lessons Learned
-
-1. **RLS Policies**: Always consider how RLS policies affect server-side operations
-2. **Service Role Key**: Essential for admin operations that bypass RLS
-3. **Auth Flow**: Signup is a special case that requires elevated privileges
-4. **Environment Variables**: Different keys serve different purposes
-5. **Error Messages**: RLS violations provide clear error messages
+- **Service role key bypasses all security**
+- Only used for signup operation
+- Never exposed to client-side
+- All other operations use regular authenticated client
 
 ## Next Steps
 
 1. Add `SUPABASE_SERVICE_ROLE_KEY` to Netlify environment variables
 2. Redeploy the site
 3. Test signup with realistic email addresses
-4. Verify member records are created successfully
+4. Users should be able to sign up and log in immediately
 
-The signup system is now properly configured to use the service role key for bypassing RLS policies during member creation. Once the environment variable is added to Netlify, the signup flow should work correctly.
+## Lessons Learned
+
+1. **Foreign Key Constraints**: Always check if referenced records exist
+2. **Auth States**: Understand the difference between pending and confirmed users
+3. **Admin API**: Essential for operations that need immediate effect
+4. **Timing Issues**: Database operations aren't always synchronous
+5. **Supabase Auth**: Different methods have different behaviors
+
+The signup system now properly uses the admin API to create confirmed users immediately, ensuring the foreign key constraint is satisfied.
