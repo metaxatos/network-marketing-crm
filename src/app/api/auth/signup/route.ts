@@ -1,8 +1,7 @@
-import { NextRequest } from 'next/server'
 import { createApiClient } from '@/lib/supabase/api-client'
 import { apiResponse, apiError } from '@/lib/api-helpers'
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
     // Add CORS headers for the response
     const headers = {
@@ -226,7 +225,7 @@ export async function POST(req: NextRequest) {
 }
 
 // Handle OPTIONS request for CORS
-export async function OPTIONS(req: NextRequest) {
+export async function OPTIONS(req: Request) {
   return new Response(null, {
     status: 200,
     headers: {
@@ -234,5 +233,17 @@ export async function OPTIONS(req: NextRequest) {
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     },
+  })
+}
+
+// Handle GET requests with a proper error message
+export async function GET(req: Request) {
+  return Response.json({ 
+    message: "This endpoint only accepts POST requests" 
+  }, { 
+    status: 405,
+    headers: {
+      'Allow': 'POST, OPTIONS'
+    }
   })
 }
