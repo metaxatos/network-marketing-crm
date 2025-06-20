@@ -33,91 +33,81 @@ The route has detailed logging but we're getting a 500 error without seeing thes
 
 ## Actions Taken
 
-### 1. Create Debug Endpoint
-Creating a test endpoint to isolate the issue:
+### 1. Enhanced Error Handling
+- Added comprehensive try-catch blocks throughout the signup route
+- Added error handling for JSON parsing
+- Added error handling for Supabase client creation
+- Each operation now has its own error context
 
-```typescript
-// src/app/api/test-signup/route.ts
-export async function GET() {
-  return Response.json({ 
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    env: {
-      hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-      hasSupabaseKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
-    }
-  })
-}
+### 2. Added CORS Support
+- Added CORS headers to all responses
+- Added OPTIONS method handler
+- This should help with any cross-origin issues
 
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json()
-    
-    // Test basic validation
-    if (!body.email || !body.password) {
-      return Response.json({ error: 'Missing email or password' }, { status: 400 })
-    }
-    
-    // Test Supabase connection
-    const supabase = await createApiClient(req)
-    
-    // Test database access
-    const { data: companies, error: dbError } = await supabase
-      .from('companies')
-      .select('id')
-      .limit(1)
-    
-    if (dbError) {
-      return Response.json({ 
-        error: 'Database connection error',
-        details: dbError.message 
-      }, { status: 500 })
-    }
-    
-    return Response.json({ 
-      status: 'ready',
-      hasCompanies: !!companies && companies.length > 0,
-      receivedData: {
-        email: body.email,
-        hasPassword: !!body.password,
-        fields: Object.keys(body)
-      }
-    })
-    
-  } catch (error: any) {
-    return Response.json({ 
-      error: 'Test endpoint error',
-      message: error.message,
-      type: error.constructor.name
-    }, { status: 500 })
-  }
-}
-```
+### 3. Updated API Helpers
+- Modified `apiResponse` and `apiError` to support custom headers
+- This allows proper CORS headers in all responses
 
-### 2. Next Actions Required
-1. Deploy the test endpoint
-2. Test with: `curl -X POST https://ourteam.gr/api/test-signup -H "Content-Type: application/json" -d '{"email":"test@example.com","password":"test123"}'`
-3. Based on the response, identify the exact issue
-4. Apply the appropriate fix
+### 4. Created Health Check Endpoint
+- Created `/api/health-check` to verify:
+  - API is accessible
+  - Environment variables are set
+  - Basic system status
 
-## Possible Causes & Solutions
+### 5. Test Endpoints Created
+- `/api/test-signup` - Tests Supabase connection and database access
+- `/api/health-check` - Simple health check with environment info
 
-### 1. Environment Variables Missing
-**Check**: Netlify environment variables
-**Solution**: Ensure all required Supabase variables are set
+## Next Steps
 
-### 2. Database Connection Issues
-**Check**: Test endpoint response
-**Solution**: Verify Supabase project is active and accessible
+1. **Wait for deployment** (2-5 minutes)
+2. **Test the health check endpoint**:
+   ```bash
+   curl https://ourteam.gr/api/health-check
+   ```
 
-### 3. CORS Issues
-**Check**: Browser console for CORS errors
-**Solution**: Add proper CORS headers to API route
+3. **Test the test-signup endpoint**:
+   ```bash
+   curl https://ourteam.gr/api/test-signup
+   ```
 
-### 4. Request Body Parsing
-**Check**: If body is being parsed correctly
-**Solution**: Ensure Content-Type header is set properly
+4. **Check Netlify Environment Variables**
+   - Ensure all Supabase variables are properly set:
+     - `NEXT_PUBLIC_SUPABASE_URL`
+     - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+     - `SUPABASE_SERVICE_ROLE_KEY`
 
-## Current Status
-Waiting for test endpoint deployment to diagnose the exact issue.
+5. **Test the actual signup with verbose logging**:
+   ```bash
+   curl -X POST https://ourteam.gr/api/auth/signup \
+     -H "Content-Type: application/json" \
+     -d '{"email":"test@example.com","password":"test123","firstName":"Test","lastName":"User"}' \
+     -v
+   ```
+
+## Possible Remaining Issues
+
+### 1. Environment Variables
+- The variables might not be set in Netlify
+- Variable names might be different in production
+
+### 2. Supabase Project Status
+- The Supabase project might be paused
+- API keys might have been rotated
+
+### 3. Build Issues
+- The build might be failing silently
+- Dependencies might not be installed correctly
+
+### 4. Network/Proxy Issues
+- Netlify might be blocking certain requests
+- There might be a proxy configuration issue
+
+## Files Modified
+1. `src/app/api/auth/signup/route.ts` - Enhanced error handling and CORS
+2. `src/lib/api-helpers.ts` - Added header support
+3. `src/app/api/health-check/route.ts` - New health check endpoint
+4. `src/app/api/test-signup/route.ts` - Test endpoint (already existed)
+
+## Status
+Waiting for deployment to complete before testing the fixes.
