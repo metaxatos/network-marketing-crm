@@ -14,8 +14,9 @@ export const useDashboardMetrics = () => {
         throw new Error('Failed to fetch dashboard metrics')
       }
       
-      const data = await response.json()
-      return data.metrics as DashboardMetrics
+      const result = await response.json()
+      // Fix: API returns { data: { metrics: ... }, success: true }
+      return result.data?.metrics as DashboardMetrics
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
     refetchInterval: 2 * 60 * 1000, // Background refetch every 2 minutes when focused
@@ -39,11 +40,12 @@ export const useActivityFeed = (filters?: {
         throw new Error('Failed to fetch activities')
       }
       
-      const data = await response.json()
+      const result = await response.json()
+      // Fix: API returns { data: { activities: ..., pagination: ... }, success: true }
       return {
-        activities: data.activities as Activity[],
-        nextPage: data.hasMore ? pageParam + 1 : undefined,
-        hasMore: data.hasMore,
+        activities: result.data?.activities as Activity[],
+        nextPage: result.data?.pagination?.hasMore ? pageParam + 1 : undefined,
+        hasMore: result.data?.pagination?.hasMore || false,
       }
     },
     getNextPageParam: (lastPage) => lastPage.nextPage,

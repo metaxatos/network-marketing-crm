@@ -48,8 +48,8 @@ export const useEmailHistory = (filters?: {
         throw new Error('Failed to fetch email history')
       }
       
-      const data = await response.json()
-      return data.data?.emails || [] as EmailHistory[]
+      const result = await response.json()
+      return result.data?.emails || [] as EmailHistory[]
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
   })

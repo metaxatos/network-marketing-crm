@@ -46,8 +46,9 @@ export const useContacts = (filters?: {
         throw new Error('Failed to fetch contacts')
       }
       
-      const data = await response.json()
-      return data.contacts as Contact[]
+      const result = await response.json()
+      // Fix: API returns { data: { contacts: ... }, success: true }
+      return result.data?.contacts as Contact[]
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: (failureCount, error) => {
