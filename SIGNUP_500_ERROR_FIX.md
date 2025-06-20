@@ -8,6 +8,7 @@
 - User attempts to sign up on the production site (https://ourteam.gr)
 - Browser shows 500 error when calling `/api/auth/signup`
 - Previous fixes have been applied but error persists
+- The "Auth loading timeout after 5 seconds" warning appears before the error
 
 ## Investigation Steps
 
@@ -26,58 +27,69 @@ The route has detailed logging but we're getting a 500 error without seeing thes
 
 ### Step 3: Check Production Environment
 **Issue**: The 500 error might be due to:
-1. Missing environment variables in production
-2. Database connection issues
-3. RLS policies blocking the operation
-4. Error in the API route that prevents proper error response
+1. Missing environment variables in production ✅ **VERIFIED: Variables are set correctly**
+2. Database connection issues ❓ **TO BE TESTED**
+3. RLS policies blocking the operation ❓ **TO BE TESTED**
+4. Error in the API route that prevents proper error response ❓ **TO BE TESTED**
 
 ## Actions Taken
 
-### 1. Enhanced Error Handling
+### 1. Enhanced Error Handling ✅
 - Added comprehensive try-catch blocks throughout the signup route
 - Added error handling for JSON parsing
 - Added error handling for Supabase client creation
 - Each operation now has its own error context
 
-### 2. Added CORS Support
+### 2. Added CORS Support ✅
 - Added CORS headers to all responses
 - Added OPTIONS method handler
 - This should help with any cross-origin issues
 
-### 3. Updated API Helpers
+### 3. Updated API Helpers ✅
 - Modified `apiResponse` and `apiError` to support custom headers
 - This allows proper CORS headers in all responses
 
-### 4. Created Health Check Endpoint
+### 4. Created Health Check Endpoint ✅
 - Created `/api/health-check` to verify:
   - API is accessible
   - Environment variables are set
   - Basic system status
 
-### 5. Test Endpoints Created
+### 5. Test Endpoints Created ✅
 - `/api/test-signup` - Tests Supabase connection and database access
 - `/api/health-check` - Simple health check with environment info
 
+## Current Findings
+
+### Health Check Results ✅
+```json
+{
+  "status": "ok",
+  "timestamp": "2025-06-20T10:54:10.073Z",
+  "environment": {
+    "nodeEnv": "production",
+    "hasSupabaseUrl": true,
+    "hasSupabaseAnonKey": true,
+    "hasSupabaseServiceKey": true,
+    "url": "SET"
+  }
+}
+```
+**Conclusion**: Environment variables are properly set.
+
+### Error Details
+- Browser shows: "Auth loading timeout after 5 seconds, proceeding without auth"
+- This suggests the client-side Supabase initialization might be timing out
+- The 500 error occurs when POST to `/api/auth/signup`
+
 ## Next Steps
 
-1. **Wait for deployment** (2-5 minutes)
-2. **Test the health check endpoint**:
-   ```bash
-   curl https://ourteam.gr/api/health-check
-   ```
-
-3. **Test the test-signup endpoint**:
+1. **Test the test-signup endpoint** to check Supabase connection:
    ```bash
    curl https://ourteam.gr/api/test-signup
    ```
 
-4. **Check Netlify Environment Variables**
-   - Ensure all Supabase variables are properly set:
-     - `NEXT_PUBLIC_SUPABASE_URL`
-     - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-     - `SUPABASE_SERVICE_ROLE_KEY`
-
-5. **Test the actual signup with verbose logging**:
+2. **Test with curl to get more details**:
    ```bash
    curl -X POST https://ourteam.gr/api/auth/signup \
      -H "Content-Type: application/json" \
@@ -85,21 +97,27 @@ The route has detailed logging but we're getting a 500 error without seeing thes
      -v
    ```
 
+3. **Check Supabase Project Status**:
+   - Verify the project is active (not paused)
+   - Check if there are any service outages
+   - Verify RLS policies on the members table
+
+4. **Check Client-Side Issues**:
+   - The "Auth loading timeout" suggests client-side Supabase initialization issues
+   - This might be related to CORS or network connectivity
+
 ## Possible Remaining Issues
 
-### 1. Environment Variables
-- The variables might not be set in Netlify
-- Variable names might be different in production
-
-### 2. Supabase Project Status
+### 1. Supabase Connection
 - The Supabase project might be paused
 - API keys might have been rotated
+- RLS policies might be blocking the operation
 
-### 3. Build Issues
-- The build might be failing silently
-- Dependencies might not be installed correctly
+### 2. Client-Side Configuration
+- The client might be using different environment variables
+- CORS issues between client and server
 
-### 4. Network/Proxy Issues
+### 3. Network/Proxy Issues
 - Netlify might be blocking certain requests
 - There might be a proxy configuration issue
 
@@ -110,4 +128,4 @@ The route has detailed logging but we're getting a 500 error without seeing thes
 4. `src/app/api/test-signup/route.ts` - Test endpoint (already existed)
 
 ## Status
-Waiting for deployment to complete before testing the fixes.
+Environment variables are confirmed to be set. Need to test Supabase connection and check for RLS policy issues.
