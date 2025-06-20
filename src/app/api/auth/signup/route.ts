@@ -4,7 +4,22 @@ import { apiResponse, apiError } from '@/lib/api-helpers'
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
+    // Add CORS headers for the response
+    const headers = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    }
+
+    // Parse request body with error handling
+    let body: any
+    try {
+      body = await req.json()
+    } catch (parseError) {
+      console.error('[Signup API] Failed to parse request body:', parseError)
+      return apiError('Invalid request body', 400)
+    }
+
     const { email, password, username, firstName, lastName, phone, companyId, sponsorId } = body
 
     console.log('[Signup API] Starting signup process for:', email)
@@ -23,40 +38,60 @@ export async function POST(req: NextRequest) {
       return apiError('Email and password are required', 400)
     }
 
-    const supabase = await createApiClient(req)
+    // Create Supabase client with error handling
+    let supabase
+    try {
+      supabase = await createApiClient(req)
+    } catch (clientError: any) {
+      console.error('[Signup API] Failed to create Supabase client:', clientError)
+      return apiError('Failed to initialize database connection', 500)
+    }
 
     // Check if username is unique (if provided)
     if (username) {
       console.log('[Signup API] Checking username availability:', username)
-      const { data: existingUser, error: usernameError } = await supabase
-        .from('members')
-        .select('username')
-        .eq('username', username)
-        .single()
+      try {
+        const { data: existingUser, error: usernameError } = await supabase
+          .from('members')
+          .select('username')
+          .eq('username', username)
+          .single()
 
-      if (usernameError && usernameError.code !== 'PGRST116') {
-        console.error('[Signup API] Username check error:', usernameError)
-        return apiError(`Username check failed: ${usernameError.message}`, 500)
-      }
+        if (usernameError && usernameError.code !== 'PGRST116') {
+          console.error('[Signup API] Username check error:', usernameError)
+          return apiError(`Username check failed: ${usernameError.message}`, 500)
+        }
 
-      if (existingUser) {
-        return apiError('Username is already taken', 400)
+        if (existingUser) {
+          return apiError('Username is already taken', 400)
+        }
+      } catch (err: any) {
+        console.error('[Signup API] Username check exception:', err)
+        return apiError('Failed to check username availability', 500)
       }
     }
 
     // Create auth user
     console.log('[Signup API] Creating auth user...')
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-    })
+    let authData
+    try {
+      const authResult = await supabase.auth.signUp({
+        email,
+        password,
+      })
 
-    if (authError) {
-      console.error('[Signup API] Auth error:', authError)
-      return apiError(`Signup failed: ${authError.message}`, 400)
+      if (authResult.error) {
+        console.error('[Signup API] Auth error:', authResult.error)
+        return apiError(`Signup failed: ${authResult.error.message}`, 400)
+      }
+
+      authData = authResult.data
+    } catch (authException: any) {
+      console.error('[Signup API] Auth exception:', authException)
+      return apiError('Failed to create user account', 500)
     }
 
-    if (!authData.user) {
+    if (!authData?.user) {
       return apiError('Failed to create user account', 500)
     }
 
@@ -66,18 +101,23 @@ export async function POST(req: NextRequest) {
     let finalCompanyId = companyId
     if (!finalCompanyId) {
       console.log('[Signup API] No company ID provided, fetching default...')
-      const { data: defaultCompany, error: companyError } = await supabase
-        .from('companies')
-        .select('id')
-        .limit(1)
-        .single()
-      
-      if (companyError) {
-        console.error('[Signup API] Failed to get default company:', companyError)
+      try {
+        const { data: defaultCompany, error: companyError } = await supabase
+          .from('companies')
+          .select('id')
+          .limit(1)
+          .single()
+        
+        if (companyError) {
+          console.error('[Signup API] Failed to get default company:', companyError)
+          return apiError('Failed to get default company', 500)
+        }
+        
+        finalCompanyId = defaultCompany?.id
+      } catch (companyException: any) {
+        console.error('[Signup API] Company fetch exception:', companyException)
         return apiError('Failed to get default company', 500)
       }
-      
-      finalCompanyId = defaultCompany?.id
     }
 
     if (!finalCompanyId) {
@@ -110,37 +150,53 @@ export async function POST(req: NextRequest) {
 
     console.log('[Signup API] Creating member record:', memberData)
 
-    const { data: member, error: memberError } = await supabase
-      .from('members')
-      .insert([memberData])
-      .select()
-      .single()
+    let member
+    try {
+      const { data: memberResult, error: memberError } = await supabase
+        .from('members')
+        .insert([memberData])
+        .select()
+        .single()
 
-    if (memberError) {
-      console.error('[Signup API] Member creation error:', memberError)
-      console.error('[Signup API] Member creation error details:', {
-        code: memberError.code,
-        message: memberError.message,
-        details: memberError.details,
-        hint: memberError.hint
-      })
-      console.error('[Signup API] Member data that failed:', memberData)
-      
-      // Note: We can't delete the auth user from the client side
-      // The auth user will exist but without a member profile
-      console.warn('[Signup API] Auth user created but member profile failed. User may need manual cleanup.')
-      
-      return apiError(`Failed to create member profile: ${memberError.message}`, 500)
+      if (memberError) {
+        console.error('[Signup API] Member creation error:', memberError)
+        console.error('[Signup API] Member creation error details:', {
+          code: memberError.code,
+          message: memberError.message,
+          details: memberError.details,
+          hint: memberError.hint
+        })
+        console.error('[Signup API] Member data that failed:', memberData)
+        
+        // Note: We can't delete the auth user from the client side
+        // The auth user will exist but without a member profile
+        console.warn('[Signup API] Auth user created but member profile failed. User may need manual cleanup.')
+        
+        return apiError(`Failed to create member profile: ${memberError.message}`, 500)
+      }
+
+      member = memberResult
+    } catch (memberException: any) {
+      console.error('[Signup API] Member creation exception:', memberException)
+      return apiError('Failed to create member profile', 500)
     }
 
     console.log('[Signup API] Member created successfully:', member.id)
 
     // Get company info for response
-    const { data: company } = await supabase
-      .from('companies')
-      .select('id, name, slug')
-      .eq('id', finalCompanyId)
-      .single()
+    let company
+    try {
+      const { data: companyData } = await supabase
+        .from('companies')
+        .select('id, name, slug')
+        .eq('id', finalCompanyId)
+        .single()
+      
+      company = companyData
+    } catch (companyInfoError: any) {
+      console.error('[Signup API] Failed to get company info:', companyInfoError)
+      // Non-critical error, continue without company info
+    }
 
     // Return success response
     return apiResponse({
@@ -153,11 +209,23 @@ export async function POST(req: NextRequest) {
       },
       member: member,
       company: company
-    }, 201)
+    }, 201, headers)
 
   } catch (error: any) {
     console.error('[Signup API] Unexpected error:', error)
     console.error('[Signup API] Error stack:', error.stack)
     return apiError(`Internal server error during signup: ${error.message || 'Unknown error'}`, 500)
   }
-} 
+}
+
+// Handle OPTIONS request for CORS
+export async function OPTIONS(req: NextRequest) {
+  return new Response(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  })
+}
