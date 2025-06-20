@@ -18,8 +18,9 @@ export const useDashboardMetrics = () => {
       // Fix: API returns { data: { metrics: ... }, success: true }
       return result.data?.metrics as DashboardMetrics
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    refetchInterval: 2 * 60 * 1000, // Background refetch every 2 minutes when focused
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    // Disabled aggressive refetching to prevent request storms
+    // refetchInterval: 2 * 60 * 1000,
     refetchIntervalInBackground: false,
   })
 }
@@ -49,8 +50,9 @@ export const useActivityFeed = (filters?: {
       }
     },
     getNextPageParam: (lastPage) => lastPage.nextPage,
-    staleTime: 1 * 60 * 1000, // 1 minute
-    refetchInterval: 30 * 1000, // Background refetch every 30 seconds when focused
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    // Disabled aggressive refetching to prevent request storms
+    // refetchInterval: 30 * 1000,
     refetchIntervalInBackground: false,
     initialPageParam: 0,
   })

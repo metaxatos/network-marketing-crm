@@ -232,15 +232,7 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
       // Get member data (consolidated profile included)
       const { data: member, error: memberError } = await supabase
         .from('members')
-        .select(`
-          *,
-          companies:company_id (
-            id,
-            name,
-            slug,
-            plan_type
-          )
-        `)
+        .select('*')
         .eq('id', session.user.id)
         .single()
 
@@ -250,10 +242,22 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
         return
       }
 
+      // Fetch company data separately if member has a company
+      let company = null
+      if (member?.company_id) {
+        const { data: companyData } = await supabase
+          .from('companies')
+          .select('id, name, slug, plan_type')
+          .eq('id', member.company_id)
+          .single()
+        
+        company = companyData
+      }
+
       set({
         user: session.user,
         member: member,
-        company: member.companies,
+        company: company,
         isAuthenticated: true,
         isLoading: false,
       })
