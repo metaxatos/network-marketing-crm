@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createApiClient } from '@/lib/supabase/api-client'
 import type { ApiResponse } from '@/types'
 
-// Standard API response helper
+// Standard API response helper with optional headers
 export function apiResponse<T>(
   data: T,
   status: number = 200,
-  message?: string
+  message?: string,
+  headers?: HeadersInit
 ): NextResponse<ApiResponse<T>> {
   return NextResponse.json(
     {
@@ -14,14 +15,15 @@ export function apiResponse<T>(
       success: status >= 200 && status < 300,
       message,
     },
-    { status }
+    { status, headers }
   )
 }
 
-// Standard API error helper
+// Standard API error helper with optional headers
 export function apiError(
   message: string,
-  status: number = 500
+  status: number = 500,
+  headers?: HeadersInit
 ): NextResponse<ApiResponse<null>> {
   return NextResponse.json(
     {
@@ -29,7 +31,7 @@ export function apiError(
       success: false,
       message,
     },
-    { status }
+    { status, headers }
   )
 }
 
