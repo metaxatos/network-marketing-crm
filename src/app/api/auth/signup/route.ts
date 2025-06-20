@@ -4,23 +4,40 @@ import { apiResponse, apiError } from '@/lib/api-helpers'
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createApiClient(req)
-    const { email, password, username, firstName, lastName, phone, companyId, sponsorId } = await req.json()
+    const body = await req.json()
+    const { email, password, username, firstName, lastName, phone, companyId, sponsorId } = body
 
     console.log('[Signup API] Starting signup process for:', email)
+    console.log('[Signup API] Request body:', { 
+      email, 
+      username, 
+      firstName, 
+      lastName, 
+      phone, 
+      companyId, 
+      sponsorId 
+    })
 
     // Basic validation
     if (!email || !password) {
       return apiError('Email and password are required', 400)
     }
 
+    const supabase = await createApiClient(req)
+
     // Check if username is unique (if provided)
     if (username) {
-      const { data: existingUser } = await supabase
+      console.log('[Signup API] Checking username availability:', username)
+      const { data: existingUser, error: usernameError } = await supabase
         .from('members')
         .select('username')
         .eq('username', username)
         .single()
+
+      if (usernameError && usernameError.code !== 'PGRST116') {
+        console.error('[Signup API] Username check error:', usernameError)
+        return apiError(`Username check failed: ${usernameError.message}`, 500)
+      }
 
       if (existingUser) {
         return apiError('Username is already taken', 400)
@@ -28,6 +45,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create auth user
+    console.log('[Signup API] Creating auth user...')
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -47,22 +65,29 @@ export async function POST(req: NextRequest) {
     // Get default company if none provided
     let finalCompanyId = companyId
     if (!finalCompanyId) {
-      const { data: defaultCompany } = await supabase
+      console.log('[Signup API] No company ID provided, fetching default...')
+      const { data: defaultCompany, error: companyError } = await supabase
         .from('companies')
         .select('id')
         .limit(1)
         .single()
+      
+      if (companyError) {
+        console.error('[Signup API] Failed to get default company:', companyError)
+        return apiError('Failed to get default company', 500)
+      }
       
       finalCompanyId = defaultCompany?.id
     }
 
     if (!finalCompanyId) {
       console.error('[Signup API] No company ID available')
-      // Note: Cannot delete auth user from client SDK - would need admin API
       return apiError('Company setup required. Please contact support if this persists.', 500)
     }
 
-    // Create member record with all profile data inline (Updated: following migration plan)
+    console.log('[Signup API] Using company ID:', finalCompanyId)
+
+    // Create member record with all profile data inline
     const memberData = {
       id: authData.user.id,
       company_id: finalCompanyId,
@@ -82,6 +107,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    console.log('[Signup API] Creating member record:', memberData)
+
     const { data: member, error: memberError } = await supabase
       .from('members')
       .insert([memberData])
@@ -90,7 +117,7 @@ export async function POST(req: NextRequest) {
 
     if (memberError) {
       console.error('[Signup API] Member creation error:', memberError)
-      // Note: Cannot delete auth user from client SDK
+      console.error('[Signup API] Member data that failed:', memberData)
       return apiError(`Failed to create member profile: ${memberError.message}`, 500)
     }
 
@@ -116,8 +143,9 @@ export async function POST(req: NextRequest) {
       company: company
     }, 201)
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Signup API] Unexpected error:', error)
-    return apiError('Internal server error during signup', 500)
+    console.error('[Signup API] Error stack:', error.stack)
+    return apiError(`Internal server error during signup: ${error.message || 'Unknown error'}`, 500)
   }
 } 
