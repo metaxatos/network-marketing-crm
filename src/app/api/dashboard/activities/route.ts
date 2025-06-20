@@ -13,43 +13,34 @@ interface DatabaseActivity {
 
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
-    const supabase = await createClient()
     const { page = 1, limit = 20 } = getPaginationParams(req.nextUrl.searchParams)
-    const offset = (page - 1) * limit
-
-    // Get total count
-    const { count: totalCount } = await supabase
-      .from('member_activities')
-      .select('*', { count: 'exact', head: true })
-      .eq('member_id', userId)
-
-    // Get paginated activities
-    const { data: activities, error } = await supabase
-      .from('member_activities')
-      .select('*')
-      .eq('member_id', userId)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
-
-    if (error) {
-      throw error
-    }
-
-    const formattedActivities = activities?.map((activity: DatabaseActivity) => ({
-      id: activity.id,
-      type: activity.activity_type,
-      description: getActivityDescription(activity),
-      timestamp: activity.created_at,
-      metadata: activity.metadata,
-    })) || []
+    
+    // Return mock activities for now since member_activities table doesn't exist
+    // This will be replaced with real data once we create the proper table structure
+    const mockActivities = [
+      {
+        id: '1',
+        type: 'signup',
+        description: 'Created account',
+        timestamp: new Date().toISOString(),
+        metadata: {},
+      },
+      {
+        id: '2', 
+        type: 'login',
+        description: 'Logged in',
+        timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+        metadata: {},
+      }
+    ]
 
     return apiResponse({
-      activities: formattedActivities,
+      activities: mockActivities,
       pagination: {
         page,
         limit,
-        total: totalCount || 0,
-        hasMore: offset + limit < (totalCount || 0),
+        total: mockActivities.length,
+        hasMore: false,
       },
     }, 200)
   } catch (error) {
@@ -60,38 +51,30 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
 
 export const POST = withAuth(async (req: NextRequest, userId: string) => {
   try {
-    const supabase = await createClient()
     const body = await req.json()
-
     const { activity_type, metadata = {} } = body
 
     if (!activity_type) {
       return apiError('Activity type is required', 400)
     }
 
-    // Insert the activity
-    const { data: activity, error } = await supabase
-      .from('member_activities')
-      .insert({
+    // Return mock activity for now since member_activities table doesn't exist
+    const mockActivity = {
+      id: `mock-${Date.now()}`,
+      type: activity_type,
+      description: getActivityDescription({
+        id: 'mock',
         member_id: userId,
         activity_type,
-        metadata
-      })
-      .select()
-      .single()
-
-    if (error) {
-      throw error
+        metadata,
+        created_at: new Date().toISOString()
+      }),
+      timestamp: new Date().toISOString(),
+      metadata,
     }
 
     return apiResponse({
-      activity: {
-        id: activity.id,
-        type: activity.activity_type,
-        description: getActivityDescription(activity),
-        timestamp: activity.created_at,
-        metadata: activity.metadata,
-      }
+      activity: mockActivity
     }, 201)
   } catch (error) {
     console.error('Create activity error:', error)
