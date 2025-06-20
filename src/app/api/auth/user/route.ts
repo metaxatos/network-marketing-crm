@@ -52,16 +52,7 @@ export async function GET(req: NextRequest) {
       const memberResponse = await withTimeout(
         supabase
           .from('members')
-          .select(`
-            *,
-            member_profiles!member_id (
-              first_name,
-              last_name,
-              avatar_url,
-              timezone,
-              preferences
-            )
-          `)
+          .select('*')
           .eq('id', user.id)
           .single(),
         3000
@@ -113,9 +104,7 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // Format response
-      const userProfile = member?.member_profiles?.[0] || null
-
+      // Format response - member now includes all profile data
       return NextResponse.json({
         user: {
           id: user.id,
@@ -129,14 +118,15 @@ export async function GET(req: NextRequest) {
           status: member.status,
           level: member.level,
           sponsor_id: member.sponsor_id,
-          created_at: member.created_at
-        } : null,
-        profile: userProfile ? {
-          first_name: userProfile.first_name,
-          last_name: userProfile.last_name,
-          avatar_url: userProfile.avatar_url,
-          timezone: userProfile.timezone,
-          preferences: userProfile.preferences
+          created_at: member.created_at,
+          // Profile data is now in member table
+          first_name: member.first_name,
+          last_name: member.last_name,
+          name: member.name,
+          avatar_url: member.avatar_url,
+          phone: member.phone,
+          timezone: member.timezone,
+          preferences: member.preferences
         } : null,
         company
       })
