@@ -2,7 +2,7 @@
 
 **Date**: June 20, 2025  
 **Issue**: POST /api/auth/signup returns 500 Internal Server Error  
-**Status**: ⚠️ NEW ISSUE FOUND - RLS Policy Violation
+**Status**: ⚠️ NEW ISSUE FOUND - RLS Policy Violation (Fix Implemented)
 
 ## Problem Summary
 - Users cannot sign up on production site (https://ourteam.gr)
@@ -39,47 +39,38 @@ The `createApiClient` function in `src/lib/supabase/api-client.ts` uses:
 
 ## Resolution
 
-### Immediate Fix
-Create a separate Supabase client for admin operations that uses the service role key:
+### ✅ Fix Implemented
 
-1. Create `src/lib/supabase/admin-client.ts`:
-```typescript
-import { createClient } from '@supabase/supabase-js'
+1. **Created Admin Client** (`src/lib/supabase/admin-client.ts`):
+   - Uses service role key to bypass RLS
+   - Only for server-side admin operations
+   - Includes safety checks and validation
 
-export function createAdminClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error('Missing Supabase admin environment variables')
-  }
-  
-  return createClient(supabaseUrl, supabaseServiceKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  })
-}
-```
+2. **Updated Signup Route** (`src/app/api/auth/signup/route.ts`):
+   - Uses regular client for auth.signUp
+   - Uses admin client for member creation
+   - Checks if service role key is available
 
-2. Update the signup route to use the admin client for member creation:
-```typescript
-// Use regular client for auth.signUp
-const supabase = await createApiClient(req)
-const { data: authData, error: authError } = await supabase.auth.signUp({
-  email,
-  password,
-})
+### 🔧 Action Required: Add Service Role Key to Netlify
 
-// Use admin client for member creation (bypasses RLS)
-const adminClient = createAdminClient()
-const { data: member, error: memberError } = await adminClient
-  .from('members')
-  .insert([memberData])
-  .select()
-  .single()
-```
+**Step 1: Get the Service Role Key from Supabase**
+1. Go to your Supabase project dashboard
+2. Navigate to Settings → API
+3. Find the "service_role" secret key (starts with `eyJ...`)
+4. Copy this key (keep it secure!)
+
+**Step 2: Add to Netlify Environment Variables**
+1. Go to Netlify dashboard
+2. Navigate to Site Configuration → Environment Variables
+3. Add new variable:
+   - Key: `SUPABASE_SERVICE_ROLE_KEY`
+   - Value: [paste the service role key]
+   - Contexts: All (Production, Preview, Branch deploys)
+4. Save the changes
+
+**Step 3: Redeploy the Site**
+1. Trigger a new deployment in Netlify
+2. Or push any small change to trigger auto-deploy
 
 ### Alternative Solutions
 
@@ -102,7 +93,7 @@ const { data: member, error: memberError } = await adminClient
 Make sure these are set in Netlify:
 - `NEXT_PUBLIC_SUPABASE_URL` ✅ (already set)
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` ✅ (already set)
-- `SUPABASE_SERVICE_ROLE_KEY` ❓ (needs to be added)
+- `SUPABASE_SERVICE_ROLE_KEY` ❌ (needs to be added)
 
 ## Test Results
 
@@ -112,16 +103,28 @@ Make sure these are set in Netlify:
 - All environment variables for basic operations are correctly set
 - Database connection is working
 
-### ❌ What Fails
+### ❌ What Fails (Before Fix)
 - Member record creation due to RLS policy violation
 - Any operation that requires inserting into `members` table without authentication
 
-## Recommendations
+### ✅ What Will Work (After Adding Service Role Key)
+- Complete signup flow
+- Member record creation using admin privileges
+- All signup operations
 
-1. **Immediate Action**: Add `SUPABASE_SERVICE_ROLE_KEY` to Netlify environment variables
-2. **Security Best Practice**: Only use service role key for specific admin operations
-3. **Code Update**: Implement the admin client approach for signup
-4. **Long-term**: Consider implementing a database function for atomic signup
+## Files Modified
+
+1. ✅ Created `src/lib/supabase/admin-client.ts` - Admin client with service role key
+2. ✅ Updated `src/app/api/auth/signup/route.ts` - Use admin client for member creation
+3. ❌ Netlify environment variables - Need to add service role key
+
+## Security Considerations
+
+- **Service role key bypasses all RLS policies**
+- Should only be used for specific admin operations
+- Never expose service role key to client-side code
+- Keep it in server-side environment variables only
+- The admin client is only used for member creation during signup
 
 ## Investigation Timeline
 
@@ -134,20 +137,8 @@ Make sure these are set in Netlify:
 7. **Resolution**: Use realistic email addresses
 8. **New Issue**: RLS policy violation when creating member records
 9. **Root Cause**: API using anon key instead of service role key
-
-## Files to Modify
-
-1. Create `src/lib/supabase/admin-client.ts` - Admin client with service role key
-2. Update `src/app/api/auth/signup/route.ts` - Use admin client for member creation
-3. Update `.env.local` - Add `SUPABASE_SERVICE_ROLE_KEY`
-4. Update Netlify environment variables - Add service role key
-
-## Security Considerations
-
-- Service role key bypasses all RLS policies
-- Should only be used for specific admin operations
-- Never expose service role key to client-side code
-- Keep it in server-side environment variables only
+10. **Fix Implemented**: Created admin client and updated signup route
+11. **Action Required**: Add service role key to Netlify
 
 ## Lessons Learned
 
@@ -157,4 +148,11 @@ Make sure these are set in Netlify:
 4. **Environment Variables**: Different keys serve different purposes
 5. **Error Messages**: RLS violations provide clear error messages
 
-The signup system requires the service role key to bypass RLS policies during member creation.
+## Next Steps
+
+1. Add `SUPABASE_SERVICE_ROLE_KEY` to Netlify environment variables
+2. Redeploy the site
+3. Test signup with realistic email addresses
+4. Verify member records are created successfully
+
+The signup system is now properly configured to use the service role key for bypassing RLS policies during member creation. Once the environment variable is added to Netlify, the signup flow should work correctly.
