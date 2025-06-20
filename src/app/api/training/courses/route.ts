@@ -91,7 +91,7 @@ export const GET = withAuth(async (req, userId) => {
     console.log('Training courses API - Query successful, found courses:', courses?.length || 0)
 
     // Transform to expected format
-    const coursesWithProgress: CourseWithProgress[] = courses?.map(course => ({
+    const coursesWithProgress: CourseWithProgress[] = courses?.map((course: any) => ({
       id: course.id,
       title: course.title,
       description: course.description,

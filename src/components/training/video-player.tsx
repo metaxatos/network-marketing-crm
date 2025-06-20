@@ -64,7 +64,7 @@ export function VideoPlayer({
     // Debounce the save to avoid too many API calls
     saveTimeoutRef.current = setTimeout(() => {
       updateProgress({
-        videoId,
+        lessonId: videoId,
         progressSeconds: Math.floor(seconds),
         completed
       });
@@ -86,7 +86,7 @@ export function VideoPlayer({
     if (autoSave && videoId) {
       // Immediately save completion
       updateProgress({
-        videoId,
+        lessonId: videoId,
         progressSeconds: Math.floor(currentTime),
         completed: true
       });

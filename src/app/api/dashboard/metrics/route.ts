@@ -74,7 +74,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
       .order('created_at', { ascending: false })
       .limit(5)
 
-    const recentActivities = activities?.map(activity => ({
+    const recentActivities = activities?.map((activity: any) => ({
       id: activity.id,
       type: activity.activity_type,
       description: getActivityDescription(activity),
