@@ -1,5 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useUserStore } from '@/stores/userStore'
+
+// Global flag to ensure initialize is only called once
+let isInitialized = false
+let initializePromise: Promise<void> | null = null
 
 export const useAppAuth = () => {
   const {
@@ -12,12 +16,17 @@ export const useAppAuth = () => {
   } = useUserStore()
 
   useEffect(() => {
-    // Initialize authentication on mount
-    // Empty dependency array to run only once on mount
-    initialize().catch((error: any) => {
-      console.warn('Auth initialization failed:', error)
-    })
-  }, []) // Fixed: Empty dependency array to prevent infinite loop
+    // Only initialize once globally, not per component
+    if (!isInitialized && !initializePromise) {
+      isInitialized = true
+      initializePromise = initialize().catch((error: any) => {
+        console.warn('Auth initialization failed:', error)
+        // Reset on error so it can retry
+        isInitialized = false
+        initializePromise = null
+      })
+    }
+  }, []) // Empty dependency array
 
   // Note: Data loading for contacts, emails, courses, and landing pages
   // is now handled by React Query hooks in individual components
