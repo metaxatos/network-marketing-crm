@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
       body = await req.json()
     } catch (parseError) {
       console.error('[Signup API] Failed to parse request body:', parseError)
-      return apiError('Invalid request body', 400)
+      return apiError('Invalid request body', 400, headers)
     }
 
     const { email, password, username, firstName, lastName, phone, companyId, sponsorId } = body
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     // Basic validation
     if (!email || !password) {
-      return apiError('Email and password are required', 400)
+      return apiError('Email and password are required', 400, headers)
     }
 
     // Create Supabase client with error handling
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       supabase = await createApiClient(req)
     } catch (clientError: any) {
       console.error('[Signup API] Failed to create Supabase client:', clientError)
-      return apiError('Failed to initialize database connection', 500)
+      return apiError('Failed to initialize database connection', 500, headers)
     }
 
     // Check if username is unique (if provided)
@@ -59,15 +59,15 @@ export async function POST(req: NextRequest) {
 
         if (usernameError && usernameError.code !== 'PGRST116') {
           console.error('[Signup API] Username check error:', usernameError)
-          return apiError(`Username check failed: ${usernameError.message}`, 500)
+          return apiError(`Username check failed: ${usernameError.message}`, 500, headers)
         }
 
         if (existingUser) {
-          return apiError('Username is already taken', 400)
+          return apiError('Username is already taken', 400, headers)
         }
       } catch (err: any) {
         console.error('[Signup API] Username check exception:', err)
-        return apiError('Failed to check username availability', 500)
+        return apiError('Failed to check username availability', 500, headers)
       }
     }
 
@@ -82,17 +82,17 @@ export async function POST(req: NextRequest) {
 
       if (authResult.error) {
         console.error('[Signup API] Auth error:', authResult.error)
-        return apiError(`Signup failed: ${authResult.error.message}`, 400)
+        return apiError(`Signup failed: ${authResult.error.message}`, 400, headers)
       }
 
       authData = authResult.data
     } catch (authException: any) {
       console.error('[Signup API] Auth exception:', authException)
-      return apiError('Failed to create user account', 500)
+      return apiError('Failed to create user account', 500, headers)
     }
 
     if (!authData?.user) {
-      return apiError('Failed to create user account', 500)
+      return apiError('Failed to create user account', 500, headers)
     }
 
     console.log('[Signup API] Auth user created:', authData.user.id)
@@ -110,19 +110,19 @@ export async function POST(req: NextRequest) {
         
         if (companyError) {
           console.error('[Signup API] Failed to get default company:', companyError)
-          return apiError('Failed to get default company', 500)
+          return apiError('Failed to get default company', 500, headers)
         }
         
         finalCompanyId = defaultCompany?.id
       } catch (companyException: any) {
         console.error('[Signup API] Company fetch exception:', companyException)
-        return apiError('Failed to get default company', 500)
+        return apiError('Failed to get default company', 500, headers)
       }
     }
 
     if (!finalCompanyId) {
       console.error('[Signup API] No company ID available')
-      return apiError('Company setup required. Please contact support if this persists.', 500)
+      return apiError('Company setup required. Please contact support if this persists.', 500, headers)
     }
 
     console.log('[Signup API] Using company ID:', finalCompanyId)
@@ -172,13 +172,13 @@ export async function POST(req: NextRequest) {
         // The auth user will exist but without a member profile
         console.warn('[Signup API] Auth user created but member profile failed. User may need manual cleanup.')
         
-        return apiError(`Failed to create member profile: ${memberError.message}`, 500)
+        return apiError(`Failed to create member profile: ${memberError.message}`, 500, headers)
       }
 
       member = memberResult
     } catch (memberException: any) {
       console.error('[Signup API] Member creation exception:', memberException)
-      return apiError('Failed to create member profile', 500)
+      return apiError('Failed to create member profile', 500, headers)
     }
 
     console.log('[Signup API] Member created successfully:', member.id)
@@ -209,12 +209,19 @@ export async function POST(req: NextRequest) {
       },
       member: member,
       company: company
-    }, 201, headers)
+    }, 201, undefined, headers)
 
   } catch (error: any) {
     console.error('[Signup API] Unexpected error:', error)
     console.error('[Signup API] Error stack:', error.stack)
-    return apiError(`Internal server error during signup: ${error.message || 'Unknown error'}`, 500)
+    
+    const headers = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    }
+    
+    return apiError(`Internal server error during signup: ${error.message || 'Unknown error'}`, 500, headers)
   }
 }
 
