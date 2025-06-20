@@ -1,33 +1,28 @@
-export async function POST(request: Request) {
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
-    // Just echo back what we received
-    return Response.json({
+    return NextResponse.json({
       success: true,
       received: body,
       timestamp: new Date().toISOString()
     }, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-      }
+      status: 200
     })
   } catch (error) {
-    return Response.json({
+    return NextResponse.json({
       success: false,
       error: 'Failed to process request'
     }, {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-      }
+      status: 500
     })
   }
 }
 
 export async function GET() {
-  return Response.json({
-    message: 'This endpoint only accepts POST requests'
+  return NextResponse.json({
+    message: 'GET method works - POST should also work'
   })
 }
