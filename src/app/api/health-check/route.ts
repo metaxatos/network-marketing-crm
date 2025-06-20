@@ -1,6 +1,4 @@
-import { NextRequest } from 'next/server'
-
-export async function GET(req: NextRequest) {
+export async function GET(req: Request) {
   // Simple health check to verify API is accessible
   return Response.json({
     status: 'ok',
@@ -26,7 +24,7 @@ export async function GET(req: NextRequest) {
   })
 }
 
-export async function OPTIONS(req: NextRequest) {
+export async function OPTIONS(req: Request) {
   return new Response(null, {
     status: 200,
     headers: {
