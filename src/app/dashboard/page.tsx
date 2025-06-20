@@ -40,8 +40,16 @@ export default function DashboardPage() {
   const { data: activitiesData, isLoading: activitiesLoading } = useActivityFeed()
   const { data: contacts = [], isLoading: contactsLoading } = useContacts()
   const { data: sentEmails = [], isLoading: emailsLoading } = useEmailHistory()
-  const { data: courses = [], isLoading: coursesLoading } = useTrainingVideos()
-  const { data: userProgress, isLoading: progressLoading } = useVideoProgress()
+  
+  // TEMP: Remove problematic training hooks until we fix the API/hook mismatch
+  // const { data: courses = [], isLoading: coursesLoading } = useTrainingVideos()
+  // const { data: userProgress, isLoading: progressLoading } = useVideoProgress()
+  
+  // Simple fallbacks for training data
+  const courses: any[] = []
+  const userProgress: any[] = []
+  const coursesLoading = false
+  const progressLoading = false
   
   // Extract activities from InfiniteData if needed
   const activities = Array.isArray(activitiesData) 
@@ -75,13 +83,9 @@ export default function DashboardPage() {
     return email.sent_at && new Date(email.sent_at).toDateString() === today
   }).length
   
-  // Calculate training progress from courses and user progress
-  const totalCourses = courses.length
-  const completedCourses = Array.isArray(userProgress) 
-    ? userProgress.filter(p => p.completed).length 
-    : 0
-  const trainingProgress = totalCourses > 0 ? Math.round((completedCourses / totalCourses) * 100) : 0
-
+  // SIMPLIFIED: Use static training progress until we fix the API/hook structure
+  const trainingProgress: number = 0 // Will show "0% complete" for now
+  
   // Mock smart suggestion - in real app this would come from AI/analytics
   const handleSuggestionAction = () => {
     // Navigate to contacts or specific action
@@ -116,8 +120,8 @@ export default function DashboardPage() {
   // Calculate monthly goals progress (mock - could be based on real metrics)
   const monthlyGoalProgress = Math.min(Math.round((contactsThisWeek / 20) * 100), 100) // Goal of 20 contacts per month
 
-  // Show loading state if any critical data is still loading
-  const isDataLoading = metricsLoading || contactsLoading || coursesLoading
+  // Show loading state if any critical data is still loading (removed training from critical path)
+  const isDataLoading = metricsLoading || contactsLoading
 
   return (
     <ErrorBoundary fallback={({ error, resetError }) => <QueryErrorFallback error={error} resetError={resetError} />}>
