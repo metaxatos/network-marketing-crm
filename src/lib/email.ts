@@ -14,10 +14,10 @@ export const resend = getResendClient()
 
 // Email configuration
 export const EMAIL_CONFIG = {
-  fromEmail: 'noreply@yoursite.com', // Replace with your verified domain
-  fromName: 'Your Network Marketing Team',
-  replyTo: 'support@yoursite.com', // Replace with your support email
-  baseUrl: process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000',
+  fromEmail: 'noreply@ourteam.gr', // Using your actual domain
+  fromName: 'OurTeam Network Marketing',
+  replyTo: 'support@ourteam.gr', // Replace with your support email
+  baseUrl: process.env.NEXT_PUBLIC_BASE_URL || 'https://ourteam.gr',
 }
 
 // Email template types
@@ -58,9 +58,10 @@ export async function sendEmail({
       return { success: true, messageId: 'dev_' + Date.now() }
     }
     
+    console.error('❌ RESEND_API_KEY not configured. Email cannot be sent.')
     return { 
       success: false, 
-      error: 'Email service not configured. Please add RESEND_API_KEY to your environment variables.' 
+      error: 'Email service not configured. Please add RESEND_API_KEY to Netlify environment variables. Visit https://resend.com/api-keys to get your API key.' 
     }
   }
 

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createApiClient } from '@/lib/supabase/api-client'
 import { apiResponse, apiError } from '@/lib/api-helpers'
+import { sendEmail } from '@/lib/email'
 
 export async function POST(req: NextRequest) {
   try {
@@ -116,31 +117,38 @@ export async function POST(req: NextRequest) {
         throw new Error(`Failed to create communication record: ${commError.message}`)
       }
 
-      // Here you would integrate with your email service (Resend, SendGrid, etc.)
-      // For now, we'll simulate sending and update status
+      // Send email using Resend
       try {
-        // TODO: Replace with actual email sending logic
-        // await emailService.send({
-        //   to: recipient.email,
-        //   subject: emailSubject,
-        //   html: emailContent,
-        //   from: member.email
-        // })
+        console.log(`[Email Send API] Sending email to ${recipient.email}`)
+        
+        const emailResult = await sendEmail({
+          to: recipient.email,
+          subject: emailSubject,
+          html: emailContent,
+          text: emailContent.replace(/<[^>]*>/g, ''), // Strip HTML for text version
+          replyTo: member.email
+        })
 
-        // Update communication status to sent
-        await supabase
-          .from('communications')
-          .update({ 
-            status: 'sent', 
-            sent_at: new Date().toISOString(),
-            metadata: {
-              ...communicationData.metadata,
-              sent_via: 'api'
-            }
-          })
-          .eq('id', communication.id)
+        if (emailResult.success) {
+          // Update communication status to sent
+          await supabase
+            .from('communications')
+            .update({ 
+              status: 'sent', 
+              sent_at: new Date().toISOString(),
+              metadata: {
+                ...communicationData.metadata,
+                sent_via: 'resend',
+                message_id: emailResult.messageId
+              }
+            })
+            .eq('id', communication.id)
 
-        return { success: true, communicationId: communication.id, recipient: recipient.email }
+          console.log(`[Email Send API] Email sent successfully to ${recipient.email}, messageId: ${emailResult.messageId}`)
+          return { success: true, communicationId: communication.id, recipient: recipient.email }
+        } else {
+          throw new Error(emailResult.error || 'Email sending failed')
+        }
       } catch (emailError) {
         console.error('[Email Send API] Email sending failed:', emailError)
         
@@ -151,7 +159,8 @@ export async function POST(req: NextRequest) {
             status: 'failed',
             metadata: {
               ...communicationData.metadata,
-              error: emailError instanceof Error ? emailError.message : 'Unknown error'
+              error: emailError instanceof Error ? emailError.message : 'Unknown error',
+              failed_at: new Date().toISOString()
             }
           })
           .eq('id', communication.id)
