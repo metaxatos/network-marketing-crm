@@ -84,7 +84,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
       {
         id: '1',
         type: 'signup',
-        description: 'Welcome! You''ve successfully created your account ',
+        description: 'Welcome! You\'ve successfully created your account',
         timestamp: new Date().toISOString(),
       }
     ]
@@ -124,14 +124,14 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
   }
 })
 
-function getActivityDescription(activity: any): string {
+function getActivityDescription(activity: { activity_type: string; metadata?: any }): string {
   switch (activity.activity_type) {
     case 'contact_added':
-      return Added new contact: 
+      return `Added new contact: ${activity.metadata?.contact_name || 'Unknown'}`
     case 'email_sent':
-      return Sent email: 
+      return `Sent email: ${activity.metadata?.subject || 'Email'}`
     case 'training_completed':
-      return Completed training: 
+      return `Completed training: ${activity.metadata?.lesson_title || 'Lesson'}`
     case 'login':
       return 'Logged in to dashboard'
     case 'signup':
