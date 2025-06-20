@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
         username,
         first_name,
         last_name,
+        name,
         avatar_url,
         timezone,
         level,
@@ -49,7 +50,24 @@ export async function POST(req: NextRequest) {
 
     if (memberError || !member) {
       console.error('[Login API] Member fetch error:', memberError)
-      return apiError('User profile not found', 404)
+      console.error('[Login API] Member details:', {
+        authUserId: authData.user.id,
+        authUserEmail: authData.user.email,
+        memberError: memberError,
+        memberExists: !!member
+      })
+      
+      // Check if this is an orphaned auth user (exists in auth but not in members)
+      if (!member) {
+        console.error('[Login API] ORPHANED USER DETECTED:', {
+          userId: authData.user.id,
+          email: authData.user.email,
+          suggestion: 'User exists in auth.users but not in members table'
+        })
+        return apiError('Account setup incomplete. Please contact support to complete your profile.', 404)
+      }
+      
+      return apiError(`Login failed: ${(memberError as any)?.message || 'Member profile not found'}`, 404)
     }
 
     if (member.status !== 'active') {
