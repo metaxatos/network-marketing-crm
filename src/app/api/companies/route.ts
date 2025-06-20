@@ -1,61 +1,68 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 import { apiResponse, apiError } from '@/lib/api-helpers'
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await createClient()
-    
-    // First try to get companies with normal access
-    let { data, error } = await supabase
-      .from('companies')
-      .select('id, name')
-      .order('name', { ascending: true })
+    // Use service role to ensure we can access companies for signup
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-    // If we get an RLS error, try with service role client for public signup access
-    if (error && error.message?.includes('row-level security')) {
-      console.log('RLS blocking companies access, using service role for signup')
-      
-      // Create service role client for bypass RLS during signup
-      const serviceSupabase = await createClient()
-      
-      const serviceResult = await serviceSupabase
-        .from('companies')
-        .select('id, name')
-        .order('name', { ascending: true })
-      
-      data = serviceResult.data
-      error = serviceResult.error
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error('Missing Supabase environment variables')
+      return apiError('Server configuration error', 500)
     }
+
+    const supabase = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
+    
+    const { data, error } = await supabase
+      .from('companies')
+      .select('id, name, slug, description, plan_type')
+      .order('name', { ascending: true })
 
     if (error) {
       console.error('Companies fetch error:', error)
       return apiError('Failed to load companies', 500)
     }
 
-    // If no companies found, create a default one
+    // If no companies found, create defaults
     if (!data || data.length === 0) {
-      console.log('No companies found, creating default company')
+      console.log('No companies found, creating default companies')
       
-      const serviceSupabase = await createClient()
-      
-      const { data: newCompany, error: insertError } = await serviceSupabase
-        .from('companies')
-        .insert([{
+      const defaultCompanies = [
+        {
+          id: '00000000-0000-0000-0000-000000000001',
           name: 'Demo Company',
           slug: 'demo-company',
           description: 'Default company for new users',
           plan_type: 'basic'
-        }])
-        .select('id, name')
-        .single()
+        },
+        {
+          id: '00000000-0000-0000-0000-000000000002',
+          name: 'Neumi',
+          slug: 'neumi',
+          description: 'Network marketing company',
+          plan_type: 'premium'
+        }
+      ]
+
+      const { data: newCompanies, error: insertError } = await supabase
+        .from('companies')
+        .upsert(defaultCompanies, { onConflict: 'id' })
+        .select('id, name, slug, description, plan_type')
 
       if (insertError) {
-        console.error('Failed to create default company:', insertError)
+        console.error('Failed to create default companies:', insertError)
         return apiError('No companies available', 500)
       }
 
-      data = [newCompany]
+      console.log(`Companies API returning ${newCompanies.length} companies (created)`)
+      return apiResponse(newCompanies, 200, 'Companies loaded')
     }
 
     console.log(`Companies API returning ${data.length} companies`)

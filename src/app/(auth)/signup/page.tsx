@@ -49,11 +49,16 @@ function SignupForm() {
 
   // Load companies on mount
   useEffect(() => {
+    console.log('Fetching companies...')
     fetch('/api/companies')
       .then(res => res.json())
       .then(res => {
+        console.log('Companies API response:', res)
         if (res.success) {
+          console.log('Setting companies:', res.data)
           setCompanies(res.data)
+        } else {
+          console.error('Companies API returned no success flag:', res)
         }
       })
       .catch(err => console.error('Failed to load companies', err))
@@ -384,7 +389,7 @@ function SignupForm() {
                 <div className="mt-4 space-y-4">
                   <div>
                     <label htmlFor="companyId" className="block text-sm font-medium text-warm-700 mb-2">
-                      Company *
+                      Company * {companies.length > 0 && `(${companies.length} available)`}
                     </label>
                     <select
                       id="companyId"
@@ -399,6 +404,9 @@ function SignupForm() {
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </select>
+                    {companies.length === 0 && (
+                      <p className="text-sm text-red-500 mt-1">No companies loaded. Check console for errors.</p>
+                    )}
                   </div>
 
                   {!sponsorParam && (

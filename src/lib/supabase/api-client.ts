@@ -13,8 +13,21 @@ export async function createApiClient(request?: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   
+  console.log('[API Client] Environment check:')
+  console.log('[API Client] SUPABASE_URL:', supabaseUrl ? 'SET' : 'NOT SET')
+  console.log('[API Client] ANON_KEY:', supabaseAnonKey ? 'SET (length: ' + supabaseAnonKey.length + ')' : 'NOT SET')
+  
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing Supabase environment variables')
+    console.error('[API Client] Missing environment variables:')
+    console.error('[API Client] URL:', supabaseUrl || 'MISSING')
+    console.error('[API Client] ANON_KEY:', supabaseAnonKey ? 'SET' : 'MISSING')
+    throw new Error(`Missing Supabase environment variables: URL=${!!supabaseUrl}, ANON_KEY=${!!supabaseAnonKey}`)
+  }
+
+  // Test if the anon key is valid JWT format
+  if (!supabaseAnonKey.startsWith('eyJ')) {
+    console.error('[API Client] Invalid anon key format - should start with eyJ')
+    throw new Error('Invalid Supabase anon key format')
   }
 
   // If request is provided, merge cookies from request and cookie store
