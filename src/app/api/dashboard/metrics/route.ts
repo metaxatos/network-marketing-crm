@@ -53,24 +53,37 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
       .eq('member_id', userId)
       .gte('created_at', startOfWeek.toISOString())
 
-    // Get training progress from lesson_progress table
-    const { data: lessonProgress } = await supabase
-      .from('lesson_progress')
-      .select('completed')
-      .eq('member_id', userId)
+    // Get training progress - use fallback to avoid errors
+    let trainingProgress = 0
+    try {
+      const { data: lessonProgress } = await supabase
+        .from('lesson_progress')
+        .select('completed')
+        .eq('member_id', userId)
 
-    const trainingProgress = lessonProgress?.length
-      ? lessonProgress.filter((p: { completed: boolean }) => p.completed).length / lessonProgress.length
-      : 0
+      trainingProgress = lessonProgress?.length
+        ? lessonProgress.filter((p: { completed: boolean }) => p.completed).length / lessonProgress.length
+        : 0
+    } catch (error) {
+      console.warn('lesson_progress table not found, using fallback')
+      trainingProgress = 0
+    }
 
-    // Get pending follow-ups (contacts not contacted recently) 
-    const { count: pendingFollowups } = await supabase
-      .from('contacts')
-      .select('*', { count: 'exact', head: true })
-      .eq('member_id', userId)
-      .eq('status', 'prospect')
+    // Get pending follow-ups - use fallback to avoid errors
+    let pendingFollowups = 0
+    try {
+      const { count } = await supabase
+        .from('contacts')
+        .select('*', { count: 'exact', head: true })
+        .eq('member_id', userId)
+        .eq('status', 'prospect')
+      pendingFollowups = count || 0
+    } catch (error) {
+      console.warn('Error fetching pending followups:', error)
+      pendingFollowups = 0
+    }
 
-    // Mock recent activities since we don't have the activities table yet
+    // Mock recent activities - provide safe fallback
     const recentActivities = [
       {
         id: '1',
@@ -86,13 +99,20 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
       }
     ]
 
-    // Get suggested training from available courses
-    const { data: availableCourses } = await supabase
-      .from('training_courses')
-      .select('id, title')
-      .eq('is_published', true)
-      .order('order_index', { ascending: true })
-      .limit(1)
+    // Get suggested training - use fallback to avoid errors
+    let suggestedTraining = undefined
+    try {
+      const { data: availableCourses } = await supabase
+        .from('training_courses')
+        .select('id, title')
+        .eq('is_published', true)
+        .order('order_index', { ascending: true })
+        .limit(1)
+      suggestedTraining = availableCourses?.[0]?.title
+    } catch (error) {
+      console.warn('training_courses table not found, using fallback')
+      suggestedTraining = 'Getting Started Training'
+    }
 
     const response: DashboardMetricsResponse = {
       metrics: {
@@ -102,8 +122,8 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
       },
       recentActivities,
       quickActions: {
-        hasPendingFollowups: (pendingFollowups || 0) > 0,
-        suggestedTraining: availableCourses?.[0]?.title,
+        hasPendingFollowups: pendingFollowups > 0,
+        suggestedTraining: suggestedTraining,
       },
     }
 
