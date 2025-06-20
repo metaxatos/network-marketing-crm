@@ -50,7 +50,7 @@ export const useTrainingVideos = (category?: string) => {
       const params = new URLSearchParams()
       if (category) params.append('category', category)
       
-      const response = await fetch(/api/training/courses?)
+      const response = await fetch(`/api/training/courses?${params.toString()}`)
       if (!response.ok) {
         throw new Error('Failed to fetch training courses')
       }
@@ -67,7 +67,7 @@ export const useTrainingVideo = (id: string) => {
   return useQuery({
     queryKey: queryKeys.trainingVideo(id),
     queryFn: async () => {
-      const response = await fetch(/api/training/)
+      const response = await fetch(`/api/training/${id}`)
       if (!response.ok) {
         throw new Error('Failed to fetch training course')
       }
@@ -102,7 +102,7 @@ export const useVideoProgressById = (lessonId: string) => {
   return useQuery({
     queryKey: queryKeys.videoProgressById(lessonId),
     queryFn: async () => {
-      const response = await fetch(/api/training/progress?lessonId=)
+      const response = await fetch(`/api/training/progress?lessonId=${lessonId}`)
       if (!response.ok) {
         throw new Error('Failed to fetch lesson progress')
       }

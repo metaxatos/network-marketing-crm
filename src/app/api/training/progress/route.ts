@@ -17,7 +17,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
     // Get all lesson progress for the user using our EXISTING lesson_progress table
     const { data: progressData, error } = await supabase
       .from('lesson_progress')
-      .select(
+      .select(`
         *,
         lesson:course_lessons (
           id,
@@ -31,7 +31,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
             )
           )
         )
-      )
+      `)
       .eq('member_id', userId)
 
     if (error) {
@@ -90,7 +90,7 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
     // Get lesson details to verify it exists using our EXISTING course_lessons table
     const { data: lesson } = await supabase
       .from('course_lessons')
-      .select(
+      .select(`
         id,
         title,
         duration_seconds,
@@ -100,7 +100,7 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
             title
           )
         )
-      )
+      `)
       .eq('id', body.lessonId)
       .single()
 

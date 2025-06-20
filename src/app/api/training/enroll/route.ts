@@ -26,7 +26,7 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
     // Verify lesson exists using our EXISTING course_lessons table
     const { data: lesson } = await supabase
       .from('course_lessons')
-      .select(
+      .select(`
         id, 
         title, 
         is_published,
@@ -37,7 +37,7 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
             is_published
           )
         )
-      )
+      `)
       .eq('id', body.lessonId)
       .eq('is_published', true)
       .single()

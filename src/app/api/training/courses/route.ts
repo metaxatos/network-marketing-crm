@@ -52,7 +52,7 @@ export const GET = withAuth(async (req, userId) => {
     // Query using our EXISTING database structure: training_courses -> course_modules -> course_lessons
     const { data: courses, error } = await supabase
       .from('training_courses')
-      .select(
+      .select(`
         id,
         title,
         description,
@@ -78,7 +78,7 @@ export const GET = withAuth(async (req, userId) => {
             )
           )
         )
-      )
+      `)
       .eq('is_published', true)
       .eq('course_modules.course_lessons.lesson_progress.member_id', userId)
       .order('order_index', { ascending: true })
