@@ -1,4 +1,5 @@
 import { createApiClient } from '@/lib/supabase/api-client'
+import { createAdminClient, hasServiceRoleKey } from '@/lib/supabase/admin-client'
 import { apiResponse, apiError } from '@/lib/api-helpers'
 
 export async function POST(req: Request) {
@@ -35,6 +36,12 @@ export async function POST(req: Request) {
     // Basic validation
     if (!email || !password) {
       return apiError('Email and password are required', 400, headers)
+    }
+
+    // Check if service role key is available
+    if (!hasServiceRoleKey()) {
+      console.error('[Signup API] Service role key not configured. Please add SUPABASE_SERVICE_ROLE_KEY to environment variables.')
+      return apiError('Server configuration error. Please contact support.', 500, headers)
     }
 
     // Create Supabase client with error handling
@@ -149,9 +156,13 @@ export async function POST(req: Request) {
 
     console.log('[Signup API] Creating member record:', memberData)
 
+    // Use admin client to bypass RLS for member creation
     let member
     try {
-      const { data: memberResult, error: memberError } = await supabase
+      console.log('[Signup API] Using admin client to create member record (bypassing RLS)...')
+      const adminClient = createAdminClient()
+      
+      const { data: memberResult, error: memberError } = await adminClient
         .from('members')
         .insert([memberData])
         .select()
