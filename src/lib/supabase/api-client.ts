@@ -6,7 +6,7 @@ import { NextRequest } from 'next/server'
  * Create a Supabase client for API routes with proper authentication
  * This ensures that RLS policies work correctly by maintaining the user session
  */
-export async function createApiClient(request?: NextRequest) {
+export async function createApiClient(request?: NextRequest | Request) {
   const cookieStore = await cookies()
   
   // Get environment variables
@@ -32,9 +32,11 @@ export async function createApiClient(request?: NextRequest) {
 
   // If request is provided, merge cookies from request and cookie store
   const getAllCookies = () => {
-    if (request) {
+    if (request && 'cookies' in request) {
+      // NextRequest has a cookies property
+      const nextRequest = request as NextRequest
       // Merge cookies from request and cookie store
-      const requestCookies = request.cookies.getAll()
+      const requestCookies = nextRequest.cookies.getAll()
       const storeCookies = cookieStore.getAll()
       
       // Create a map to deduplicate cookies (request cookies take precedence)
@@ -45,6 +47,7 @@ export async function createApiClient(request?: NextRequest) {
       return Array.from(cookieMap.values())
     }
     
+    // For standard Request or no request, just use cookie store
     return cookieStore.getAll()
   }
 
