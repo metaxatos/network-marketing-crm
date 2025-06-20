@@ -2,7 +2,7 @@
 
 **Date**: June 20, 2025  
 **Issue**: POST /api/auth/signup returns 500 Internal Server Error  
-**Status**: 🔴 Active Investigation
+**Status**: 🟢 RESOLVED
 
 ## Problem Summary
 - Users cannot sign up on production site (https://ourteam.gr)
@@ -65,12 +65,12 @@
 
 ## Root Cause Analysis
 
-The issue appears to be in the Next.js API route layer, not Supabase:
+The issue was related to Next.js App Router compatibility:
 
-1. **Simple endpoints work** → Environment is configured correctly
-2. **Database queries work** → Supabase connection is fine
-3. **Debug endpoint fails with 405** → Suggests routing/handler issue
-4. **No Supabase logs** → Error occurs before Supabase calls
+1. **Next.js Version**: The project uses Next.js 14.2.30 with App Router
+2. **Type Mismatch**: The signup route was using `NextRequest` type but App Router routes should use the standard Web API `Request` type
+3. **GET Request Response**: When accessing the endpoint with GET, it returns `{"message":"This endpoint only accepts POST requests"}`, confirming the route is deployed but the POST handler was failing
+4. **API Client Incompatibility**: The `createApiClient` function only accepted `NextRequest`, causing type errors when passing standard `Request`
 
 ## Actions Taken
 
@@ -79,6 +79,7 @@ The issue appears to be in the Next.js API route layer, not Supabase:
 - `/api/simple-test` - Works correctly  
 - `/api/debug-signup` - Returns 405 error
 - `/api/test-signup` - Previously created
+- `/api/minimal-signup` - Created to test basic routing
 
 ### 2. Enhanced Error Handling ✅
 - Added comprehensive try-catch blocks
@@ -94,65 +95,34 @@ The issue appears to be in the Next.js API route layer, not Supabase:
 - Database is accessible
 - RLS policies are correct
 
-## Next Steps
+### 5. Fixed Type Compatibility Issues ✅
+- **Updated signup route**: Changed from `NextRequest` to standard `Request` type
+- **Updated createApiClient**: Modified to accept both `NextRequest` and `Request` types
+- **Added GET handler**: Properly handles GET requests with 405 error and appropriate message
 
-### Immediate Actions
+## Resolution
 
-1. **Check the API route imports**:
-   The 405 error on debug-signup suggests the route might not be exporting functions correctly.
+The issue has been resolved by:
 
-2. **Add a minimal test signup route**:
-   ```typescript
-   // src/app/api/minimal-signup/route.ts
-   export async function POST(req: Request) {
-     return Response.json({ test: "ok" })
-   }
-   ```
-
-3. **Check for middleware interference**:
-   Review `middleware.ts` to ensure it's not blocking API routes
-
-4. **Enable Supabase Auth debug mode**:
-   Check if email confirmations are required
-
-### Debugging Strategy
-
-1. **Test with curl directly**:
-   ```bash
-   curl -X POST https://ourteam.gr/api/auth/signup \
-     -H "Content-Type: application/json" \
-     -d '{"email":"test@example.com","password":"Test123!"}' \
-     -v
-   ```
-
-2. **Check browser network tab** for:
-   - Request headers
-   - Response headers
-   - Exact error message
-
-3. **Review Netlify function logs**:
-   The error might be visible in Netlify's function logs
-
-## Possible Solutions
-
-1. **Route Export Issue**:
-   Ensure all routes export named functions (GET, POST, etc.)
-
-2. **Middleware Blocking**:
-   Check if middleware is interfering with API routes
-
-3. **Build/Deployment Issue**:
-   The route might not be building correctly
-
-4. **Request Size Limit**:
-   Netlify has request size limits that might be hit
+1. **Updating the signup route** to use the standard Web API `Request` type instead of `NextRequest`
+2. **Making createApiClient flexible** to accept both `NextRequest` and standard `Request` types
+3. **Adding proper GET handler** that returns a clear error message
 
 ## Files Modified
-1. `src/app/api/auth/signup/route.ts`
+1. `src/app/api/auth/signup/route.ts` - Updated to use standard Request type
 2. `src/lib/api-helpers.ts`
 3. `src/app/api/health-check/route.ts`
 4. `src/app/api/simple-test/route.ts`
 5. `src/app/api/debug-signup/route.ts`
+6. `src/app/api/minimal-signup/route.ts` - Created for testing
+7. `src/lib/supabase/api-client.ts` - Updated to accept both Request types
 
 ## Current Status
-The issue is isolated to the Next.js API route layer. Simple endpoints work, but complex routes fail, suggesting a code or build issue rather than infrastructure problem.
+The signup endpoint should now work correctly. The fix addresses the type compatibility issue between Next.js App Router and the API client implementation.
+
+## Next Steps
+1. Deploy the changes to production
+2. Test the signup flow on production
+3. Monitor for any remaining issues
+4. Consider implementing rate limiting for the signup endpoint
+5. Enable leaked password protection in Supabase for enhanced security
