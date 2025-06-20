@@ -2,60 +2,126 @@
 
 **Date**: June 20, 2025  
 **Issue**: POST /api/auth/signup returns 500 Internal Server Error  
-**Status**: ✅ RESOLVED - Email Validation Issue
+**Status**: ⚠️ NEW ISSUE FOUND - RLS Policy Violation
 
 ## Problem Summary
 - Users cannot sign up on production site (https://ourteam.gr)
-- API returns 400 error with message: `"Email address \"test@example.com\" is invalid"`
-- **Root Cause**: Supabase Auth rejects test emails with `example.com` domain
+- API returns 500 error with message: `"Failed to create member profile: new row violates row-level security policy for table \"members\""`
+- **Root Cause**: The signup API route is using the anon key which is subject to RLS policies, but there's no authenticated session during signup
+
+## Investigation Update (June 20, 2025)
+
+### New Issue Discovered
+While the email validation issue was resolved, a new problem has been discovered:
+
+1. **Error Message**: `"Failed to create member profile: new row violates row-level security policy for table \"members\""`
+2. **Root Cause**: The API route is using the Supabase anon key, not the service role key
+3. **RLS Policy**: The `members` table has a policy "Users can insert their own member record" with condition `auth.uid() = id`
+4. **Problem**: During signup from the API route, there's no authenticated session, so `auth.uid()` is null
+
+### Technical Analysis
+
+#### Current RLS Policies on `members` table:
+```sql
+-- "Users can insert their own member record"
+-- WITH CHECK: (auth.uid() = id)
+```
+
+This policy requires that the authenticated user's ID matches the ID being inserted. However, during signup:
+1. The auth user is created first
+2. Then the member record is created
+3. But the API route doesn't have an authenticated session, so `auth.uid()` is null
+
+#### Current Implementation Issue:
+The `createApiClient` function in `src/lib/supabase/api-client.ts` uses:
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` (subject to RLS)
+- Should use: `SUPABASE_SERVICE_ROLE_KEY` (bypasses RLS)
 
 ## Resolution
 
-The signup endpoint is working correctly! The issue was:
+### Immediate Fix
+Create a separate Supabase client for admin operations that uses the service role key:
 
-1. **Supabase Auth Email Validation**: Supabase has built-in email validation that rejects obviously fake domains like `example.com`
-2. **Not a Code Issue**: The API routes, database connection, and authentication flow are all working properly
-3. **Simple Fix**: Use realistic email addresses (e.g., `user123@gmail.com`)
+1. Create `src/lib/supabase/admin-client.ts`:
+```typescript
+import { createClient } from '@supabase/supabase-js'
+
+export function createAdminClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error('Missing Supabase admin environment variables')
+  }
+  
+  return createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  })
+}
+```
+
+2. Update the signup route to use the admin client for member creation:
+```typescript
+// Use regular client for auth.signUp
+const supabase = await createApiClient(req)
+const { data: authData, error: authError } = await supabase.auth.signUp({
+  email,
+  password,
+})
+
+// Use admin client for member creation (bypasses RLS)
+const adminClient = createAdminClient()
+const { data: member, error: memberError } = await adminClient
+  .from('members')
+  .insert([memberData])
+  .select()
+  .single()
+```
+
+### Alternative Solutions
+
+1. **Modify RLS Policy** (Not recommended for security):
+   - Could add a policy that allows inserts without authentication
+   - Security risk: anyone could insert members
+
+2. **Use Database Function** (Better alternative):
+   - Create a PL/pgSQL function that handles the entire signup process
+   - Function runs with SECURITY DEFINER (elevated privileges)
+   - Single atomic operation
+
+3. **Two-Step Process** (Current workaround):
+   - User signs up (creates auth user)
+   - User logs in (gets session)
+   - Create member profile with authenticated session
+
+## Environment Variables Required
+
+Make sure these are set in Netlify:
+- `NEXT_PUBLIC_SUPABASE_URL` ✅ (already set)
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` ✅ (already set)
+- `SUPABASE_SERVICE_ROLE_KEY` ❓ (needs to be added)
 
 ## Test Results
 
 ### ✅ Working Tests
 - `/api/basic-test` - POST requests work perfectly
-- `/api/auth/signup` - Works with valid emails
-- `/api/auth/signup-v2` - Works with valid emails
-- All environment variables are correctly set
+- Auth user creation works
+- All environment variables for basic operations are correctly set
 - Database connection is working
 
 ### ❌ What Fails
-- Email addresses with `@example.com` domain
-- Other obviously fake email patterns
-
-## Solution for Users
-
-When signing up, users need to:
-1. Use real email addresses
-2. Avoid test domains like `example.com`, `test.com`, etc.
-3. Use valid email formats
-
-## Test Page
-
-Access the test page at: `https://ourteam.gr/test-signup`
-
-Features:
-- Auto-generates realistic email addresses
-- Tests multiple endpoints
-- Shows detailed error messages
-- Allows custom email input
-
-## Final Status
-
-**The signup functionality is working correctly.** The 500 errors were caused by Supabase's email validation rejecting test emails. With valid email addresses, signup works as expected.
+- Member record creation due to RLS policy violation
+- Any operation that requires inserting into `members` table without authentication
 
 ## Recommendations
 
-1. **Update Error Messages**: The frontend should show more specific error messages instead of generic 500 errors
-2. **Documentation**: Document that test emails like `test@example.com` won't work in production
-3. **Email Validation**: Consider adding client-side validation to prevent invalid emails from being submitted
+1. **Immediate Action**: Add `SUPABASE_SERVICE_ROLE_KEY` to Netlify environment variables
+2. **Security Best Practice**: Only use service role key for specific admin operations
+3. **Code Update**: Implement the admin client approach for signup
+4. **Long-term**: Consider implementing a database function for atomic signup
 
 ## Investigation Timeline
 
@@ -66,24 +132,29 @@ Features:
 5. **Testing**: Created test endpoints and pages
 6. **Discovery**: API works but Supabase rejects test emails
 7. **Resolution**: Use realistic email addresses
+8. **New Issue**: RLS policy violation when creating member records
+9. **Root Cause**: API using anon key instead of service role key
 
-## Files Modified
+## Files to Modify
 
-1. `src/app/api/auth/signup/route.ts` - Updated to use standard Request type
-2. `src/lib/api-helpers.ts` - Original helpers
-3. `src/app/api/health-check/route.ts` - Shows env vars are set
-4. `src/app/api/simple-test/route.ts` - Database connection test
-5. `src/app/api/basic-test/route.ts` - No imports test
-6. `src/app/api/auth/signup-v2/route.ts` - Simplified signup
-7. `src/lib/supabase/api-client.ts` - Accepts both Request types
-8. `src/app/api/debug-signup-test/route.ts` - Detailed debugging
-9. `src/app/test-signup/page.tsx` - Frontend test page with email generator
+1. Create `src/lib/supabase/admin-client.ts` - Admin client with service role key
+2. Update `src/app/api/auth/signup/route.ts` - Use admin client for member creation
+3. Update `.env.local` - Add `SUPABASE_SERVICE_ROLE_KEY`
+4. Update Netlify environment variables - Add service role key
+
+## Security Considerations
+
+- Service role key bypasses all RLS policies
+- Should only be used for specific admin operations
+- Never expose service role key to client-side code
+- Keep it in server-side environment variables only
 
 ## Lessons Learned
 
-1. **Start with Simple Tests**: The `/api/basic-test` quickly showed POST requests work
-2. **Check Error Messages**: The actual error message revealed the real issue
-3. **Test with Realistic Data**: Production systems often have validation rules
-4. **Debug Systematically**: Creating multiple test endpoints helped isolate the issue
+1. **RLS Policies**: Always consider how RLS policies affect server-side operations
+2. **Service Role Key**: Essential for admin operations that bypass RLS
+3. **Auth Flow**: Signup is a special case that requires elevated privileges
+4. **Environment Variables**: Different keys serve different purposes
+5. **Error Messages**: RLS violations provide clear error messages
 
-The signup system is now fully functional with valid email addresses.
+The signup system requires the service role key to bypass RLS policies during member creation.
