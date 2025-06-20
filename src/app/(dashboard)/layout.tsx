@@ -10,20 +10,11 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { isAuthenticated, isLoading, member, initialize } = useUserStore()
+  const { isAuthenticated, isLoading, member } = useUserStore()
   const [showMemberSetup, setShowMemberSetup] = useState(false)
-  const [initialized, setInitialized] = useState(false)
   const router = useRouter()
 
-  // Initialize auth store
-  useEffect(() => {
-    if (!initialized) {
-      setInitialized(true)
-      initialize().catch((error: any) => {
-        console.warn('Auth initialization failed:', error)
-      })
-    }
-  }, [initialized, initialize])
+  // Remove duplicate initialization - useAppAuth already handles this
 
   useEffect(() => {
     // Redirect to login if not authenticated (production only)
@@ -93,12 +84,9 @@ export default function DashboardLayout({
     return (
       <MemberSetup 
         onComplete={() => {
-          console.log('[DashboardLayout] Member setup completed, refreshing data...')
+          console.log('[DashboardLayout] Member setup completed')
           setShowMemberSetup(false)
-          // Reload member data after completion
-          initialize().then(() => {
-            console.log('[DashboardLayout] Member data reloaded after setup')
-          })
+          // The userStore will automatically update when member data changes
         }} 
       />
     )

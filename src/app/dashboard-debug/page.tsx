@@ -10,8 +10,7 @@ export default function DebugDashboardPage() {
     user, 
     member, 
     isLoading, 
-    isAuthenticated, 
-    initialize 
+    isAuthenticated
   } = useUserStore()
 
   useEffect(() => {
@@ -23,13 +22,10 @@ export default function DebugDashboardPage() {
       }
     }, 5000)
 
-    // Initialize auth
-    initialize().catch((error) => {
-      console.error('Dashboard: Auth initialization failed:', error)
-    })
+    // Remove duplicate initialization - useAppAuth already handles this
 
     return () => clearTimeout(timeout)
-  }, [isLoading, initialize, router])
+  }, [isLoading, router])
 
   // Debug info in console
   useEffect(() => {
