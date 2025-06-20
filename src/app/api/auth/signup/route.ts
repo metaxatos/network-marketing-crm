@@ -98,6 +98,7 @@ export async function POST(req: NextRequest) {
       level: 0,
       status: 'active' as const,
       sponsor_id: sponsorId || null,
+      position: null, // Explicitly set position to null since it's nullable
       // Store preferences in JSONB for flexibility
       preferences: {
         notifications_enabled: true,
@@ -117,7 +118,22 @@ export async function POST(req: NextRequest) {
 
     if (memberError) {
       console.error('[Signup API] Member creation error:', memberError)
+      console.error('[Signup API] Member creation error details:', {
+        code: memberError.code,
+        message: memberError.message,
+        details: memberError.details,
+        hint: memberError.hint
+      })
       console.error('[Signup API] Member data that failed:', memberData)
+      
+      // Try to clean up the auth user if member creation fails
+      // Note: This may not work due to Supabase limitations, but we try anyway
+      try {
+        await supabase.auth.admin.deleteUser(authData.user.id)
+      } catch (deleteError) {
+        console.error('[Signup API] Failed to clean up auth user:', deleteError)
+      }
+      
       return apiError(`Failed to create member profile: ${memberError.message}`, 500)
     }
 
