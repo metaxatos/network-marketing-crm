@@ -58,6 +58,8 @@ export async function POST(req: NextRequest) {
 
     if (!finalCompanyId) {
       console.error('[Signup API] No company ID available')
+      // Clean up auth user if company setup fails
+      await supabase.auth.admin.deleteUser(authData.user.id)
       return apiError('Company setup required', 500)
     }
 
@@ -67,11 +69,9 @@ export async function POST(req: NextRequest) {
       company_id: finalCompanyId,
       email: authData.user.email,
       username: username || null,
-      first_name: firstName || null,
-      last_name: lastName || null,
       name: `${firstName || ''} ${lastName || ''}`.trim() || 'New User',
       phone: phone || null,
-      level: 1,
+      level: 0,
       status: 'active' as const,
       sponsor_id: sponsorId || null,
       // Store preferences in JSONB for flexibility
@@ -111,8 +111,8 @@ export async function POST(req: NextRequest) {
         id: authData.user.id,
         email: authData.user.email,
         username: member.username,
-        firstName: member.first_name,
-        lastName: member.last_name,
+        firstName: firstName,
+        lastName: lastName,
       },
       member: member,
       company: company
