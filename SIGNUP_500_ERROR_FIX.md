@@ -5,54 +5,119 @@
 **Status**: 🔴 In Progress
 
 ## Problem Description
-- User attempts to sign up
+- User attempts to sign up on the production site (https://ourteam.gr)
 - Browser shows 500 error when calling `/api/auth/signup`
 - Previous fixes have been applied but error persists
 
 ## Investigation Steps
 
-### Step 1: Check How Signup is Called
-**Finding**: The userStore.ts sends the data with camelCase field names:
-```javascript
-body: JSON.stringify({ 
-  email, 
-  password, 
-  firstName: memberData.first_name,  // Converting from snake_case to camelCase
-  lastName: memberData.last_name,    // Converting from snake_case to camelCase
-  username: memberData.username,
-  phone: memberData.phone,
-  companyId: memberData.companyId,
-  sponsorId: memberData.sponsorId,
-})
-```
+### Step 1: Review Current Code
+**Finding**: The signup API route is at `src/app/api/auth/signup/route.ts` and expects:
+- Required: `email`, `password`
+- Optional: `username`, `firstName`, `lastName`, `phone`, `companyId`, `sponsorId`
 
-**Issue**: The signup form is sending `first_name` and `last_name` but the API expects `firstName` and `lastName`.
+The API route:
+1. Creates auth user via Supabase Auth
+2. Gets default company if none provided
+3. Creates member record with combined `name` field (firstName + lastName)
 
-### Step 2: Review Current Database Schema
-**Finding**: The members table has:
-- A single `name` column (not `first_name` and `last_name`)
-- The API route correctly combines firstName + lastName into name
+### Step 2: Check API Route Logs
+The route has detailed logging but we're getting a 500 error without seeing these logs in the response.
 
-### Step 3: Previous Fixes Applied
-1. ✅ Removed invalid `supabase.auth.admin.deleteUser` call
-2. ✅ Added explicit `position: null` field
-3. ✅ Updated route to combine firstName/lastName into name field
-4. ✅ Added RLS policies for INSERT operations
-
-### Step 4: Current Status
-**Problem**: The request is reaching the API but still returning 500 error
-**Next Steps**: 
-1. Deploy test endpoint to check exact error
-2. Check if deployment has completed
-3. Verify all changes are live
+### Step 3: Check Production Environment
+**Issue**: The 500 error might be due to:
+1. Missing environment variables in production
+2. Database connection issues
+3. RLS policies blocking the operation
+4. Error in the API route that prevents proper error response
 
 ## Actions Taken
 
-### Created Test Endpoint
-- Created `/api/test-signup` to debug the issue
-- This will help identify the exact error without going through the full signup flow
+### 1. Create Debug Endpoint
+Creating a test endpoint to isolate the issue:
 
-### Next Actions Required
-1. Wait for deployment (typically 2-5 minutes)
-2. Test the `/api/test-signup` endpoint
-3. Based on the error, apply the fix
+```typescript
+// src/app/api/test-signup/route.ts
+export async function GET() {
+  return Response.json({ 
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    env: {
+      hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+      hasSupabaseKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+    }
+  })
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json()
+    
+    // Test basic validation
+    if (!body.email || !body.password) {
+      return Response.json({ error: 'Missing email or password' }, { status: 400 })
+    }
+    
+    // Test Supabase connection
+    const supabase = await createApiClient(req)
+    
+    // Test database access
+    const { data: companies, error: dbError } = await supabase
+      .from('companies')
+      .select('id')
+      .limit(1)
+    
+    if (dbError) {
+      return Response.json({ 
+        error: 'Database connection error',
+        details: dbError.message 
+      }, { status: 500 })
+    }
+    
+    return Response.json({ 
+      status: 'ready',
+      hasCompanies: !!companies && companies.length > 0,
+      receivedData: {
+        email: body.email,
+        hasPassword: !!body.password,
+        fields: Object.keys(body)
+      }
+    })
+    
+  } catch (error: any) {
+    return Response.json({ 
+      error: 'Test endpoint error',
+      message: error.message,
+      type: error.constructor.name
+    }, { status: 500 })
+  }
+}
+```
+
+### 2. Next Actions Required
+1. Deploy the test endpoint
+2. Test with: `curl -X POST https://ourteam.gr/api/test-signup -H "Content-Type: application/json" -d '{"email":"test@example.com","password":"test123"}'`
+3. Based on the response, identify the exact issue
+4. Apply the appropriate fix
+
+## Possible Causes & Solutions
+
+### 1. Environment Variables Missing
+**Check**: Netlify environment variables
+**Solution**: Ensure all required Supabase variables are set
+
+### 2. Database Connection Issues
+**Check**: Test endpoint response
+**Solution**: Verify Supabase project is active and accessible
+
+### 3. CORS Issues
+**Check**: Browser console for CORS errors
+**Solution**: Add proper CORS headers to API route
+
+### 4. Request Body Parsing
+**Check**: If body is being parsed correctly
+**Solution**: Ensure Content-Type header is set properly
+
+## Current Status
+Waiting for test endpoint deployment to diagnose the exact issue.
