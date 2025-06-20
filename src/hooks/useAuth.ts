@@ -13,10 +13,11 @@ export const useAppAuth = () => {
 
   useEffect(() => {
     // Initialize authentication on mount
+    // Empty dependency array to run only once on mount
     initialize().catch((error: any) => {
       console.warn('Auth initialization failed:', error)
     })
-  }, [initialize])
+  }, []) // Fixed: Empty dependency array to prevent infinite loop
 
   // Note: Data loading for contacts, emails, courses, and landing pages
   // is now handled by React Query hooks in individual components
