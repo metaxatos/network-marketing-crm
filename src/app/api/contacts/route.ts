@@ -128,6 +128,7 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
         email: data.email ? data.email.toLowerCase().trim() : undefined,
         status: data.status || 'prospect',
         tags: data.tags || [],
+        custom_fields: data.custom_fields || {},
       }
       
       console.log('[Create Contact] Validated body:', JSON.stringify(validated))
@@ -166,7 +167,7 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
         email: body.email,
         status: body.status,
         tags: body.tags,
-        notes: '',
+        custom_fields: body.custom_fields,
       })
       .select()
       .single()

@@ -19,6 +19,7 @@ export interface CreateContactRequest {
   email?: string
   status?: 'lead' | 'customer' | 'team_member'
   tags?: string[]
+  custom_fields?: Record<string, any>
 }
 
 export interface UpdateContactRequest {
