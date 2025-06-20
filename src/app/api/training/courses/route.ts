@@ -1,159 +1,163 @@
-import { NextRequest } from 'next/server'
+﻿import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth, getCurrentMember } from '@/lib/api-helpers'
-import type { TrainingVideo, MemberProgress } from '@/types/training'
 
-// Define the simplified database video type with progress
-interface DatabaseVideoWithProgress {
+// Define types based on our EXISTING database structure
+interface CourseWithProgress {
   id: string
-  company_id: string
   title: string
   description?: string
-  video_url: string
-  video_platform: 'youtube' | 'vimeo' | 'wistia' | 'direct'
   thumbnail_url?: string
-  duration_seconds?: number
-  category?: string
   order_index: number
   is_published: boolean
-  member_progress?: Array<{
-    progress_seconds: number
-    completed: boolean
-    last_watched_at?: string
+  modules: Array<{
+    id: string
+    title: string
+    order_index: number
+    lessons: Array<{
+      id: string
+      title: string
+      description?: string
+      video_url?: string
+      video_platform?: string
+      duration_seconds?: number
+      order_index: number
+      progress?: {
+        progress_seconds: number
+        completed: boolean
+        last_watched_at?: string
+      }
+    }>
   }>
 }
 
-// GET /api/training/courses - Get all available training videos (replaces courses)
+// GET /api/training/courses - Using our EXISTING training structure
 export const GET = withAuth(async (req, userId) => {
   try {
-    console.log('Training videos API - Starting request for user:', userId)
+    console.log('Training courses API - Starting request for user:', userId)
     const supabase = await createClient()
     
-    // Get member's company ID - handle case where member doesn't exist yet
+    // Get member's company ID
     let member = null
     try {
       member = await getCurrentMember(userId)
-      console.log('Training videos API - Member data:', { 
+      console.log('Training courses API - Member data:', { 
         memberId: member?.id, 
-        companyId: member?.company_id,
-        hasCompany: !!member?.company_id 
+        companyId: member?.company_id 
       })
     } catch (error) {
-      console.warn('Training videos API - Member not found, returning general videos only:', error)
-      // Continue with null member - will return general videos
+      console.warn('Training courses API - Member not found:', error)
     }
-    
-    // Query training videos with progress (simplified from course/module/lesson structure)
-    let videos = null
-    let error = null
 
-    if (member?.company_id) {
-      console.log('Training videos API - Querying videos for company:', member.company_id)
-      const result = await supabase
-        .from('training_videos')
-        .select(`
+    // Query using our EXISTING database structure: training_courses -> course_modules -> course_lessons
+    const { data: courses, error } = await supabase
+      .from('training_courses')
+      .select(
+        id,
+        title,
+        description,
+        thumbnail_url,
+        order_index,
+        is_published,
+        course_modules (
           id,
-          company_id,
           title,
-          description,
-          video_url,
-          video_platform,
-          thumbnail_url,
-          duration_seconds,
-          category,
           order_index,
-          is_published,
-          member_progress!inner (
-            progress_seconds,
-            completed,
-            last_watched_at
+          course_lessons (
+            id,
+            title,
+            description,
+            video_url,
+            video_platform,
+            duration_seconds,
+            order_index,
+            lesson_progress (
+              progress_seconds,
+              completed,
+              last_watched_at
+            )
           )
-        `)
-        .eq('company_id', member.company_id)
-        .eq('is_published', true)
-        .eq('member_progress.member_id', userId)
-        .order('order_index', { ascending: true })
-      
-      videos = result.data
-      error = result.error
-    } else {
-      console.log('Training videos API - No company found, querying general videos')
-      const result = await supabase
-        .from('training_videos')
-        .select(`
-          id,
-          company_id,
-          title,
-          description,
-          video_url,
-          video_platform,
-          thumbnail_url,
-          duration_seconds,
-          category,
-          order_index,
-          is_published,
-          member_progress!left (
-            progress_seconds,
-            completed,
-            last_watched_at
-          )
-        `)
-        .is('company_id', null)
-        .eq('is_published', true)
-        .eq('member_progress.member_id', userId)
-        .order('order_index', { ascending: true })
-      
-      videos = result.data
-      error = result.error
-    }
+        )
+      )
+      .eq('is_published', true)
+      .eq('course_modules.course_lessons.lesson_progress.member_id', userId)
+      .order('order_index', { ascending: true })
 
     if (error) {
-      console.error('Training videos API - Database error:', error)
+      console.error('Training courses API - Database error:', error)
       throw error
     }
 
-    console.log('Training videos API - Query successful, found videos:', videos?.length || 0)
+    console.log('Training courses API - Query successful, found courses:', courses?.length || 0)
 
-    // Find recommended next video (first uncompleted video)
+    // Transform to expected format
+    const coursesWithProgress: CourseWithProgress[] = courses?.map(course => ({
+      id: course.id,
+      title: course.title,
+      description: course.description,
+      thumbnail_url: course.thumbnail_url,
+      order_index: course.order_index,
+      is_published: course.is_published,
+      modules: course.course_modules?.map((module: any) => ({
+        id: module.id,
+        title: module.title,
+        order_index: module.order_index,
+        lessons: module.course_lessons?.map((lesson: any) => ({
+          id: lesson.id,
+          title: lesson.title,
+          description: lesson.description,
+          video_url: lesson.video_url,
+          video_platform: lesson.video_platform,
+          duration_seconds: lesson.duration_seconds,
+          order_index: lesson.order_index,
+          progress: lesson.lesson_progress?.[0] ? {
+            progress_seconds: lesson.lesson_progress[0].progress_seconds,
+            completed: lesson.lesson_progress[0].completed,
+            last_watched_at: lesson.lesson_progress[0].last_watched_at,
+          } : undefined,
+        })) || []
+      })) || []
+    })) || []
+
+    // Find recommended next lesson (first uncompleted lesson)
     let recommendedNext: string | undefined
-    const incompleteVideos = videos?.filter(
-      (video: DatabaseVideoWithProgress) => !video.member_progress?.[0]?.completed
-    ) || []
-
-    if (incompleteVideos.length > 0) {
-      recommendedNext = incompleteVideos[0].id
+    for (const course of coursesWithProgress) {
+      for (const module of course.modules) {
+        for (const lesson of module.lessons) {
+          if (!lesson.progress?.completed) {
+            recommendedNext = lesson.id
+            break
+          }
+        }
+        if (recommendedNext) break
+      }
+      if (recommendedNext) break
     }
 
-    // Group videos by category for better organization
-    const categorizedVideos = videos?.reduce((acc: any, video: DatabaseVideoWithProgress) => {
-      const category = video.category || 'General'
-      if (!acc[category]) acc[category] = []
-      acc[category].push({
-        id: video.id,
-        title: video.title,
-        description: video.description,
-        thumbnailUrl: video.thumbnail_url,
-        durationSeconds: video.duration_seconds,
-        category: video.category,
-        progress: video.member_progress?.[0] ? {
-          progressSeconds: video.member_progress[0].progress_seconds,
-          completed: video.member_progress[0].completed,
-          lastWatchedAt: video.member_progress[0].last_watched_at,
-        } : undefined,
+    // Calculate overall progress
+    let totalLessons = 0
+    let completedLessons = 0
+    coursesWithProgress.forEach(course => {
+      course.modules.forEach(module => {
+        module.lessons.forEach(lesson => {
+          totalLessons++
+          if (lesson.progress?.completed) {
+            completedLessons++
+          }
+        })
       })
-      return acc
-    }, {}) || {}
+    })
 
     return apiResponse({
-      videos: Object.entries(categorizedVideos).map(([category, categoryVideos]) => ({
-        category,
-        videos: categoryVideos,
-      })),
+      courses: coursesWithProgress,
       recommendedNext,
-      totalVideos: videos?.length || 0,
+      totalCourses: coursesWithProgress.length,
+      totalLessons,
+      completedLessons,
+      overallProgress: totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0,
     }, 200)
   } catch (error) {
-    console.error('Get training videos error:', error)
-    return apiError('Failed to retrieve training videos', 500)
+    console.error('Get training courses error:', error)
+    return apiError('Failed to retrieve training courses', 500)
   }
-}) 
+})

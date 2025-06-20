@@ -1,74 +1,79 @@
-import { NextRequest } from 'next/server'
+﻿import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth, validateBody, getCurrentMember } from '@/lib/api-helpers'
 
-// Define simplified video access request
-interface AccessVideoRequest {
-  videoId: string
+// Define lesson access request using our EXISTING structure
+interface AccessLessonRequest {
+  lessonId: string
 }
 
-// POST /api/training/enroll - Start watching a video (simplified from course enrollment)
+// POST /api/training/enroll - Start watching a lesson (using our EXISTING lesson structure)
 export const POST = withAuth(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createClient()
     
     // Validate request body
-    const body = await validateBody<AccessVideoRequest>(req, (data) => {
-      if (!data.videoId) {
-        throw new Error('Video ID is required')
+    const body = await validateBody<AccessLessonRequest>(req, (data) => {
+      if (!data.lessonId) {
+        throw new Error('Lesson ID is required')
       }
 
       return {
-        videoId: data.videoId,
+        lessonId: data.lessonId,
       }
     })
 
-    // Get member's company ID
-    const member = await getCurrentMember(userId)
-    
-    if (!member?.company_id) {
-      return apiError('Company not found', 404)
-    }
-
-    // Verify video exists and user has access
-    const { data: video } = await supabase
-      .from('training_videos')
-      .select('id, title, company_id, is_published')
-      .eq('id', body.videoId)
-      .or(`company_id.eq.${member.company_id},company_id.is.null`) // Company video or general video
+    // Verify lesson exists using our EXISTING course_lessons table
+    const { data: lesson } = await supabase
+      .from('course_lessons')
+      .select(
+        id, 
+        title, 
+        is_published,
+        course_module:course_modules (
+          title,
+          training_course:training_courses (
+            title,
+            is_published
+          )
+        )
+      )
+      .eq('id', body.lessonId)
       .eq('is_published', true)
       .single()
 
-    if (!video) {
-      return apiError('Video not found or access denied', 404)
+    if (!lesson || !lesson.course_module?.training_course?.is_published) {
+      return apiError('Lesson not found or not available', 404)
     }
 
-    // Check if user already has progress record for this video
+    // Check if user already has progress record for this lesson using our EXISTING lesson_progress table
     const { data: existingProgress } = await supabase
-      .from('member_progress')
-      .select('member_id, video_id, created_at')
+      .from('lesson_progress')
+      .select('member_id, lesson_id, created_at')
       .eq('member_id', userId)
-      .eq('video_id', body.videoId)
+      .eq('lesson_id', body.lessonId)
       .single()
 
     if (existingProgress) {
       return apiResponse({
-        message: 'Video access confirmed',
-        video: {
-          id: video.id,
-          title: video.title,
+        message: 'Lesson access confirmed',
+        lesson: {
+          id: lesson.id,
+          title: lesson.title,
+          moduleTitle: lesson.course_module?.title,
+          courseTitle: lesson.course_module?.training_course?.title,
           hasExistingProgress: true,
           firstAccessedAt: existingProgress.created_at,
         },
       }, 200)
     }
 
-    // Create initial progress record to track that user started watching
+    // Create initial progress record using our EXISTING lesson_progress table
     const { data: newProgress, error } = await supabase
-      .from('member_progress')
+      .from('lesson_progress')
       .insert({
         member_id: userId,
-        video_id: body.videoId,
+        lesson_id: body.lessonId,
         progress_seconds: 0,
         completed: false,
         last_watched_at: new Date().toISOString(),
@@ -80,17 +85,16 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
       throw error
     }
 
-    // Log activity for starting a new video
+    // Log activity for starting a new lesson using our EXISTING member_activities table
     try {
-      await supabase.from('communications').insert({
+      await supabase.from('member_activities').insert({
         member_id: userId,
-        type: 'activity',
-        subject: 'Training Started',
-        content: `Started watching training video: ${video.title}`,
+        activity_type: 'training_started',
         metadata: {
-          activity_type: 'training_started',
-          video_id: video.id,
-          video_title: video.title,
+          lesson_id: lesson.id,
+          lesson_title: lesson.title,
+          module_title: lesson.course_module?.title,
+          course_title: lesson.course_module?.training_course?.title,
         },
       })
     } catch (logError) {
@@ -99,19 +103,21 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
     }
 
     return apiResponse({
-      message: 'Video access granted',
-      video: {
-        id: video.id,
-        title: video.title,
+      message: 'Lesson access granted',
+      lesson: {
+        id: lesson.id,
+        title: lesson.title,
+        moduleTitle: lesson.course_module?.title,
+        courseTitle: lesson.course_module?.training_course?.title,
         hasExistingProgress: false,
         firstAccessedAt: newProgress.created_at,
       },
     }, 201)
   } catch (error) {
-    console.error('Video access error:', error)
+    console.error('Lesson access error:', error)
     return apiError(
-      error instanceof Error ? error.message : 'Failed to access video',
+      error instanceof Error ? error.message : 'Failed to access lesson',
       400
     )
   }
-}) 
+})
