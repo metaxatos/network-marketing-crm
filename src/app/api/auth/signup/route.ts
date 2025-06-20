@@ -53,11 +53,14 @@ export async function POST(req: Request) {
       return apiError('Failed to initialize database connection', 500, headers)
     }
 
-    // Check if username is unique (if provided)
+    // Create admin client for bypassing RLS
+    const adminClient = createAdminClient()
+
+    // Check if username is unique (if provided) - using admin client to bypass RLS
     if (username) {
       console.log('[Signup API] Checking username availability:', username)
       try {
-        const { data: existingUser, error: usernameError } = await supabase
+        const { data: existingUser, error: usernameError } = await adminClient
           .from('members')
           .select('username')
           .eq('username', username)
@@ -77,13 +80,21 @@ export async function POST(req: Request) {
       }
     }
 
-    // Create auth user
-    console.log('[Signup API] Creating auth user...')
+    // Create auth user using admin client to ensure immediate availability
+    console.log('[Signup API] Creating auth user with admin client...')
     let authData
     try {
-      const authResult = await supabase.auth.signUp({
+      // Using admin client for auth.signUp ensures the user is created immediately
+      // without requiring email confirmation
+      const authResult = await adminClient.auth.admin.createUser({
         email,
         password,
+        email_confirm: true, // Auto-confirm email when using admin API
+        user_metadata: {
+          firstName,
+          lastName,
+          username
+        }
       })
 
       if (authResult.error) {
@@ -108,7 +119,7 @@ export async function POST(req: Request) {
     if (!finalCompanyId) {
       console.log('[Signup API] No company ID provided, fetching default...')
       try {
-        const { data: defaultCompany, error: companyError } = await supabase
+        const { data: defaultCompany, error: companyError } = await adminClient
           .from('companies')
           .select('id')
           .limit(1)
@@ -160,7 +171,6 @@ export async function POST(req: Request) {
     let member
     try {
       console.log('[Signup API] Using admin client to create member record (bypassing RLS)...')
-      const adminClient = createAdminClient()
       
       const { data: memberResult, error: memberError } = await adminClient
         .from('members')
@@ -178,7 +188,7 @@ export async function POST(req: Request) {
         })
         console.error('[Signup API] Member data that failed:', memberData)
         
-        // Note: We can't delete the auth user from the client side
+        // Note: We can't easily delete the auth user with the admin API
         // The auth user will exist but without a member profile
         console.warn('[Signup API] Auth user created but member profile failed. User may need manual cleanup.')
         
@@ -196,7 +206,7 @@ export async function POST(req: Request) {
     // Get company info for response
     let company
     try {
-      const { data: companyData } = await supabase
+      const { data: companyData } = await adminClient
         .from('companies')
         .select('id, name, slug')
         .eq('id', finalCompanyId)
