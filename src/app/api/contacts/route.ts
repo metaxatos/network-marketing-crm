@@ -83,8 +83,6 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
 // POST /api/contacts - Create new contact
 export const POST = withAuth(async (req: NextRequest, userId: string) => {
   try {
-    console.log('[Create Contact] Starting contact creation for user:', userId)
-    
     const supabase = await createApiClient(req)
     
     // Get current member to access company_id
@@ -98,15 +96,9 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
       console.error('[Create Contact] Member lookup error:', memberError)
       return apiError('Unable to find member profile', 400)
     }
-
-    console.log('[Create Contact] Found member with company_id:', member.company_id)
     
     // Validate request body
-    console.log('[Create Contact] Parsing request body...')
-    
     const body = await validateBody<CreateContactRequest>(req, (data) => {
-      console.log('[Create Contact] Raw request data:', JSON.stringify(data))
-      console.log('[Create Contact] Validating data:', JSON.stringify(data))
       
       if (!data.name) {
         throw new Error('Contact name is required')
@@ -122,7 +114,7 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
         throw new Error('Invalid phone number format')
       }
 
-      const validated = {
+      return {
         name: sanitizeInput(data.name),
         phone: data.phone ? sanitizeInput(data.phone) : undefined,
         email: data.email ? data.email.toLowerCase().trim() : undefined,
@@ -130,9 +122,6 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
         tags: data.tags || [],
         custom_fields: data.custom_fields || {},
       }
-      
-      console.log('[Create Contact] Validated body:', JSON.stringify(validated))
-      return validated
     })
 
     // Check for duplicate contact

@@ -109,13 +109,9 @@ export async function validateBody<T>(
 ): Promise<T> {
   try {
     const body = await req.json()
-    console.log('[validateBody] Parsed JSON body:', JSON.stringify(body))
-    const result = validator(body)
-    console.log('[validateBody] Validation successful:', JSON.stringify(result))
-    return result
+    return validator(body)
   } catch (error) {
-    console.error('[validateBody] Error:', error)
-    throw new Error(`Invalid request body: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    throw new Error('Invalid request body')
   }
 }
 
