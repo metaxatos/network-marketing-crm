@@ -2,13 +2,13 @@
 
 **Date**: June 20, 2025  
 **Issue**: POST /api/auth/signup returns 500 Internal Server Error  
-**Status**: 🟡 PARTIAL FIX - Deployment Issues
+**Status**: 🟡 ROUTES DEPLOYED - Debugging POST Handler
 
 ## Problem Summary
 - Users cannot sign up on production site (https://ourteam.gr)
-- API returns 500 error when calling `/api/auth/signup`
-- Client shows "Auth loading timeout after 5 seconds" warning
-- Simple test endpoints work, but signup endpoint fails
+- API returns 500 error when calling `/api/auth/signup` 
+- GET requests work correctly (return 405 with proper message)
+- POST requests fail with 500 error
 
 ## Investigation Results
 
@@ -25,142 +25,111 @@
    - URL: https://utvasathtyasoxelnxuf.supabase.co
    - Database: PostgreSQL 17.4.1.041 running normally
 
-3. **Database Connectivity**:
+3. **Route Deployment**:
+   - All routes are deployed and accessible
+   - GET handlers work correctly (return 405 for POST-only endpoints)
+   - Basic test routes work: `/api/basic-test`, `/api/health-check`
+
+4. **Database Connectivity**:
    - `/api/simple-test` confirms connection works
-   - Can query companies table (3 records)
-   - Database logs show normal connection patterns
+   - `/api/health-check` shows all environment variables are set
+   - Database is accessible
 
-4. **RLS Policies on Members Table**:
-   - ✅ "Anyone can check username availability" - SELECT allowed
-   - ✅ "Anyone can check usernames" - SELECT allowed
-   - ✅ "Members can update their own profile" - UPDATE with auth.uid() check
-   - ✅ "Users can insert their own member record" - INSERT with auth.uid() = id check
+### ❌ Current Issue
 
-### ❌ Current Issues
-
-1. **Signup Endpoint Still Failing**:
-   - Returns 500 error despite fixes
-   - Changes have been pushed to GitHub
-   - Deployment status unclear
-
-2. **Netlify Deployment**:
-   - Netlify CLI commands failing locally
-   - Cannot trigger manual deployment
-   - Build status unknown
+**POST Handler Failure**:
+- GET requests to signup endpoints correctly return: `{"message":"This endpoint only accepts POST requests"}`
+- POST requests to signup endpoints return 500 error
+- This indicates the route is deployed but the POST handler is failing
 
 ### 🔍 Key Findings
 
-1. **Type Compatibility Fixed**:
-   - Updated all routes to use standard `Request` type
-   - Updated `createApiClient` to accept both types
-   - Created multiple test endpoints
+1. **Routes Are Deployed**:
+   - `/api/auth/signup` - GET works, POST fails
+   - `/api/auth/signup-v2` - GET works, POST fails
+   - `/api/basic-test` - GET works perfectly
+   - `/api/health-check` - Shows all env vars are set
 
-2. **Root Cause Identified**:
-   - Next.js 14 App Router requires standard Web API types
-   - Previous code used `NextRequest` which is incompatible
-
-3. **Deployment Issues**:
-   - Changes are in GitHub but may not be deployed
-   - Netlify build/deployment status unknown
-   - Need to verify if latest code is running in production
+2. **Issue is in POST Handler**:
+   - The problem occurs when processing POST requests
+   - Likely issues:
+     - Request body parsing
+     - Supabase client initialization
+     - Import resolution in production
 
 ## Actions Taken
 
-### 1. Created Debug Endpoints ✅
-- `/api/health-check` - Updated to use Request type
-- `/api/simple-test` - Updated to use Request type
-- `/api/debug-signup` - Returns 405 error
-- `/api/test-signup` - Previously created
-- `/api/minimal-signup` - Created to test basic routing
-- `/api/basic-test` - Created with no imports
-- `/api/auth/signup-v2` - Simplified version without helpers
+### 1. Created Multiple Test Endpoints ✅
+- `/api/health-check` - Works, shows env vars are set
+- `/api/simple-test` - Database connection test
+- `/api/basic-test` - No imports, works perfectly
+- `/api/auth/signup-v2` - Simplified signup without helpers
+- `/api/debug-signup-test` - Detailed logging endpoint
+- `/test-signup` - Frontend test page for debugging
 
-### 2. Enhanced Error Handling ✅
-- Added comprehensive try-catch blocks
-- Added CORS headers
-- Added detailed logging
+### 2. Fixed Type Compatibility ✅
+- Updated all routes to use standard `Request` type
+- Updated `createApiClient` to accept both types
+- Removed dependency on `NextRequest`
 
-### 3. Updated API Helpers ✅
-- Modified to support custom headers
-- Added proper error responses
+### 3. Verified Deployment ✅
+- Netlify deployment successful
+- Routes are accessible
+- GET handlers work correctly
 
-### 4. Verified Infrastructure ✅
-- Supabase project is healthy
-- Database is accessible
-- RLS policies are correct
+## Current Debugging Status
 
-### 5. Fixed Type Compatibility Issues ✅
-- **Updated signup route**: Changed from `NextRequest` to standard `Request` type
-- **Updated createApiClient**: Modified to accept both `NextRequest` and `Request` types
-- **Added GET handler**: Properly handles GET requests with 405 error and appropriate message
-- **Updated all API routes**: Ensured consistency across all routes
+The routes are deployed but POST handlers are failing. Need to:
 
-## Resolution Status
+1. **Test with the debug endpoint** (`/api/debug-signup-test`) to identify exactly where the failure occurs
+2. **Check Netlify Function logs** for runtime errors
+3. **Test simplified endpoints** to isolate the issue
 
-The code fixes have been implemented and pushed to GitHub:
-
-1. **Type compatibility fixed** - All routes now use standard `Request` type
-2. **API client updated** - Accepts both request types
-3. **Multiple test routes created** - To verify the fix works
-
-However, the production site still shows the 500 error, suggesting:
-- The changes may not be deployed yet
-- There may be a build/deployment issue on Netlify
-- The Netlify build configuration might need adjustment
-
-## Files Modified
-1. `src/app/api/auth/signup/route.ts` - Updated to use standard Request type
-2. `src/lib/api-helpers.ts`
-3. `src/app/api/health-check/route.ts` - Updated to use standard Request type
-4. `src/app/api/simple-test/route.ts` - Updated to use standard Request type
-5. `src/app/api/debug-signup/route.ts`
-6. `src/app/api/minimal-signup/route.ts` - Created for testing
-7. `src/lib/supabase/api-client.ts` - Updated to accept both Request types
-8. `src/app/api/basic-test/route.ts` - Created with no imports
-9. `src/app/api/auth/signup-v2/route.ts` - Simplified version
-
-## Next Steps
-
-### Immediate Actions Required
-
-1. **Check Netlify Build Status**:
-   - Log into Netlify dashboard
-   - Check if there are any pending or failed builds
-   - Verify the latest commit is deployed
-
-2. **Manual Deployment**:
-   - If builds are failing, check build logs
-   - May need to trigger manual deployment from Netlify dashboard
-   - Consider clearing build cache
-
-3. **Test Alternative Endpoints**:
-   - Once deployed, test `/api/basic-test` (GET/POST)
-   - Test `/api/auth/signup-v2` as alternative
-   - Check if simple routes work to confirm deployment
-
-4. **Potential Build Configuration Issues**:
-   - Next.js config has `output: 'standalone'` for Netlify
-   - This might affect how API routes are built
-   - May need to adjust build settings
-
-## Testing URLs
-
-Once deployed, test these endpoints:
+## Test Commands
 
 ```bash
-# Test basic route (no imports)
-curl https://ourteam.gr/api/basic-test
+# Test basic endpoint (should work)
+curl -X POST https://ourteam.gr/api/basic-test \
+  -H "Content-Type: application/json" \
+  -d '{"test":"data"}' \
+  -v
+
+# Test debug endpoint (detailed logging)
+curl -X POST https://ourteam.gr/api/debug-signup-test \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"Test123!"}' \
+  -v
 
 # Test simplified signup
 curl -X POST https://ourteam.gr/api/auth/signup-v2 \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"Test123!"}'
-
-# Test original signup
-curl -X POST https://ourteam.gr/api/auth/signup \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"Test123!"}'
+  -d '{"email":"test@example.com","password":"Test123!"}' \
+  -v
 ```
 
-## Current Status
-The code has been fixed but appears not to be deployed. The issue is now a deployment/build problem rather than a code problem. Manual intervention on Netlify may be required to complete the fix.
+## Next Steps
+
+1. **Access the test page**: Go to `https://ourteam.gr/test-signup` once deployed
+2. **Check Netlify Function logs**: Look for runtime errors in the Netlify dashboard
+3. **Test each endpoint systematically** to find which component is failing
+4. **Consider Edge Runtime issues**: Next.js 14 with Netlify might have edge runtime compatibility issues
+
+## Files Modified
+1. `src/app/api/auth/signup/route.ts` - Updated to use standard Request type
+2. `src/lib/api-helpers.ts` - Original helpers
+3. `src/app/api/health-check/route.ts` - Shows env vars are set
+4. `src/app/api/simple-test/route.ts` - Database connection test
+5. `src/app/api/basic-test/route.ts` - No imports test
+6. `src/app/api/auth/signup-v2/route.ts` - Simplified signup
+7. `src/lib/supabase/api-client.ts` - Accepts both Request types
+8. `src/app/api/debug-signup-test/route.ts` - Detailed debugging
+9. `src/app/test-signup/page.tsx` - Frontend test page
+
+## Hypothesis
+
+The issue appears to be with:
+1. **Import resolution in production** - The module imports might fail in Netlify's runtime
+2. **Request parsing** - The body parsing might fail in the edge runtime
+3. **Supabase client initialization** - The client creation might fail with standard Request
+
+The fact that basic routes work but complex ones fail suggests an issue with imports or async operations in the Netlify environment.
