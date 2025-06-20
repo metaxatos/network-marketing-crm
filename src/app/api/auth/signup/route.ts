@@ -219,11 +219,12 @@ export async function POST(req: Request) {
         member = memberResult
         console.log('[Signup API] Existing user profile completed successfully')
       } else {
-        console.log('[Signup API] Creating new member record...')
+        console.log('[Signup API] Creating new member record with UPSERT for safety...')
         
+        // Use UPSERT even for "new" users to handle race conditions
         const { data: memberResult, error: memberError } = await adminClient
           .from('members')
-          .insert([memberData])
+          .upsert([memberData], { onConflict: 'id' })
           .select()
           .single()
 
@@ -241,7 +242,7 @@ export async function POST(req: Request) {
         }
 
         member = memberResult
-        console.log('[Signup API] New member created successfully')
+        console.log('[Signup API] New member created/updated successfully with UPSERT')
       }
     } catch (memberException: any) {
       console.error('[Signup API] Member creation/update exception:', memberException)
