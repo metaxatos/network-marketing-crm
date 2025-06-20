@@ -126,13 +126,9 @@ export async function POST(req: NextRequest) {
       })
       console.error('[Signup API] Member data that failed:', memberData)
       
-      // Try to clean up the auth user if member creation fails
-      // Note: This may not work due to Supabase limitations, but we try anyway
-      try {
-        await supabase.auth.admin.deleteUser(authData.user.id)
-      } catch (deleteError) {
-        console.error('[Signup API] Failed to clean up auth user:', deleteError)
-      }
+      // Note: We can't delete the auth user from the client side
+      // The auth user will exist but without a member profile
+      console.warn('[Signup API] Auth user created but member profile failed. User may need manual cleanup.')
       
       return apiError(`Failed to create member profile: ${memberError.message}`, 500)
     }
