@@ -16,12 +16,19 @@ interface EmailAnalytics {
 }
 
 interface ClickMetrics {
-  total_emails_sent: number
   total_clicks: number
-  unique_contacts_clicked: number
-  average_ctr: number
-  top_clicked_links: any[]
-  recent_activity: any[]
+  unique_clicks: number
+  click_through_rate: number
+  most_clicked_links: {
+    url: string
+    click_count: number
+    unique_clicks: number
+  }[]
+  time_series: {
+    date: string
+    clicks: number
+    unique_clicks: number
+  }[]
 }
 
 // GET /api/emails/analytics - Get email analytics (using communications table)
@@ -248,8 +255,8 @@ async function getOverallMetrics(
   // Calculate metrics from email metadata
   let totalClicks = 0
   const contactsWhoClicked = new Set()
-  const linkClickCounts: { [url: string]: number } = {}
-  const recentActivity = []
+  const linkClickCounts: { [url: string]: { clicks: number, unique_clicks: Set<string> } } = {}
+  const dailyClicks: { [date: string]: { clicks: number, unique_clicks: Set<string> } } = {}
   
   for (const email of emails || []) {
     const clicks = email.metadata?.clicks || []
@@ -259,40 +266,57 @@ async function getOverallMetrics(
       if (click.contact_id) {
         contactsWhoClicked.add(click.contact_id)
       }
+      
+      // Track link clicks
       if (click.url) {
-        linkClickCounts[click.url] = (linkClickCounts[click.url] || 0) + 1
+        if (!linkClickCounts[click.url]) {
+          linkClickCounts[click.url] = { clicks: 0, unique_clicks: new Set() }
+        }
+        linkClickCounts[click.url].clicks++
+        if (click.contact_id) {
+          linkClickCounts[click.url].unique_clicks.add(click.contact_id)
+        }
       }
       
-      recentActivity.push({
-        type: 'click',
-        email_id: email.id,
-        email_subject: email.subject,
-        url: click.url,
-        clicked_at: click.clicked_at,
-        contact_id: click.contact_id,
-      })
+      // Track daily clicks
+      const clickDate = new Date(click.clicked_at || email.created_at).toISOString().split('T')[0]
+      if (!dailyClicks[clickDate]) {
+        dailyClicks[clickDate] = { clicks: 0, unique_clicks: new Set() }
+      }
+      dailyClicks[clickDate].clicks++
+      if (click.contact_id) {
+        dailyClicks[clickDate].unique_clicks.add(click.contact_id)
+      }
     }
   }
   
-  // Sort recent activity by date
-  recentActivity.sort((a, b) => new Date(b.clicked_at).getTime() - new Date(a.clicked_at).getTime())
+  // Create time series data
+  const time_series = Object.entries(dailyClicks)
+    .map(([date, data]) => ({
+      date,
+      clicks: data.clicks,
+      unique_clicks: data.unique_clicks.size
+    }))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
   
-  // Get top clicked links
-  const topClickedLinks = Object.entries(linkClickCounts)
-    .sort(([, a], [, b]) => b - a)
+  // Create most clicked links
+  const most_clicked_links = Object.entries(linkClickCounts)
+    .sort(([, a], [, b]) => b.clicks - a.clicks)
     .slice(0, 10)
-    .map(([url, count]) => ({ url, clicks: count }))
+    .map(([url, data]) => ({
+      url,
+      click_count: data.clicks,
+      unique_clicks: data.unique_clicks.size
+    }))
   
-  const totalEmailsSent = emails?.length || 0
   const uniqueContactsClicked = contactsWhoClicked.size
-  const averageCtr = totalEmailsSent > 0 ? (totalClicks / totalEmailsSent) : 0
+  const click_through_rate = totalClicks > 0 && uniqueContactsClicked > 0 ? (uniqueContactsClicked / totalClicks) : 0
   
   return {
-    total_emails_sent: totalEmailsSent,
     total_clicks: totalClicks,
-    unique_contacts_clicked: uniqueContactsClicked,
-    average_ctr: Math.round(averageCtr * 100) / 100,
-    top_clicked_links: topClickedLinks,
-    recent_activity: recentActivity.slice(0, 20), // Limit recent activity
+    unique_clicks: uniqueContactsClicked,
+    click_through_rate: Math.round(click_through_rate * 100) / 100,
+    most_clicked_links,
+    time_series
   }
 } 
