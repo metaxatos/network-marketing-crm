@@ -58,9 +58,8 @@ export async function POST(req: NextRequest) {
 
     if (!finalCompanyId) {
       console.error('[Signup API] No company ID available')
-      // Clean up auth user if company setup fails
-      await supabase.auth.admin.deleteUser(authData.user.id)
-      return apiError('Company setup required', 500)
+      // Note: Cannot delete auth user from client SDK - would need admin API
+      return apiError('Company setup required. Please contact support if this persists.', 500)
     }
 
     // Create member record with all profile data inline (Updated: following migration plan)
@@ -91,8 +90,7 @@ export async function POST(req: NextRequest) {
 
     if (memberError) {
       console.error('[Signup API] Member creation error:', memberError)
-      // Clean up auth user if member creation fails
-      await supabase.auth.admin.deleteUser(authData.user.id)
+      // Note: Cannot delete auth user from client SDK
       return apiError(`Failed to create member profile: ${memberError.message}`, 500)
     }
 
