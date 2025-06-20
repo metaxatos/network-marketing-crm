@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { createClient } from '@/lib/supabase/client'
+import { supabase } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import type { Member } from '@/types'
 
@@ -55,7 +55,6 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
 
   signOut: async () => {
     try {
-      const supabase = createClient()
       await supabase.auth.signOut()
       set({ 
         user: null, 
@@ -77,7 +76,6 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
 
   login: async (email: string, password: string) => {
     try {
-      const supabase = createClient()
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -155,7 +153,6 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
   logout: async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
-      const supabase = createClient()
       await supabase.auth.signOut()
     } catch (error) {
       console.error('Logout error:', error)
@@ -214,7 +211,6 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
   initialize: async () => {
     try {
       set({ isLoading: true })
-      const supabase = createClient()
       
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       
