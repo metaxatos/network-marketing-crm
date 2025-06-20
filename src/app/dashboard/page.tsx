@@ -77,8 +77,8 @@ export default function DashboardPage() {
   const displayName = user?.user_metadata?.first_name || 'Champion'
 
   // Calculate progress metrics (use realtime data when available, then React Query data, then fallbacks)
-  const contactsThisWeek = contactCount ?? metrics?.contacts_this_week ?? contacts.length
-  const emailsToday = emailCount ?? metrics?.emails_today ?? sentEmails.filter((email: any) => {
+  const contactsThisWeek = contactCount ?? metrics?.contactsThisWeek ?? contacts.length
+  const emailsToday = emailCount ?? metrics?.emailsToday ?? sentEmails.filter((email: any) => {
     const today = new Date().toDateString()
     return email.sent_at && new Date(email.sent_at).toDateString() === today
   }).length

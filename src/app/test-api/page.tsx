@@ -31,7 +31,7 @@ export default function TestAPIPage() {
 
   useEffect(() => {
     if (metrics) {
-      addTestResult(`📊 Dashboard metrics loaded: ${metrics.contacts_this_week} contacts this week`)
+              addTestResult(`📊 Dashboard metrics loaded: ${metrics.contactsThisWeek} contacts this week`)
     }
   }, [metrics])
 

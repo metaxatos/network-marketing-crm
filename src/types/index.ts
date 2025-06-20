@@ -74,10 +74,9 @@ export type CommunicationType = 'email' | 'sms' | 'call' | 'note' | 'meeting'
 
 // Dashboard and activity types
 export interface DashboardMetrics {
-  contacts_this_week: number
-  emails_today: number
-  training_progress: number
-  last_updated: string
+  contactsThisWeek: number
+  emailsToday: number
+  trainingProgress: number
 }
 
 export interface Activity {
