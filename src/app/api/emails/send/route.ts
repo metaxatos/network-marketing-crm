@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
           html: emailContent,
           text: emailContent.replace(/<[^>]*>/g, ''), // Strip HTML for text version
           replyTo: member.email,
-          useEdgeFunction: true // Use Supabase Edge Function for better reliability
+          useEdgeFunction: false // Temporarily disable Edge Function to test direct API
         })
 
         if (emailResult.success) {
