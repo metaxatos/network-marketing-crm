@@ -1,11 +1,13 @@
 'use client';
 
 import { Suspense, useState, useEffect } from 'react'
-import { useTrainingVideos } from '@/hooks/queries/useTraining'
+import { useTrainingCourses } from '@/hooks'
 import { Play, Clock, CheckCircle, Star, Users, BookOpen, Trophy, ArrowRight, GraduationCap } from 'lucide-react'
 import CourseCardSkeleton from '@/components/training/CourseCardSkeleton'
 import { DashboardLayout } from '@/components/ui/dashboard-layout'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 // Modern Course Card Component
 function ModernCourseCard({ course }: { course: any }) {
@@ -166,7 +168,7 @@ function TrainingLoadingSkeleton() {
 
 // Main Training Page Component
 function TrainingContent() {
-  const { data: coursesData, isLoading, error } = useTrainingVideos()
+  const { data: coursesData, isLoading, error } = useTrainingCourses()
   
   // Debug logging
   useEffect(() => {
@@ -286,8 +288,106 @@ function TrainingContent() {
 
 // Main Page Export
 export default function TrainingPage() {
+  const [authStatus, setAuthStatus] = useState<{
+    user: any
+    isLoading: boolean
+    error: string | null
+  }>({
+    user: null,
+    isLoading: true,
+    error: null
+  })
+
+  const router = useRouter()
+  const { data: coursesData, isLoading, error, refetch } = useTrainingCourses()
+  const courses = coursesData?.courses || []
+
+  // Check authentication status
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const supabase = createClient()
+        const { data: { user }, error } = await supabase.auth.getUser()
+        
+        console.log('🔐 Client-side auth check:', {
+          user: user ? { id: user.id, email: user.email } : null,
+          error: error?.message,
+          cookies: document.cookie
+        })
+        
+        setAuthStatus({
+          user,
+          isLoading: false,
+          error: error?.message || null
+        })
+        
+        if (!user && !error) {
+          console.log('🔐 No user found, redirecting to login')
+          router.push('/auth/login?redirect=/training')
+        }
+      } catch (err) {
+        console.error('🔐 Auth check error:', err)
+        setAuthStatus({
+          user: null,
+          isLoading: false,
+          error: err instanceof Error ? err.message : 'Unknown error'
+        })
+      }
+    }
+    
+    checkAuth()
+  }, [router])
+
+  if (authStatus.isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Checking authentication...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (authStatus.error || !authStatus.user) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <p className="text-red-600 mb-4">Authentication Error: {authStatus.error || 'Not logged in'}</p>
+            <button 
+              onClick={() => router.push('/auth/login?redirect=/training')}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Go to Login
+            </button>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // Debug info
+  const debugInfo = {
+    authUser: authStatus.user ? { id: authStatus.user.id, email: authStatus.user.email } : null,
+    coursesCount: courses?.length || 0,
+    isLoading,
+    error: error?.message,
+    cookies: typeof document !== 'undefined' ? document.cookie : 'N/A'
+  }
+
   return (
     <DashboardLayout>
+      {/* Debug Panel */}
+      <div className="mb-6 p-4 bg-gray-100 rounded-lg">
+        <h3 className="font-semibold text-gray-800 mb-2">🔍 Debug Info:</h3>
+        <pre className="text-xs text-gray-600 overflow-auto">
+          {JSON.stringify(debugInfo, null, 2)}
+        </pre>
+      </div>
+
       <div className="space-y-8">
         <Suspense fallback={<TrainingLoadingSkeleton />}>
           <TrainingContent />

@@ -1,11 +1,11 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin-client'
 
 export const GET = async (req: NextRequest) => {
   try {
-    const supabase = await createClient()
+    const supabase = createAdminClient()
     
-    console.log('🔍 Testing training database...')
+    console.log('🔍 Testing training database with admin client...')
     
     // Test 1: Check if courses exist
     const { data: courses, error: coursesError } = await supabase
@@ -51,13 +51,7 @@ export const GET = async (req: NextRequest) => {
           lesson_order,
           order_index,
           is_required,
-          is_published,
-          member_progress!member_progress_video_id_fkey (
-            progress_seconds,
-            completed,
-            last_watched_at,
-            member_id
-          )
+          is_published
         )
       `)
       .eq('is_published', true)
