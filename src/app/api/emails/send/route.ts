@@ -127,16 +127,16 @@ export async function POST(req: NextRequest) {
         member_id: member.id,
         contact_id: recipient.type === 'contact' ? recipient.id : null,
         type: 'email',
-        direction: 'outbound',
         subject: emailSubject,
         content: emailContent,
         status: 'pending',
+        template_id: templateId || null,
         metadata: {
-          template_id: templateId || null,
           recipient_email: recipient.email,
           recipient_name: recipient.name || null,
           recipient_type: recipient.type,
-          sender_name: member.first_name ? `${member.first_name} ${member.last_name || ''}`.trim() : member.email
+          sender_name: member.first_name ? `${member.first_name} ${member.last_name || ''}`.trim() : member.email,
+          direction: 'outbound' // Store direction in metadata instead
         }
       }
       
