@@ -1,5 +1,5 @@
 ﻿import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createApiClient } from '@/lib/supabase/api-client'
 import { apiResponse, withAuth, getCurrentMember } from '@/lib/api-helpers'
 
 // Define types based on our SIMPLIFIED database structure
@@ -46,12 +46,12 @@ interface CoursesResponse {
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
     console.log('🎓 Training Courses API - Starting request for user:', userId)
-    const supabase = await createClient()
+    const supabase = await createApiClient(req)
     
     // Get member's company ID for RLS
     let member = null
     try {
-      member = await getCurrentMember(userId)
+      member = await getCurrentMember(userId, req)
       console.log('🎓 Training Courses API - Member data:', { 
         memberId: member?.id, 
         companyId: member?.company_id 
