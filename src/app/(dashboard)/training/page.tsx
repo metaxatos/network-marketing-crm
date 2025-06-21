@@ -1,9 +1,10 @@
 'use client';
 
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useTrainingVideos } from '@/hooks/queries/useTraining'
 import { Play, Clock, CheckCircle, Star, Users, BookOpen, Trophy, ArrowRight, GraduationCap } from 'lucide-react'
 import CourseCardSkeleton from '@/components/training/CourseCardSkeleton'
+import { DashboardLayout } from '@/components/ui/dashboard-layout'
 import Link from 'next/link'
 
 // Modern Course Card Component
@@ -167,11 +168,24 @@ function TrainingLoadingSkeleton() {
 function TrainingContent() {
   const { data: coursesData, isLoading, error } = useTrainingVideos()
   
+  // Debug logging
+  useEffect(() => {
+    console.log('🎓 Training Page Debug:', {
+      isLoading,
+      error: error?.message,
+      coursesData,
+      coursesLength: coursesData?.courses?.length,
+      totalLessons: coursesData?.totalLessons,
+      completedLessons: coursesData?.completedLessons
+    })
+  }, [coursesData, isLoading, error])
+  
   if (isLoading) {
     return <TrainingLoadingSkeleton />
   }
 
   if (error) {
+    console.error('🚨 Training API Error:', error)
     return (
       <div className="text-center py-12">
         <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -179,6 +193,9 @@ function TrainingContent() {
         </div>
         <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Courses</h3>
         <p className="text-gray-600 mb-4">There was an error loading your training courses.</p>
+        <div className="text-sm text-gray-500 mb-4">
+          Error: {error.message}
+        </div>
         <button 
           onClick={() => window.location.reload()}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
@@ -191,6 +208,14 @@ function TrainingContent() {
 
   const courses = coursesData?.courses || []
   const { totalLessons, completedLessons, overallProgress } = coursesData || {}
+
+  console.log('🎓 Rendering Training Page with:', {
+    coursesCount: courses.length,
+    courses: courses,
+    totalLessons,
+    completedLessons,
+    overallProgress
+  })
 
   if (courses.length === 0) {
     return (
@@ -207,6 +232,9 @@ function TrainingContent() {
           <p className="text-sm text-gray-600">
             We're preparing exciting training content to help you succeed in your network marketing journey.
           </p>
+        </div>
+        <div className="mt-8 text-sm text-gray-400">
+          Debug: Received {courses.length} courses from API
         </div>
       </div>
     )
@@ -259,12 +287,12 @@ function TrainingContent() {
 // Main Page Export
 export default function TrainingPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <DashboardLayout>
+      <div className="space-y-8">
         <Suspense fallback={<TrainingLoadingSkeleton />}>
           <TrainingContent />
         </Suspense>
       </div>
-    </div>
+    </DashboardLayout>
   )
 } 

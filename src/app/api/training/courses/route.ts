@@ -52,8 +52,8 @@ export const GET = withAuth(async (req, userId) => {
       console.warn('Training courses API - Member not found:', error)
     }
 
-    // Query using our SIMPLIFIED database structure: courses -> training_videos
-    const { data: courses, error } = await supabase
+    // Query 1: Get courses with their videos (without progress)
+    const { data: courses, error: coursesError } = await supabase
       .from('courses')
       .select(`
         id,
@@ -75,22 +75,15 @@ export const GET = withAuth(async (req, userId) => {
           lesson_order,
           order_index,
           is_required,
-          is_published,
-          member_progress!member_progress_video_id_fkey (
-            progress_seconds,
-            completed,
-            last_watched_at,
-            member_id
-          )
+          is_published
         )
       `)
       .eq('is_published', true)
       .eq('training_videos.is_published', true)
       .order('order_index', { ascending: true })
 
-    if (error) {
-      console.error('Training courses API - Database error:', error)
-      // Return safe fallback if database query fails
+    if (coursesError) {
+      console.error('Training courses API - Database error:', coursesError)
       return apiResponse({
         courses: [],
         recommendedNext: undefined,
@@ -102,6 +95,30 @@ export const GET = withAuth(async (req, userId) => {
     }
 
     console.log('Training courses API - Query successful, found courses:', courses?.length || 0)
+
+    // Query 2: Get all progress for the current user
+    const { data: progressData, error: progressError } = await supabase
+      .from('member_progress')
+      .select('video_id, progress_seconds, completed, last_watched_at')
+      .eq('member_id', userId)
+
+    if (progressError) {
+      console.warn('Training courses API - Progress query error:', progressError)
+    }
+
+    // Create progress lookup map
+    const progressMap = new Map()
+    if (progressData) {
+      progressData.forEach((p: { video_id: string; progress_seconds: number; completed: boolean; last_watched_at?: string }) => {
+        progressMap.set(p.video_id, {
+          progress_seconds: p.progress_seconds,
+          completed: p.completed,
+          last_watched_at: p.last_watched_at
+        })
+      })
+    }
+
+    console.log('Training courses API - Progress records found:', progressData?.length || 0)
 
     // Transform to expected format with modules
     const coursesWithVideos: CourseWithVideos[] = (courses || []).map((course: any) => {
@@ -116,8 +133,8 @@ export const GET = withAuth(async (req, userId) => {
           moduleOrders.set(moduleName, video.module_order || 0)
         }
 
-        // FIXED: Find progress for current user only
-        const userProgress = video.member_progress?.find((p: any) => p.member_id === userId)
+        // Get progress for this video from our progress map
+        const videoProgress = progressMap.get(video.id)
         
         videosByModule.get(moduleName)!.push({
           id: video.id,
@@ -130,11 +147,7 @@ export const GET = withAuth(async (req, userId) => {
           order_index: video.order_index,
           lesson_order: video.lesson_order || 0,
           is_required: video.is_required || false,
-          progress: userProgress ? {
-            progress_seconds: userProgress.progress_seconds,
-            completed: userProgress.completed,
-            last_watched_at: userProgress.last_watched_at,
-          } : undefined,
+          progress: videoProgress
         })
       })
 
@@ -163,6 +176,8 @@ export const GET = withAuth(async (req, userId) => {
         modules
       }
     })
+
+    console.log('Training courses API - Transformed courses:', coursesWithVideos.length)
 
     // Find recommended next video (first uncompleted video)
     let recommendedNext: string | undefined
@@ -193,14 +208,23 @@ export const GET = withAuth(async (req, userId) => {
       })
     })
 
-    return apiResponse({
+    const result = {
       courses: coursesWithVideos,
       recommendedNext,
       totalCourses: coursesWithVideos.length,
       totalLessons: totalVideos,
       completedLessons: completedVideos,
       overallProgress: totalVideos > 0 ? Math.round((completedVideos / totalVideos) * 100) : 0,
-    }, 200)
+    }
+
+    console.log('Training courses API - Final result:', {
+      coursesCount: result.courses.length,
+      totalLessons: result.totalLessons,
+      completedLessons: result.completedLessons,
+      overallProgress: result.overallProgress
+    })
+
+    return apiResponse(result, 200)
   } catch (error) {
     console.error('Get training courses error:', error)
     // Return safe fallback instead of 500 error
