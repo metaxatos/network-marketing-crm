@@ -30,25 +30,20 @@ export async function createApiClient(request?: NextRequest | Request) {
     throw new Error('Invalid Supabase anon key format')
   }
 
-  // If request is provided, merge cookies from request and cookie store
+  // If request is provided, use request cookies directly (they contain the auth cookies)
   const getAllCookies = () => {
     if (request && 'cookies' in request) {
-      // NextRequest has a cookies property
+      // NextRequest has a cookies property - use these directly
       const nextRequest = request as NextRequest
-      // Merge cookies from request and cookie store
       const requestCookies = nextRequest.cookies.getAll()
-      const storeCookies = cookieStore.getAll()
-      
-      // Create a map to deduplicate cookies (request cookies take precedence)
-      const cookieMap = new Map()
-      storeCookies.forEach(cookie => cookieMap.set(cookie.name, cookie))
-      requestCookies.forEach(cookie => cookieMap.set(cookie.name, cookie))
-      
-      return Array.from(cookieMap.values())
+      console.log('[API Client] Using request cookies:', requestCookies.length, 'found')
+      return requestCookies
     }
     
-    // For standard Request or no request, just use cookie store
-    return cookieStore.getAll()
+    // For server components or no request, use cookie store
+    const storeCookies = cookieStore.getAll()
+    console.log('[API Client] Using cookie store:', storeCookies.length, 'found')
+    return storeCookies
   }
 
   return createServerClient(
