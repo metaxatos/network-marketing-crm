@@ -21,6 +21,7 @@ import {
   QuickWins,
   EmailAnalyticsWidget
 } from '@/components/Dashboard'
+import { QuickEmailActions } from '@/components/Dashboard/QuickEmailActions'
 import { 
   Users, 
   Mail, 
@@ -227,6 +228,9 @@ export default function DashboardPage() {
                       />
                     </div>
                   </section>
+                  
+                  {/* Quick Email Actions - Phase 2 Feature */}
+                  <QuickEmailActions className="mt-8" />
                   
                   {/* Smart Suggestion Section */}
                   <SmartSuggestion

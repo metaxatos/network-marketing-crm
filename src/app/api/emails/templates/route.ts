@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createApiClient } from '@/lib/supabase/api-client'
 import { apiResponse, apiError, withAuth, getCurrentMember } from '@/lib/api-helpers'
-import type { EmailTemplateResponse } from '@/types/api'
+import type { EmailTemplate } from '@/types'
 
 // Define the database email template type
 interface DatabaseEmailTemplate {
@@ -18,9 +18,20 @@ interface DatabaseEmailTemplate {
 // GET /api/emails/templates - Get available email templates
 export async function GET(req: NextRequest) {
   try {
+    const searchParams = req.nextUrl.searchParams
+    const language = searchParams.get('language')
+    const category = searchParams.get('category')
+    const isQuickAction = searchParams.get('is_quick_action')
+    const targetAudience = searchParams.get('target_audience')
+    
     const supabase = await createApiClient(req)
     
-    console.log('[Email Templates API] Fetching templates...')
+    console.log('[Email Templates API] Fetching templates with filters:', {
+      language,
+      category,
+      isQuickAction,
+      targetAudience
+    })
 
     // Try to get user context, but don't fail if it's not available
     let userId: string | null = null
@@ -47,12 +58,34 @@ export async function GET(req: NextRequest) {
       console.warn('[Email Templates API] Auth context not available, proceeding with system templates only:', authError)
     }
 
-    // Get email templates - always include system templates, plus company templates if user is authenticated
+    // Build query with all Phase 1 fields
     let query = supabase
       .from('email_templates')
-      .select('id, name, subject, body_html, category, variables, template_type, company_id')
+      .select(`
+        id,
+        company_id,
+        member_id,
+        name,
+        subject,
+        body_html,
+        body_text,
+        category,
+        variables,
+        template_type,
+        is_active,
+        language,
+        preview_text,
+        usage_priority,
+        target_audience,
+        is_quick_action,
+        usage_count,
+        last_used_at,
+        created_at,
+        updated_at
+      `)
       .eq('is_active', true)
 
+    // Company/system filtering
     if (userId && memberCompanyId) {
       // User is authenticated and has a company - get both system and company templates
       query = query.or(`template_type.eq.system,and(template_type.eq.company,company_id.eq.${memberCompanyId})`)
@@ -60,8 +93,26 @@ export async function GET(req: NextRequest) {
       // User not authenticated or no company - just get system templates
       query = query.eq('template_type', 'system')
     }
+    
+    // Apply Phase 3 filters
+    if (language) {
+      query = query.eq('language', language)
+    }
+    
+    if (category) {
+      query = query.eq('category', category)
+    }
+    
+    if (isQuickAction === 'true') {
+      query = query.eq('is_quick_action', true)
+    }
+    
+    if (targetAudience) {
+      query = query.eq('target_audience', targetAudience)
+    }
 
     const { data: templates, error } = await query
+      .order('usage_priority', { ascending: false, nullsFirst: false })
       .order('template_type', { ascending: true }) // System templates first
       .order('category', { ascending: true })
       .order('name', { ascending: true })
@@ -73,18 +124,9 @@ export async function GET(req: NextRequest) {
 
     console.log(`[Email Templates API] Found ${templates?.length || 0} templates`)
 
-    const response: EmailTemplateResponse = {
-      templates: templates?.map((template: DatabaseEmailTemplate) => ({
-        id: template.id,
-        name: template.name,
-        category: template.category,
-        preview: template.body_html
-          .replace(/<[^>]*>/g, '') // Strip HTML tags
-          .substring(0, 100) + '...',
-      })) || [],
-    }
-
-    return apiResponse(response, 200)
+    return apiResponse({
+      templates: templates || []
+    }, 200)
   } catch (error) {
     console.error('Get email templates error:', error)
     return apiError('Failed to retrieve email templates', 500)

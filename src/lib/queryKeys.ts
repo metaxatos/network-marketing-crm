@@ -21,11 +21,19 @@ export const queryKeys = {
   // Email templates (unified - company and personal)
   emailTemplates: () => ['email-templates'] as const,
   emailTemplate: (id: string) => [...queryKeys.emailTemplates(), id] as const,
+  templatesByCategory: (language: string, category?: string) => 
+    ['email-templates', 'category', language, category] as const,
+  quickActionTemplates: (targetAudience: string) => 
+    ['email-templates', 'quick-action', targetAudience] as const,
   
   // Emails (now using communications table)
   emails: ['emails'] as const,
   emailHistory: (filters?: any) => [...queryKeys.emails, 'history', filters] as const,
   emailStats: () => [...queryKeys.emails, 'stats'] as const,
+  
+  // Email automation (Phase 4)
+  emailAutomation: ['email-automation'] as const,
+  automationStatus: (status?: string) => [...queryKeys.emailAutomation, 'status', status] as const,
   
   // Training (simplified from courses/modules/lessons to videos)
   training: ['training'] as const,

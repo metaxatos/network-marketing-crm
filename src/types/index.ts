@@ -103,11 +103,19 @@ export interface EmailTemplate {
   variables: string[]
   template_type: 'system' | 'company' | 'personal'
   is_active: boolean
+  // Phase 1 additions
+  language: string
+  preview_text?: string
+  usage_priority?: number
+  target_audience?: string
+  is_quick_action?: boolean
+  usage_count?: number
+  last_used_at?: string
   created_at: string
   updated_at: string
 }
 
-export type EmailCategory = 'follow_up' | 'invitation' | 'welcome' | 'thank_you' | 'training'
+export type EmailCategory = 'follow_up' | 'invitation' | 'welcome' | 'thank_you' | 'training' | 'general'
 
 export interface EmailHistory {
   id: string

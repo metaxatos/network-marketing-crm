@@ -293,4 +293,89 @@ export const useDeleteEmailTemplate = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.emailTemplates() })
     },
   })
-} 
+}
+
+// New Phase 2 hooks for Quick Actions
+
+// Get templates by language and category (for Phase 2 & 3)
+export const useTemplatesByCategory = (language: string = 'en', category?: string) => {
+  return useQuery({
+    queryKey: queryKeys.templatesByCategory(language, category),
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      params.append('language', language)
+      if (category) params.append('category', category)
+      
+      const response = await fetch(`/api/emails/templates?${params.toString()}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch templates by category')
+      }
+      
+      const data = await response.json()
+      return data.data.templates as EmailTemplate[]
+    },
+    staleTime: 30 * 60 * 1000, // 30 minutes
+  })
+}
+
+// Get quick action templates
+export const useQuickActionTemplates = (targetAudience: 'customer' | 'partner') => {
+  return useQuery({
+    queryKey: queryKeys.quickActionTemplates(targetAudience),
+    queryFn: async () => {
+      const response = await fetch(`/api/emails/templates?is_quick_action=true&target_audience=${targetAudience}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch quick action templates')
+      }
+      
+      const data = await response.json()
+      return data.data.templates as EmailTemplate[]
+    },
+    staleTime: 30 * 60 * 1000,
+  })
+}
+
+// Send quick action email
+export const useSendQuickEmail = () => {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: async ({
+      contactIds,
+      templateName,
+      language = 'en',
+      targetAudience,
+    }: {
+      contactIds: string[]
+      templateName: string
+      language?: string
+      targetAudience: 'customer' | 'partner'
+    }) => {
+      const response = await fetch('/api/emails/send-quick', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contactIds,
+          templateName,
+          language,
+          targetAudience,
+        }),
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to send quick email')
+      }
+      
+      const result = await response.json()
+      return result.data
+    },
+    onSuccess: () => {
+      // Refetch email history and stats
+      queryClient.invalidateQueries({ queryKey: queryKeys.emails })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard })
+    },
+  })
+}

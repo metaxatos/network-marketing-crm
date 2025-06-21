@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { useUserStore } from '@/stores/userStore'
+import AutomationDashboard from '@/components/emails/AutomationDashboard'
 
 export default function SettingsPage() {
   const { member, updateMember, checkUsernameAvailability } = useUserStore()
   
+  const [activeTab, setActiveTab] = useState<'profile' | 'automation'>('profile')
   const [memberData, setMemberData] = useState({
     email: '',
     phone: '',
@@ -139,8 +141,35 @@ export default function SettingsPage() {
         </p>
       </header>
 
+      {/* Tab Navigation */}
+      <div className="px-6 mb-6">
+        <div className="flex space-x-2 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('profile')}
+            className={`px-4 py-2 font-medium transition-all duration-200 border-b-2 ${
+              activeTab === 'profile'
+                ? 'text-purple-600 border-purple-600'
+                : 'text-gray-500 border-transparent hover:text-gray-700'
+            }`}
+          >
+            Profile Settings
+          </button>
+          <button
+            onClick={() => setActiveTab('automation')}
+            className={`px-4 py-2 font-medium transition-all duration-200 border-b-2 ${
+              activeTab === 'automation'
+                ? 'text-purple-600 border-purple-600'
+                : 'text-gray-500 border-transparent hover:text-gray-700'
+            }`}
+          >
+            Email Automation
+          </button>
+        </div>
+      </div>
+
       {/* Settings Form */}
       <div className="px-6">
+        {activeTab === 'profile' ? (
         <form onSubmit={handleSubmit} className="space-y-6">
           {errors.general && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-center">
@@ -318,6 +347,9 @@ export default function SettingsPage() {
             )}
           </button>
         </form>
+        ) : (
+          <AutomationDashboard />
+        )}
       </div>
 
       {/* Bottom Navigation */}
