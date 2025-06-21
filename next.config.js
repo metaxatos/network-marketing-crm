@@ -12,15 +12,15 @@ const nextConfig = {
       ? "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; object-src 'none';"
       : `
           default-src 'self';
-          script-src 'self' 'unsafe-eval' 'unsafe-inline' https://va.vercel-scripts.com;
+          script-src 'self' 'unsafe-eval' 'unsafe-inline' https://va.vercel-scripts.com https://www.youtube.com https://player.vimeo.com;
           style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
           style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;
           img-src 'self' blob: data: https:;
           font-src 'self' data: https://fonts.gstatic.com;
           connect-src 'self' https://*.supabase.co https://*.supabase.io wss://*.supabase.co wss://*.supabase.io;
-          frame-src 'self' https://js.stripe.com;
+          frame-src 'self' https://js.stripe.com https://www.youtube.com https://player.vimeo.com;
           object-src 'none';
-          media-src 'self' blob:;
+          media-src 'self' blob: https:;
           worker-src 'self' blob:;
         `.replace(/\s+/g, ' ').trim()
 
@@ -34,7 +34,7 @@ const nextConfig = {
           },
           {
             key: 'X-Frame-Options',
-            value: 'DENY',
+            value: 'SAMEORIGIN',
           },
           {
             key: 'X-Content-Type-Options',
