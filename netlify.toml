@@ -1,45 +1,18 @@
 [build]
-  command = "npm cache clean --force && rm -rf .next node_modules/.cache node_modules package-lock.json && npm install --legacy-peer-deps --verbose && npm run build"
+  command = "npm run build"
+  publish = ".next"
 
 [build.environment]
   # Use Node.js 18 for better compatibility with React 18
   NODE_VERSION = "18"
   # Disable telemetry for faster builds
   NEXT_TELEMETRY_DISABLED = "1"
-  # Enable verbose logging
-  CI = "true"
-  # Skip husky hooks during CI
-  HUSKY = "0"
-  # Use legacy peer deps to avoid conflicts
-  NPM_FLAGS = "--legacy-peer-deps"
-  # Force clean install
-  NETLIFY_USE_YARN = "false"
-  # Ensure proper module resolution
-  NPM_CONFIG_LEGACY_PEER_DEPS = "true"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# Redirects for Next.js dynamic routes - let Next.js handle all routing
+# Simple redirect for all routes to Next.js handler
 [[redirects]]
   from = "/*"
   to = "/.netlify/functions/___netlify-handler"
   status = 200
-
-[[headers]]
-  for = "/api/*"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type, Authorization, Cookie"
-    Access-Control-Allow-Credentials = "true"
-
-[[headers]]
-  for = "/*"
-  [headers.values]
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com https://player.vimeo.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' https:; frame-src 'self' https://www.youtube.com https://player.vimeo.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co;"
-
-# Netlify Functions configuration
-[functions]
-  directory = ".netlify/functions"
-  node_bundler = "esbuild"

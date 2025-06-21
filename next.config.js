@@ -90,8 +90,7 @@ const nextConfig = {
     return config
   },
   
-  // Add output configuration for Netlify
-  ...(process.env.NETLIFY && { output: 'standalone' }),
+  // Netlify handles the output configuration automatically
 }
 
 module.exports = nextConfig
