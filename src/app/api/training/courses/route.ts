@@ -76,16 +76,16 @@ export const GET = withAuth(async (req, userId) => {
           order_index,
           is_required,
           is_published,
-          member_progress (
+          member_progress!member_progress_video_id_fkey (
             progress_seconds,
             completed,
-            last_watched_at
+            last_watched_at,
+            member_id
           )
         )
       `)
       .eq('is_published', true)
       .eq('training_videos.is_published', true)
-      .eq('training_videos.member_progress.member_id', userId)
       .order('order_index', { ascending: true })
 
     if (error) {
@@ -115,6 +115,10 @@ export const GET = withAuth(async (req, userId) => {
           videosByModule.set(moduleName, [])
           moduleOrders.set(moduleName, video.module_order || 0)
         }
+
+        // FIXED: Find progress for current user only
+        const userProgress = video.member_progress?.find((p: any) => p.member_id === userId)
+        
         videosByModule.get(moduleName)!.push({
           id: video.id,
           title: video.title,
@@ -126,10 +130,10 @@ export const GET = withAuth(async (req, userId) => {
           order_index: video.order_index,
           lesson_order: video.lesson_order || 0,
           is_required: video.is_required || false,
-          progress: video.member_progress?.[0] ? {
-            progress_seconds: video.member_progress[0].progress_seconds,
-            completed: video.member_progress[0].completed,
-            last_watched_at: video.member_progress[0].last_watched_at,
+          progress: userProgress ? {
+            progress_seconds: userProgress.progress_seconds,
+            completed: userProgress.completed,
+            last_watched_at: userProgress.last_watched_at,
           } : undefined,
         })
       })
