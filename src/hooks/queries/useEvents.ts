@@ -46,7 +46,7 @@ export const useEvents = (filters?: EventFilters) => {
       }
       
       const data = await response.json()
-      return data.events as Event[]
+      return data.data.events as Event[]
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 3,
@@ -78,7 +78,7 @@ export const useEventStats = () => {
       }
       
       const data = await response.json()
-      return data as EventStats
+      return data.data as EventStats
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
     enabled: !authLoading && isAuthenticated, // Only run when auth is ready and user is authenticated
@@ -105,7 +105,7 @@ export const useCreateEvent = () => {
       }
       
       const result = await response.json()
-      return result as Event
+      return result.data as Event
     },
     onSuccess: () => {
       // Invalidate and refetch events
@@ -135,7 +135,7 @@ export const useRegisterForEvent = () => {
       }
       
       const result = await response.json()
-      return result
+      return result.data
     },
     onSuccess: () => {
       // Invalidate events to refresh registration status
@@ -164,7 +164,7 @@ export const useCancelEventRegistration = () => {
       }
       
       const result = await response.json()
-      return result
+      return result.data
     },
     onSuccess: () => {
       // Invalidate events to refresh registration status
@@ -185,7 +185,7 @@ export const useEvent = (eventId: string) => {
       }
       
       const data = await response.json()
-      return data as Event
+      return data.data as Event
     },
     enabled: !!eventId,
     staleTime: 5 * 60 * 1000,
