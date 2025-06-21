@@ -88,7 +88,7 @@ export default function VideoPage() {
         
         // Update video data if completed
         if (completed && !videoData.video.progress?.completed) {
-          setVideoData(prev => ({
+          setVideoData((prev: any) => ({
             ...prev,
             video: {
               ...prev.video,
