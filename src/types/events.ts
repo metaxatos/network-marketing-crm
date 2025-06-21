@@ -49,6 +49,9 @@ export interface Event {
   created_at: string;
   updated_at: string;
   
+  // Recurring event fields
+  occurrence_type?: 'main' | 'recurring';
+  
   // Computed/joined fields
   is_creator?: boolean;
   registration_count?: number;

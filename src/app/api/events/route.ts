@@ -40,14 +40,6 @@ export const GET = withAuth(async (request: NextRequest, userId: string) => {
       query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`)
     }
 
-    if (dateStart) {
-      query = query.gte('start_time', dateStart)
-    }
-
-    if (dateEnd) {
-      query = query.lte('start_time', dateEnd)
-    }
-
     const { data: events, error } = await query
 
     if (error) {
@@ -55,13 +47,15 @@ export const GET = withAuth(async (request: NextRequest, userId: string) => {
       return apiError('Failed to fetch events', 500)
     }
 
-    // Transform events to match the expected format
-    const transformedEvents = events?.map((event: any) => {
+    // Transform events and handle recurring occurrences
+    const allEvents: any[] = []
+    
+    events?.forEach((event: any) => {
       const userRegistration = event.event_registrations?.find(
         (reg: any) => reg.member_id === userId
       )
       
-      return {
+      const baseEvent = {
         id: event.id,
         member_id: event.member_id,
         company_id: null, // TODO: Get from member profile
@@ -69,8 +63,6 @@ export const GET = withAuth(async (request: NextRequest, userId: string) => {
         description: event.description,
         event_type: event.event_type,
         format: event.format,
-        start_time: event.start_time,
-        end_time: event.end_time,
         timezone: 'UTC', // Default timezone
         meeting_url: event.meeting_url,
         meeting_platform: event.meeting_platform || 'jitsi',
@@ -88,11 +80,72 @@ export const GET = withAuth(async (request: NextRequest, userId: string) => {
         is_live: false, // TODO: Calculate if event is currently live
         can_join: userRegistration && new Date() >= new Date(event.start_time) && new Date() <= new Date(event.end_time)
       }
-    }) || []
+
+      // Add the main event occurrence
+      if (event.start_time) {
+        allEvents.push({
+          ...baseEvent,
+          start_time: event.start_time,
+          end_time: event.end_time,
+          occurrence_type: 'main'
+        })
+      }
+
+      // Add recurring occurrences if they exist
+      if (event.next_occurrence_1) {
+        // Calculate end time for recurring event (assume same duration as original)
+        const originalDuration = event.end_time && event.start_time 
+          ? new Date(event.end_time).getTime() - new Date(event.start_time).getTime()
+          : 3600000 // Default 1 hour if no end time
+
+        const occurrence1EndTime = new Date(new Date(event.next_occurrence_1).getTime() + originalDuration).toISOString()
+        
+        allEvents.push({
+          ...baseEvent,
+          id: `${event.id}_occ1`, // Unique ID for this occurrence
+          start_time: event.next_occurrence_1,
+          end_time: occurrence1EndTime,
+          occurrence_type: 'recurring',
+          title: `${event.title} (Recurring)`,
+          can_join: userRegistration && new Date() >= new Date(event.next_occurrence_1) && new Date() <= new Date(occurrence1EndTime)
+        })
+      }
+
+      if (event.next_occurrence_2) {
+        // Calculate end time for recurring event
+        const originalDuration = event.end_time && event.start_time 
+          ? new Date(event.end_time).getTime() - new Date(event.start_time).getTime()
+          : 3600000 // Default 1 hour if no end time
+
+        const occurrence2EndTime = new Date(new Date(event.next_occurrence_2).getTime() + originalDuration).toISOString()
+        
+        allEvents.push({
+          ...baseEvent,
+          id: `${event.id}_occ2`, // Unique ID for this occurrence
+          start_time: event.next_occurrence_2,
+          end_time: occurrence2EndTime,
+          occurrence_type: 'recurring',
+          title: `${event.title} (Recurring)`,
+          can_join: userRegistration && new Date() >= new Date(event.next_occurrence_2) && new Date() <= new Date(occurrence2EndTime)
+        })
+      }
+    })
+
+    // Apply date filters to all events (including recurring occurrences)
+    let filteredEvents = allEvents
+    if (dateStart) {
+      filteredEvents = filteredEvents.filter(event => event.start_time >= dateStart)
+    }
+    if (dateEnd) {
+      filteredEvents = filteredEvents.filter(event => event.start_time <= dateEnd)
+    }
+
+    // Sort by start time
+    filteredEvents.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
 
     return apiResponse({
-      events: transformedEvents,
-      total: transformedEvents.length
+      events: filteredEvents,
+      total: filteredEvents.length
     })
 
   } catch (error) {
