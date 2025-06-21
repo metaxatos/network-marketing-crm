@@ -168,7 +168,7 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
 
     console.log('[Create Contact] Contact created successfully:', contact.id)
 
-    return apiResponse({
+    const responseData = {
       contact: {
         id: contact.id,
         name: contact.name,
@@ -178,7 +178,10 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
         tags: contact.tags,
         createdAt: contact.created_at,
       },
-    }, 201, 'Contact created successfully')
+    }
+    
+    console.log('[Create Contact] API Response:', responseData)
+    return apiResponse(responseData, 201, 'Contact created successfully')
   } catch (error) {
     console.error('Create contact error:', error)
     return apiError(

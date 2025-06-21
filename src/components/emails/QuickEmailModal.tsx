@@ -102,6 +102,14 @@ export function QuickEmailModal({
       custom_fields: {}, // Required field
     }, {
       onSuccess: (newContact) => {
+        console.log('[QuickEmailModal] Contact created successfully:', newContact)
+        
+        if (!newContact || !newContact.id) {
+          console.error('[QuickEmailModal] Invalid contact response:', newContact)
+          toast.error('Contact was created but response format is invalid')
+          return
+        }
+        
         // Add the new contact to selected contacts
         setSelectedContactIds(prev => [...prev, newContact.id])
         

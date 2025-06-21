@@ -155,7 +155,8 @@ export const useCreateContact = () => {
       }
       
       const result = await response.json()
-      return result.contact as Contact
+      // Fix: API returns { data: { contact: ... }, success: true }
+      return result.data?.contact as Contact
     },
     onMutate: async (newContact) => {
       // Cancel outgoing refetches
@@ -228,7 +229,8 @@ export const useUpdateContact = () => {
       }
       
       const result = await response.json()
-      return result.contact as Contact
+      // Fix: API returns { data: { contact: ... }, success: true }
+      return result.data?.contact as Contact
     },
     onMutate: async ({ id, updates }) => {
       // Cancel outgoing refetches
