@@ -8,6 +8,7 @@ export async function POST(req: NextRequest) {
     const supabase = await createApiClient(req)
     const { templateId, contactIds, customSubject, customContent, to } = await req.json()
 
+    console.log('🚀 [Email Send API] === REQUEST RECEIVED ===')
     console.log('[Email Send API] Processing email send request with payload:', {
       templateId,
       contactIds,
@@ -15,6 +16,18 @@ export async function POST(req: NextRequest) {
       customContent: customContent ? `${customContent.substring(0, 100)}...` : null,
       to
     })
+    console.log('🚀 [Email Send API] === REQUEST DATA LOGGED ===')
+    
+    // Log to our debug endpoint as well (for better visibility)
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'https://ourteam.gr'}/api/debug-email-payload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templateId, contactIds, customSubject, customContent, to })
+      })
+    } catch (debugError) {
+      console.log('Debug logging failed (non-critical):', debugError)
+    }
 
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
