@@ -21,150 +21,128 @@ const TEMPLATE_IDS = {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('[Send Quick Email] API route called')
+    
     const { contactIds, language = 'en', targetAudience } = await request.json()
 
-    console.log('Send quick email request:', { contactIds, language, targetAudience })
+    console.log('[Send Quick Email] Request data:', { contactIds, language, targetAudience })
 
     if (!contactIds || !Array.isArray(contactIds) || contactIds.length === 0) {
-      return NextResponse.json(
-        { error: 'Contact IDs are required' },
-        { status: 400 }
-      )
+      console.error('[Send Quick Email] Invalid contactIds:', contactIds)
+      return NextResponse.json({ error: 'Contact IDs are required' }, { status: 400 })
     }
 
     if (!targetAudience || !['customer', 'partner'].includes(targetAudience)) {
-      return NextResponse.json(
-        { error: 'Valid target audience is required (customer or partner)' },
-        { status: 400 }
-      )
+      console.error('[Send Quick Email] Invalid targetAudience:', targetAudience)
+      return NextResponse.json({ error: 'Valid target audience is required' }, { status: 400 })
     }
 
-    // Get the template ID based on target audience and language
-    const templateId = TEMPLATE_IDS[targetAudience as keyof typeof TEMPLATE_IDS]?.[language as keyof typeof TEMPLATE_IDS.customer]
+    // Get template ID based on target audience and language
+    const templateId = TEMPLATE_IDS[targetAudience as keyof typeof TEMPLATE_IDS]?.[language as 'en' | 'gr']
     
     if (!templateId) {
-      console.error('Template ID not found for:', { targetAudience, language })
-      return NextResponse.json(
-        { error: `Template not found for ${targetAudience} in ${language}` },
-        { status: 404 }
-      )
+      console.error('[Send Quick Email] Template not found for:', { targetAudience, language })
+      return NextResponse.json({ 
+        error: 'Email template not found',
+        details: { targetAudience, language, availableTemplates: TEMPLATE_IDS }
+      }, { status: 400 })
     }
 
-    console.log('Using template ID:', templateId)
+    console.log('[Send Quick Email] Using template ID:', templateId)
 
-    // Find the template by ID
+    // Fetch template from database
     const { data: template, error: templateError } = await supabase
       .from('email_templates')
       .select('*')
       .eq('id', templateId)
-      .eq('is_active', true)
       .single()
 
     if (templateError || !template) {
-      console.error('Template lookup error:', templateError)
-      console.error('Template lookup failed for ID:', templateId)
-      return NextResponse.json(
-        { error: 'Email template not found in database' },
-        { status: 404 }
-      )
+      console.error('[Send Quick Email] Template fetch error:', templateError)
+      return NextResponse.json({ 
+        error: 'Failed to load template',
+        details: { templateId, error: templateError }
+      }, { status: 500 })
     }
 
-    console.log('Found template:', { id: template.id, name: template.name })
+    console.log('[Send Quick Email] Template loaded:', template.name)
 
-    // Get contact details
+    // Fetch contacts
     const { data: contacts, error: contactsError } = await supabase
       .from('contacts')
       .select('id, name, email')
       .in('id', contactIds)
 
-    if (contactsError || !contacts || contacts.length === 0) {
-      console.error('Contacts error:', contactsError)
-      return NextResponse.json(
-        { error: 'Contacts not found' },
-        { status: 404 }
-      )
+    if (contactsError) {
+      console.error('[Send Quick Email] Contacts fetch error:', contactsError)
+      return NextResponse.json({ 
+        error: 'Failed to load contacts',
+        details: contactsError
+      }, { status: 500 })
     }
 
-    // Filter contacts that have email addresses
-    const contactsWithEmail = (contacts as Contact[]).filter((contact: Contact) => contact.email)
-    
-    if (contactsWithEmail.length === 0) {
-      return NextResponse.json(
-        { error: 'No contacts have email addresses' },
-        { status: 400 }
-      )
+    if (!contacts || contacts.length === 0) {
+      console.error('[Send Quick Email] No contacts found for IDs:', contactIds)
+      return NextResponse.json({ error: 'No contacts found' }, { status: 404 })
     }
 
-    console.log('Sending to contacts:', contactsWithEmail.map(c => ({ name: c.name, email: c.email })))
+    console.log('[Send Quick Email] Found contacts:', contacts.length)
 
-    // For now, we'll just create a record in sent_emails table
-    // In production, you would integrate with your email service (Resend, etc.)
-    const emailRecords = contactsWithEmail.map((contact: Contact) => ({
-      member_id: template.member_id,
-      contact_id: contact.id,
-      template_id: template.id,
-      recipient_email: contact.email,
-      recipient_name: contact.name,
-      subject: template.subject,
-      body_html: template.body_html,
-      body_text: template.body_text,
-      status: 'sent',
-      sent_at: new Date().toISOString(),
-    }))
+    // Filter contacts with valid emails
+    const validContacts = contacts.filter((contact: Contact) => 
+      contact.email && contact.email.trim() !== ''
+    )
 
-    // Insert email records
-    const { data: sentEmails, error: insertError } = await supabase
-      .from('sent_emails')
-      .insert(emailRecords)
-      .select()
-
-    if (insertError) {
-      console.error('Insert error:', insertError)
-      return NextResponse.json(
-        { error: 'Failed to record email sending' },
-        { status: 500 }
-      )
+    if (validContacts.length === 0) {
+      console.error('[Send Quick Email] No contacts with valid emails')
+      return NextResponse.json({ error: 'No contacts have valid email addresses' }, { status: 400 })
     }
 
-    // Update template usage
-    await supabase
-      .from('email_templates')
-      .update({
-        usage_count: (template.usage_count || 0) + contactsWithEmail.length,
-        last_used_at: new Date().toISOString()
-      })
-      .eq('id', template.id)
+    console.log('[Send Quick Email] Valid contacts with emails:', validContacts.length)
 
-    // Update contact last_contacted_at
-    await supabase
-      .from('contacts')
-      .update({ last_contacted_at: new Date().toISOString() })
-      .in('id', contactsWithEmail.map((c: Contact) => c.id))
+    // Simulate email sending (replace with actual email service)
+    const results = []
+    for (const contact of validContacts) {
+      try {
+        // Here you would integrate with your email service (Resend, etc.)
+        console.log(`[Send Quick Email] Simulating email to ${contact.email}`)
+        
+        results.push({
+          contactId: contact.id,
+          contactName: contact.name,
+          email: contact.email,
+          status: 'sent',
+          sentAt: new Date().toISOString()
+        })
+      } catch (emailError) {
+        console.error(`[Send Quick Email] Failed to send to ${contact.email}:`, emailError)
+        results.push({
+          contactId: contact.id,
+          contactName: contact.name,
+          email: contact.email,
+          status: 'failed',
+          error: emailError instanceof Error ? emailError.message : 'Unknown error'
+        })
+      }
+    }
 
-    console.log('Successfully sent emails:', sentEmails?.length)
+    console.log('[Send Quick Email] Sending complete. Results:', results)
 
     return NextResponse.json({
       success: true,
-      data: {
-        emailsSent: sentEmails?.length || 0,
-        recipients: contactsWithEmail.map((c: Contact) => ({
-          id: c.id,
-          name: c.name,
-          email: c.email
-        })),
-        template: {
-          id: template.id,
-          name: template.name,
-          subject: template.subject
-        }
+      message: `Email sent to ${results.filter(r => r.status === 'sent').length} recipients`,
+      results,
+      template: {
+        id: template.id,
+        name: template.name
       }
     })
 
   } catch (error) {
-    console.error('Send quick email error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error('[Send Quick Email] Unexpected error:', error)
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 } 

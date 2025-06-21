@@ -44,7 +44,7 @@ export function QuickEmailModal({
   
   const { data: contacts = [], isLoading: contactsLoading } = useContacts()
   const { mutate: sendQuickEmail, isPending: isSending } = useSendQuickEmail()
-  const { mutate: createContact, isPending: isCreatingContact } = useCreateContact()
+  const createContactMutation = useCreateContact()
   const { member } = useUserStore()
   
   // Reset modal state when opened
@@ -94,34 +94,37 @@ export function QuickEmailModal({
       return
     }
 
-    try {
-      createContact({
-        name: newContactData.name.trim(),
-        email: newContactData.email.trim(),
-        status: 'lead', // Always save as warm lead as requested
-        tags: ['email-campaign'], // Tag to show they were added via email campaign
-        custom_fields: {}, // Required field
-      }, {
-        onSuccess: (newContact) => {
-          // Add the new contact to selected contacts
-          setSelectedContactIds(prev => [...prev, newContact.id])
-          setSelectedContacts(prev => [...prev, newContact])
-          
-          toast.success(`🎉 ${newContact.name} added as warm lead!`)
-          
-          // Reset form and hide add contact form
-          setNewContactData({ name: '', email: '' })
-          setShowAddContact(false)
-        },
-        onError: (error) => {
-          console.error('Failed to create contact:', error)
-          toast.error('Failed to add contact')
+    createContactMutation.mutate({
+      name: newContactData.name.trim(),
+      email: newContactData.email.trim(),
+      status: 'lead', // Always save as warm lead as requested
+      tags: ['email-campaign'], // Tag to show they were added via email campaign
+      custom_fields: {}, // Required field
+    }, {
+      onSuccess: (newContact) => {
+        // Add the new contact to selected contacts
+        setSelectedContactIds(prev => [...prev, newContact.id])
+        
+        // Add to selectedContacts array for display
+        const contactForDisplay = {
+          id: newContact.id,
+          name: newContact.name,
+          email: newContact.email,
+          status: newContact.status
         }
-      })
-    } catch (error) {
-      console.error('Failed to create contact:', error)
-      toast.error('Failed to add contact')
-    }
+        setSelectedContacts(prev => [...prev, contactForDisplay])
+        
+        toast.success(`🎉 ${newContact.name} added as warm lead!`)
+        
+        // Reset form and hide add contact form
+        setNewContactData({ name: '', email: '' })
+        setShowAddContact(false)
+      },
+      onError: (error) => {
+        console.error('Failed to create contact:', error)
+        toast.error('Failed to add contact: ' + (error instanceof Error ? error.message : 'Unknown error'))
+      }
+    })
   }
 
   const handleSendEmail = async () => {
@@ -275,10 +278,10 @@ export function QuickEmailModal({
                   </div>
                   <button
                     onClick={handleAddNewContact}
-                    disabled={isCreatingContact || !newContactData.name.trim() || !newContactData.email.trim()}
+                    disabled={createContactMutation.isPending || !newContactData.name.trim() || !newContactData.email.trim()}
                     className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                   >
-                    {isCreatingContact ? (
+                    {createContactMutation.isPending ? (
                       <>
                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         Adding...
