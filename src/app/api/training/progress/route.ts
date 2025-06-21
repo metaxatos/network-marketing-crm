@@ -67,7 +67,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
         lastWatchedAt: p.last_watched_at,
         videoTitle: p.video?.title,
         moduleTitle: p.video?.module_name,
-        courseTitle: p.video?.course?.title,
+        courseTitle: (p.video?.course as any)?.title || 'Unknown Course',
       })),
     }, 200)
   } catch (error) {
@@ -185,7 +185,7 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
             video_id: video.id,
             video_title: video.title,
             module_title: video.module_name,
-            course_title: video.course?.title,
+            course_title: (video.course as any)?.title || 'Unknown Course',
           },
         })
       } catch (logError) {
