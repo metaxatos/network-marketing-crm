@@ -32,9 +32,10 @@ export {
 
 // Training hooks
 export {
+  useTrainingCourses,
   useTrainingVideos,
-  useTrainingVideo,
   useVideoProgress,
+  useVideoProgressById,
   useVideoCategories,
   useUpdateVideoProgress,
   useCompleteVideo,
