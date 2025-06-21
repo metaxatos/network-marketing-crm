@@ -1,4 +1,4 @@
-﻿import { NextRequest } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createApiClient } from '@/lib/supabase/api-client'
 import { apiResponse, withAuth, getCurrentMember } from '@/lib/api-helpers'
 
@@ -214,10 +214,19 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
       overallProgress: result.overallProgress
     })
 
-    return apiResponse(result, 200)
+    const response = apiResponse(result, 200)
+    
+    // Add CORS headers for development
+    const origin = req.headers.get('origin')
+    response.headers.set('Access-Control-Allow-Origin', origin || '*')
+    response.headers.set('Access-Control-Allow-Credentials', 'true')
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie')
+    
+    return response
   } catch (error) {
     console.error('🎓 Training courses API error:', error)
-    return apiResponse({ 
+    const errorResponse = apiResponse({ 
       courses: [],
       recommendedNext: undefined,
       totalCourses: 0,
@@ -225,5 +234,25 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
       completedLessons: 0,
       overallProgress: 0,
     }, 200)
+    
+    // Add CORS headers for development
+    const origin = req.headers.get('origin')
+    errorResponse.headers.set('Access-Control-Allow-Origin', origin || '*')
+    errorResponse.headers.set('Access-Control-Allow-Credentials', 'true')
+    
+    return errorResponse
   }
 })
+
+// Add OPTIONS handler for CORS preflight
+export async function OPTIONS(req: NextRequest) {
+  const origin = req.headers.get('origin')
+  
+  const response = new NextResponse(null, { status: 200 })
+  response.headers.set('Access-Control-Allow-Origin', origin || '*')
+  response.headers.set('Access-Control-Allow-Credentials', 'true')
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie')
+  
+  return response
+}

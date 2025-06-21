@@ -14,6 +14,7 @@ function createSafeClient() {
     return {
       auth: {
         getSession: async () => ({ data: { session: null }, error: null }),
+        getUser: async () => ({ data: { user: null }, error: null }),
         signInWithPassword: async () => ({ data: null, error: new Error('Supabase not configured') }),
         signUp: async () => ({ data: null, error: new Error('Supabase not configured') }),
         signOut: async () => ({ error: null }),
@@ -33,7 +34,69 @@ function createSafeClient() {
 
   return createBrowserClient(
     supabaseUrl,
-    supabaseAnonKey
+    supabaseAnonKey,
+    {
+      cookies: {
+        getAll() {
+          return document.cookie
+            .split(';')
+            .map(cookie => cookie.trim())
+            .filter(cookie => cookie.length > 0)
+            .map(cookie => {
+              const [name, ...rest] = cookie.split('=')
+              return {
+                name: name.trim(),
+                value: rest.join('=')
+              }
+            })
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            // For localhost development, use more permissive cookie settings
+            const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            
+            let cookieString = `${name}=${value}`
+            
+            if (options?.maxAge) {
+              cookieString += `; Max-Age=${options.maxAge}`
+            }
+            
+            if (options?.expires) {
+              cookieString += `; Expires=${options.expires.toUTCString()}`
+            }
+            
+            if (options?.path) {
+              cookieString += `; Path=${options.path}`
+            }
+            
+            // For development, don't set domain to allow localhost
+            if (options?.domain && !isDevelopment) {
+              cookieString += `; Domain=${options.domain}`
+            }
+            
+            // For development, use Lax instead of Strict for SameSite
+            if (options?.sameSite) {
+              const sameSite = isDevelopment ? 'Lax' : options.sameSite
+              cookieString += `; SameSite=${sameSite}`
+            } else if (isDevelopment) {
+              cookieString += `; SameSite=Lax`
+            }
+            
+            // Only set Secure in production or on HTTPS
+            if (options?.secure && (window.location.protocol === 'https:' || !isDevelopment)) {
+              cookieString += `; Secure`
+            }
+            
+            if (options?.httpOnly) {
+              cookieString += `; HttpOnly`
+            }
+            
+            console.log('🍪 Setting cookie:', cookieString)
+            document.cookie = cookieString
+          })
+        }
+      }
+    }
   )
 }
 

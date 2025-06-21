@@ -378,6 +378,8 @@ export default function TrainingPage() {
     cookies: typeof document !== 'undefined' ? document.cookie : 'N/A'
   }
 
+
+
   return (
     <DashboardLayout>
       {/* Debug Panel */}
