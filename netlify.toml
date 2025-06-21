@@ -1,6 +1,5 @@
 [build]
-  command = "npm run build"
-  publish = ".next"
+  command = "npm install && npm run build"
 
 [build.environment]
   # Use Node.js 18 for better compatibility with React 18
@@ -10,9 +9,3 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
-
-# Simple redirect for all routes to Next.js handler
-[[redirects]]
-  from = "/*"
-  to = "/.netlify/functions/___netlify-handler"
-  status = 200
