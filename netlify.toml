@@ -20,26 +20,10 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# Redirects for Next.js dynamic routes
-[[redirects]]
-  from = "/training/video/*"
-  to = "/.netlify/functions/___netlify-handler"
-  status = 200
-
-[[redirects]]
-  from = "/training/course/*"
-  to = "/.netlify/functions/___netlify-handler"
-  status = 200
-
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/___netlify-handler"
-  status = 200
-
-# Fallback for all other routes
+# Redirects for Next.js dynamic routes - let Next.js handle all routing
 [[redirects]]
   from = "/*"
-  to = "/index.html"
+  to = "/.netlify/functions/___netlify-handler"
   status = 200
 
 [[headers]]
