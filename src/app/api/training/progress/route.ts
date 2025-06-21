@@ -1,5 +1,5 @@
 ﻿import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createApiClient } from '@/lib/supabase/api-client'
 import { apiResponse, apiError, withAuth, validateBody } from '@/lib/api-helpers'
 
 // Define simplified progress update request
@@ -12,7 +12,7 @@ interface UpdateProgressRequest {
 // GET /api/training/progress - Get user's training progress using SIMPLIFIED tables
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
-    const supabase = await createClient()
+    const supabase = await createApiClient(req)
     
     // Get all video progress for the user using our SIMPLIFIED member_progress table
     const { data: progressData, error } = await supabase
@@ -88,7 +88,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
 // POST /api/training/progress - Update video progress using SIMPLIFIED tables
 export const POST = withAuth(async (req: NextRequest, userId: string) => {
   try {
-    const supabase = await createClient()
+    const supabase = await createApiClient(req)
     
     // Validate request body
     const body = await validateBody<UpdateProgressRequest>(req, (data) => {
