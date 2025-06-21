@@ -145,6 +145,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
       
       videos.forEach((video: any) => {
         const moduleKey = video.module_name || 'General'
+        
         if (!moduleMap.has(moduleKey)) {
           moduleMap.set(moduleKey, {
             name: moduleKey,
@@ -171,8 +172,14 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
           videos: module.videos.sort((a: any, b: any) => (a.lesson_order || 0) - (b.lesson_order || 0))
         }))
 
+      // Return ONLY the transformed structure without training_videos
       return {
-        ...course,
+        id: course.id,
+        title: course.title,
+        description: course.description,
+        cover_image: course.cover_image,
+        order_index: course.order_index,
+        is_published: course.is_published,
         modules,
         totalVideos: videos.length
       }
