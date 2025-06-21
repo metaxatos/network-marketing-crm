@@ -1,21 +1,45 @@
-import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { createApiClient } from '@/lib/supabase/api-client'
 import { apiResponse, apiError, withAuthWithContext, getCurrentMember } from '@/lib/api-helpers'
+
+// CORS headers for the video API
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie',
+  'Access-Control-Allow-Credentials': 'true',
+}
+
+// OPTIONS handler for CORS preflight
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: corsHeaders,
+  })
+}
 
 // GET /api/training/[courseId] - Get individual training video details (renamed from course details)
 export const GET = withAuthWithContext(async (req: NextRequest, userId: string, { params }: { params: { courseId: string } }) => {
   try {
-    const supabase = await createClient()
+    const supabase = await createApiClient(req)
     const { courseId: videoId } = params // Renamed for clarity - this is now a video ID
     
     if (!videoId) {
-      return apiError('Video ID is required', 400)
+      const errorResponse = apiError('Video ID is required', 400)
+      Object.entries(corsHeaders).forEach(([key, value]) => {
+        errorResponse.headers.set(key, value)
+      })
+      return errorResponse
     }
 
     const member = await getCurrentMember(userId)
     
     if (!member?.company_id) {
-      return apiError('Company not found', 404)
+      const errorResponse = apiError('Company not found', 404)
+      Object.entries(corsHeaders).forEach(([key, value]) => {
+        errorResponse.headers.set(key, value)
+      })
+      return errorResponse
     }
 
     // Get video details with user progress (simplified from course/videos structure)
@@ -38,7 +62,11 @@ export const GET = withAuthWithContext(async (req: NextRequest, userId: string, 
       .single()
 
     if (error || !video) {
-      return apiError('Video not found', 404)
+      const errorResponse = apiError('Video not found', 404)
+      Object.entries(corsHeaders).forEach(([key, value]) => {
+        errorResponse.headers.set(key, value)
+      })
+      return errorResponse
     }
 
     // Get related videos in the same category for recommendations
@@ -66,7 +94,7 @@ export const GET = withAuthWithContext(async (req: NextRequest, userId: string, 
 
     const progress = video.member_progress?.[0]
 
-    return apiResponse({
+    const response = apiResponse({
       video: {
         id: video.id,
         title: video.title,
@@ -95,8 +123,22 @@ export const GET = withAuthWithContext(async (req: NextRequest, userId: string, 
         title: nextVideo.title,
       } : null,
     }, 200)
+
+    // Add CORS headers to the response
+    Object.entries(corsHeaders).forEach(([key, value]) => {
+      response.headers.set(key, value)
+    })
+
+    return response
   } catch (error) {
     console.error('Get video details error:', error)
-    return apiError('Failed to retrieve video details', 500)
+    const errorResponse = apiError('Failed to retrieve video details', 500)
+    
+    // Add CORS headers to error response
+    Object.entries(corsHeaders).forEach(([key, value]) => {
+      errorResponse.headers.set(key, value)
+    })
+    
+    return errorResponse
   }
 }) 
