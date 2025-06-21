@@ -14,9 +14,9 @@ export const resend = getResendClient()
 
 // Email configuration
 export const EMAIL_CONFIG = {
-  fromEmail: 'noreply@ourteam.gr', // Using your actual domain
+  fromEmail: process.env.RESEND_FROM_EMAIL || 'info@ourteam.gr', // Updated to use info@ourteam.gr
   fromName: 'OurTeam Network Marketing',
-  replyTo: 'support@ourteam.gr', // Replace with your support email
+  replyTo: process.env.RESEND_REPLY_TO || 'info@ourteam.gr', // Updated reply-to as well
   baseUrl: process.env.NEXT_PUBLIC_BASE_URL || 'https://ourteam.gr',
 }
 
@@ -37,20 +37,64 @@ export interface EmailResult {
   error?: string
 }
 
-// Send email function
+// Send email function with Supabase Edge Function fallback
 export async function sendEmail({
   to,
   subject,
   html,
   text,
   replyTo,
+  useEdgeFunction = false,
 }: {
   to: string
   subject: string
   html: string
   text?: string
   replyTo?: string
+  useEdgeFunction?: boolean
 }): Promise<EmailResult> {
+  
+  // Option 1: Use Supabase Edge Function (can be more reliable)
+  if (useEdgeFunction) {
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      
+      if (supabaseUrl && supabaseKey) {
+        console.log('📧 Using Supabase Edge Function for email:', { to, subject })
+        
+        const response = await fetch(`${supabaseUrl}/functions/v1/resend-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseKey}`,
+          },
+          body: JSON.stringify({
+            to,
+            subject,
+            html,
+            text: text || html.replace(/<[^>]*>/g, ''),
+            replyTo: replyTo || EMAIL_CONFIG.replyTo,
+          }),
+        })
+        
+        const result = await response.json()
+        
+        if (result.success) {
+          console.log('✅ Email sent via Edge Function:', result.messageId)
+          return { success: true, messageId: result.messageId }
+        } else {
+          console.error('❌ Edge Function error:', result.error)
+          // Fall back to direct Resend API
+        }
+      }
+    } catch (error) {
+      console.error('❌ Edge Function failed, falling back to direct API:', error)
+      // Fall back to direct Resend API
+    }
+  }
+  
+  // Option 2: Direct Resend API (original method)
   if (!resend) {
     // In development, simulate success
     if (process.env.NODE_ENV === 'development') {
@@ -66,23 +110,26 @@ export async function sendEmail({
   }
 
   try {
+    console.log('📧 Sending email via direct Resend API:', { to, subject })
+    
     const { data, error } = await resend.emails.send({
       from: `${EMAIL_CONFIG.fromName} <${EMAIL_CONFIG.fromEmail}>`,
       to: [to],
       subject,
       html,
-      text,
+      text: text || html.replace(/<[^>]*>/g, ''),
       replyTo: replyTo || EMAIL_CONFIG.replyTo,
     })
 
     if (error) {
-      console.error('Email sending error:', error)
+      console.error('❌ Email sending error:', error)
       return { success: false, error: error.message }
     }
 
+    console.log('✅ Email sent successfully via direct API:', data?.id)
     return { success: true, messageId: data?.id }
   } catch (error) {
-    console.error('Email sending error:', error)
+    console.error('❌ Email sending error:', error)
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error' 
