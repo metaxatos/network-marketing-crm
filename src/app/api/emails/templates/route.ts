@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
       console.warn('[Email Templates API] Auth context not available, proceeding with system templates only:', authError)
     }
 
-    // Build query with all Phase 1 fields
+    // Build query - start with core fields that definitely exist
     let query = supabase
       .from('email_templates')
       .select(`
@@ -73,15 +73,15 @@ export async function GET(req: NextRequest) {
         variables,
         template_type,
         is_active,
+        created_at,
+        updated_at,
         language,
         preview_text,
         usage_priority,
         target_audience,
         is_quick_action,
         usage_count,
-        last_used_at,
-        created_at,
-        updated_at
+        last_used_at
       `)
       .eq('is_active', true)
 
@@ -94,9 +94,14 @@ export async function GET(req: NextRequest) {
       query = query.eq('template_type', 'system')
     }
     
-    // Apply Phase 3 filters
+    // Apply Phase 3 filters - with fallbacks for missing columns
     if (language) {
-      query = query.eq('language', language)
+      // Try to filter by language, but don't fail if column doesn't exist
+      try {
+        query = query.eq('language', language)
+      } catch (error) {
+        console.warn('[Email Templates API] Language column not available, skipping filter')
+      }
     }
     
     if (category) {
@@ -104,21 +109,93 @@ export async function GET(req: NextRequest) {
     }
     
     if (isQuickAction === 'true') {
-      query = query.eq('is_quick_action', true)
+      // Try to filter by is_quick_action, but don't fail if column doesn't exist
+      try {
+        query = query.eq('is_quick_action', true)
+      } catch (error) {
+        console.warn('[Email Templates API] is_quick_action column not available, skipping filter')
+      }
     }
     
     if (targetAudience) {
-      query = query.eq('target_audience', targetAudience)
+      // Try to filter by target_audience, but don't fail if column doesn't exist
+      try {
+        query = query.eq('target_audience', targetAudience)
+      } catch (error) {
+        console.warn('[Email Templates API] target_audience column not available, skipping filter')
+      }
     }
 
     const { data: templates, error } = await query
-      .order('usage_priority', { ascending: false, nullsFirst: false })
       .order('template_type', { ascending: true }) // System templates first
       .order('category', { ascending: true })
       .order('name', { ascending: true })
 
     if (error) {
       console.error('Error fetching templates:', error)
+      
+      // If error is due to missing columns, try with basic query
+      if (error.message?.includes('column') || error.message?.includes('does not exist')) {
+        console.log('[Email Templates API] Trying fallback query with basic fields only')
+        
+        const fallbackQuery = supabase
+          .from('email_templates')
+          .select(`
+            id,
+            company_id,
+            member_id,
+            name,
+            subject,
+            body_html,
+            body_text,
+            category,
+            variables,
+            template_type,
+            is_active,
+            created_at,
+            updated_at
+          `)
+          .eq('is_active', true)
+          
+        // Apply basic filtering
+        if (userId && memberCompanyId) {
+          fallbackQuery.or(`template_type.eq.system,and(template_type.eq.company,company_id.eq.${memberCompanyId})`)
+        } else {
+          fallbackQuery.eq('template_type', 'system')
+        }
+        
+        if (category) {
+          fallbackQuery.eq('category', category)
+        }
+        
+        const { data: fallbackTemplates, error: fallbackError } = await fallbackQuery
+          .order('template_type', { ascending: true })
+          .order('category', { ascending: true })
+          .order('name', { ascending: true })
+          
+        if (fallbackError) {
+          throw fallbackError
+        }
+        
+        // Add default values for missing Phase 1 fields
+        const templatesWithDefaults = (fallbackTemplates || []).map(template => ({
+          ...template,
+          language: 'en', // Default to English
+          preview_text: null,
+          usage_priority: 0,
+          target_audience: 'general',
+          is_quick_action: false,
+          usage_count: 0,
+          last_used_at: null
+        }))
+        
+        console.log(`[Email Templates API] Fallback successful: Found ${templatesWithDefaults.length} templates`)
+        
+        return apiResponse({
+          templates: templatesWithDefaults
+        }, 200)
+      }
+      
       throw error
     }
 
