@@ -3,9 +3,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/queryKeys'
 import { Event, EventStats, CreateEventData, EventFilters } from '@/types/events'
+import { useAuth } from '@/hooks/useAuth'
 
 // Fetch events from API
 export const useEvents = (filters?: EventFilters) => {
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
+  
   return useQuery({
     queryKey: queryKeys.events(filters),
     queryFn: async () => {
@@ -27,32 +30,58 @@ export const useEvents = (filters?: EventFilters) => {
         params.append('date_end', filters.date_range.end)
       }
       
-      const response = await fetch(`/api/events?${params.toString()}`)
+      const response = await fetch(`/api/events?${params.toString()}`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch events')
+        if (response.status === 401) {
+          throw new Error('Please log in to view events')
+        }
+        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch events' }))
+        throw new Error(errorData.error || 'Failed to fetch events')
       }
       
       const data = await response.json()
       return data.events as Event[]
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+    enabled: !authLoading && isAuthenticated, // Only run when auth is ready and user is authenticated
   })
 }
 
 // Fetch event statistics
 export const useEventStats = () => {
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
+  
   return useQuery({
     queryKey: queryKeys.eventStats(),
     queryFn: async () => {
-      const response = await fetch('/api/events/stats')
+      const response = await fetch('/api/events/stats', {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch event stats')
+        if (response.status === 401) {
+          throw new Error('Please log in to view event statistics')
+        }
+        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch event stats' }))
+        throw new Error(errorData.error || 'Failed to fetch event stats')
       }
       
       const data = await response.json()
       return data as EventStats
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
+    enabled: !authLoading && isAuthenticated, // Only run when auth is ready and user is authenticated
   })
 }
 

@@ -11,7 +11,7 @@ import EventsListView from '@/components/events/EventsListView';
 import CreateEventModal from '@/components/events/CreateEventModal';
 
 export default function EventsPage() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   
   // View state
   const [view, setView] = useState<EventView>('list');
@@ -22,7 +22,7 @@ export default function EventsPage() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
   // Hooks for data fetching
-  const { data: events = [], isLoading, error } = useEvents();
+  const { data: events = [], isLoading, error, refetch } = useEvents();
   const createEventMutation = useCreateEvent();
   const registerMutation = useRegisterForEvent();
   const cancelRegistrationMutation = useCancelEventRegistration();
@@ -91,7 +91,7 @@ export default function EventsPage() {
     }
   });
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <DashboardLayout user={user || undefined}>
         <div className="min-h-screen gradient-main">
@@ -125,23 +125,28 @@ export default function EventsPage() {
     );
   }
 
-  if (error) {
+  if (error && !authLoading) {
     return (
       <DashboardLayout user={user || undefined}>
         <div className="min-h-screen gradient-main flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-lg p-8 text-center max-w-md w-full">
           <div className="text-6xl mb-4">⚠️</div>
           <h3 className="text-xl font-semibold text-slate-900 mb-2">
-            Something went wrong
+            {!isAuthenticated ? 'Please log in' : 'Something went wrong'}
           </h3>
-          <p className="text-slate-600 mb-6">{(error as Error)?.message || 'Failed to load events'}</p>
+          <p className="text-slate-600 mb-6">
+            {!isAuthenticated 
+              ? 'You need to be logged in to view events.' 
+              : (error as Error)?.message || 'Failed to load events'
+            }
+          </p>
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => !isAuthenticated ? window.location.href = '/login' : refetch()}
             className="px-6 py-3 bg-purple-500 text-white rounded-full hover:bg-purple-600 
                      transition-all duration-200 font-medium shadow-lg hover:shadow-xl 
                      hover:scale-105 active:scale-95"
           >
-            Try Again
+            {!isAuthenticated ? 'Go to Login' : 'Try Again'}
           </button>
         </div>
         </div>
