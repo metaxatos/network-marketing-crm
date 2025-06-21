@@ -148,6 +148,7 @@ export async function POST(req: NextRequest) {
           console.log(`[Email Send API] Email sent successfully to ${recipient.email}, messageId: ${emailResult.messageId}`)
           return { success: true, communicationId: communication.id, recipient: recipient.email }
         } else {
+          console.error(`[Email Send API] Email sending failed to ${recipient.email}:`, emailResult.error)
           throw new Error(emailResult.error || 'Email sending failed')
         }
       } catch (emailError) {
@@ -176,6 +177,16 @@ export async function POST(req: NextRequest) {
     const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length
     const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success)).length
 
+    // Log detailed errors for debugging
+    const failedResults = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success))
+    failedResults.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        console.error(`[Email Send API] Promise rejected for recipient ${index}:`, result.reason)
+      } else if (result.status === 'fulfilled' && !result.value.success) {
+        console.error(`[Email Send API] Email failed for recipient ${index}:`, result.value.error)
+      }
+    })
+
     console.log(`[Email Send API] Email send completed: ${successful} successful, ${failed} failed`)
 
     return apiResponse({
@@ -183,7 +194,8 @@ export async function POST(req: NextRequest) {
       results: {
         total: recipients.length,
         successful,
-        failed
+        failed,
+        errors: failedResults.map(r => r.status === 'rejected' ? r.reason : (r.value as any)?.error)
       },
       template_used: template ? template.name : null
     })
