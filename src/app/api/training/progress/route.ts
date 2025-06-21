@@ -2,33 +2,32 @@
 import { createClient } from '@/lib/supabase/server'
 import { apiResponse, apiError, withAuth, validateBody } from '@/lib/api-helpers'
 
-// Define progress update request for EXISTING lesson structure
+// Define simplified progress update request
 interface UpdateProgressRequest {
-  lessonId: string
+  videoId: string
   progressSeconds: number
   completed?: boolean
 }
 
-// GET /api/training/progress - Get user's training progress using EXISTING tables
+// GET /api/training/progress - Get user's training progress using SIMPLIFIED tables
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createClient()
     
-    // Get all lesson progress for the user using our EXISTING lesson_progress table
+    // Get all video progress for the user using our SIMPLIFIED member_progress table
     const { data: progressData, error } = await supabase
-      .from('lesson_progress')
+      .from('member_progress')
       .select(`
         *,
-        lesson:course_lessons (
+        video:training_videos (
           id,
           title,
           description,
           duration_seconds,
-          course_module:course_modules (
-            title,
-            training_course:training_courses (
-              title
-            )
+          module_name,
+          course_id,
+          course:courses (
+            title
           )
         )
       `)
@@ -39,36 +38,36 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
       // Return safe fallback if database query fails
       return apiResponse({
         progress: {
-          lessonsCompleted: 0,
-          totalLessons: 0,
+          videosCompleted: 0,
+          totalVideos: 0,
           overallCompletion: 0,
           totalWatchTimeSeconds: 0,
         },
-        lessonProgress: [],
+        videoProgress: [],
       }, 200)
     }
 
-    // Calculate overall progress from individual lesson progress (handle null/undefined safely)
-    const totalLessons = (progressData || []).length
-    const completedLessons = (progressData || []).filter((p: any) => p.completed).length
+    // Calculate overall progress from individual video progress (handle null/undefined safely)
+    const totalVideos = (progressData || []).length
+    const completedVideos = (progressData || []).filter((p: any) => p.completed).length
     const totalProgressSeconds = (progressData || []).reduce((sum: number, p: any) => sum + (p.progress_seconds || 0), 0)
     
     return apiResponse({
       progress: {
-        lessonsCompleted: completedLessons,
-        totalLessons,
-        overallCompletion: totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) / 100 : 0,
+        videosCompleted: completedVideos,
+        totalVideos,
+        overallCompletion: totalVideos > 0 ? Math.round((completedVideos / totalVideos) * 100) / 100 : 0,
         totalWatchTimeSeconds: totalProgressSeconds,
       },
-      // Return lesson progress in format compatible with video progress hooks
-      lessonProgress: (progressData || []).map((p: any) => ({
-        lessonId: p.lesson_id,
+      // Return video progress in format compatible with frontend
+      videoProgress: (progressData || []).map((p: any) => ({
+        videoId: p.video_id,
         progressSeconds: p.progress_seconds || 0,
         completed: p.completed || false,
         lastWatchedAt: p.last_watched_at,
-        lessonTitle: p.lesson?.title,
-        moduleTitle: p.lesson?.course_module?.title,
-        courseTitle: p.lesson?.course_module?.training_course?.title,
+        videoTitle: p.video?.title,
+        moduleTitle: p.video?.module_name,
+        courseTitle: p.video?.course?.title,
       })),
     }, 200)
   } catch (error) {
@@ -76,61 +75,60 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
     // Return safe fallback instead of 500 error
     return apiResponse({
       progress: {
-        lessonsCompleted: 0,
-        totalLessons: 0,
+        videosCompleted: 0,
+        totalVideos: 0,
         overallCompletion: 0,
         totalWatchTimeSeconds: 0,
       },
-      lessonProgress: [],
+      videoProgress: [],
     }, 200)
   }
 })
 
-// POST /api/training/progress - Update lesson progress using EXISTING tables
+// POST /api/training/progress - Update video progress using SIMPLIFIED tables
 export const POST = withAuth(async (req: NextRequest, userId: string) => {
   try {
     const supabase = await createClient()
     
     // Validate request body
     const body = await validateBody<UpdateProgressRequest>(req, (data) => {
-      if (!data.lessonId || typeof data.progressSeconds !== 'number') {
-        throw new Error('Lesson ID and progress seconds are required')
+      if (!data.videoId || typeof data.progressSeconds !== 'number') {
+        throw new Error('Video ID and progress seconds are required')
       }
 
       return {
-        lessonId: data.lessonId,
+        videoId: data.videoId,
         progressSeconds: Math.max(0, data.progressSeconds),
         completed: data.completed || false,
       }
     })
 
-    // Get lesson details to verify it exists using our EXISTING course_lessons table
-    const { data: lesson } = await supabase
-      .from('course_lessons')
+    // Get video details to verify it exists using our SIMPLIFIED training_videos table
+    const { data: video } = await supabase
+      .from('training_videos')
       .select(`
         id,
         title,
         duration_seconds,
-        course_module:course_modules (
-          title,
-          training_course:training_courses (
-            title
-          )
+        module_name,
+        course_id,
+        course:courses (
+          title
         )
       `)
-      .eq('id', body.lessonId)
+      .eq('id', body.videoId)
       .single()
 
-    if (!lesson) {
-      return apiError('Lesson not found', 404)
+    if (!video) {
+      return apiError('Video not found', 404)
     }
 
-    // Check for existing progress record in our EXISTING lesson_progress table
+    // Check for existing progress record in our SIMPLIFIED member_progress table
     const { data: existingProgress } = await supabase
-      .from('lesson_progress')
+      .from('member_progress')
       .select('*')
       .eq('member_id', userId)
-      .eq('lesson_id', body.lessonId)
+      .eq('video_id', body.videoId)
       .single()
 
     let progressData
@@ -138,7 +136,7 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
     if (existingProgress) {
       // Update existing progress
       const { data: updatedProgress, error } = await supabase
-        .from('lesson_progress')
+        .from('member_progress')
         .update({
           progress_seconds: body.progressSeconds,
           completed: body.completed,
@@ -146,7 +144,7 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
           updated_at: new Date().toISOString(),
         })
         .eq('member_id', userId)
-        .eq('lesson_id', body.lessonId)
+        .eq('video_id', body.videoId)
         .select()
         .single()
 
@@ -157,10 +155,10 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
     } else {
       // Create new progress record
       const { data: newProgress, error } = await supabase
-        .from('lesson_progress')
+        .from('member_progress')
         .insert({
           member_id: userId,
-          lesson_id: body.lessonId,
+          video_id: body.videoId,
           progress_seconds: body.progressSeconds,
           completed: body.completed,
           last_watched_at: new Date().toISOString(),
@@ -174,17 +172,20 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
       progressData = newProgress
     }
 
-    // Log activity if lesson was just completed using our EXISTING member_activities table
+    // Log activity if video was just completed using our existing communications table
     if (body.completed && (!existingProgress || !existingProgress.completed)) {
       try {
-        await supabase.from('member_activities').insert({
+        await supabase.from('communications').insert({
           member_id: userId,
-          activity_type: 'training_completed',
+          type: 'status_change',
+          subject: 'Training Progress',
+          content: `Completed training video: ${video.title}`,
           metadata: {
-            lesson_id: lesson.id,
-            lesson_title: lesson.title,
-            module_title: lesson.course_module?.title,
-            course_title: lesson.course_module?.training_course?.title,
+            activity_type: 'training_completed',
+            video_id: video.id,
+            video_title: video.title,
+            module_title: video.module_name,
+            course_title: video.course?.title,
           },
         })
       } catch (logError) {
@@ -195,7 +196,7 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
 
     return apiResponse({
       progress: {
-        lessonId: progressData.lesson_id,
+        videoId: progressData.video_id,
         progressSeconds: progressData.progress_seconds,
         completed: progressData.completed,
         lastWatchedAt: progressData.last_watched_at,

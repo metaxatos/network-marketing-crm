@@ -265,21 +265,21 @@ export default function TrainingPage() {
   // Transform API data to component format
   const courses = coursesData?.courses || [];
   const transformedCourses: CourseCardProps[] = courses.map((course: any) => {
-    // Calculate total lessons and progress
-    const totalLessons = course.modules.reduce((total: number, module: any) => 
-      total + module.lessons.length, 0
+    // Calculate total videos and progress
+    const totalVideos = course.modules.reduce((total: number, module: any) => 
+      total + module.videos.length, 0
     );
     
-    const completedLessons = course.modules.reduce((total: number, module: any) => 
-      total + module.lessons.filter((lesson: any) => lesson.progress?.completed).length, 0
+    const completedVideos = course.modules.reduce((total: number, module: any) => 
+      total + module.videos.filter((video: any) => video.progress?.completed).length, 0
     );
     
-    const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+    const progress = totalVideos > 0 ? Math.round((completedVideos / totalVideos) * 100) : 0;
     
     // Calculate total duration
     const totalSeconds = course.modules.reduce((total: number, module: any) => 
-      total + module.lessons.reduce((moduleTotal: number, lesson: any) => 
-        moduleTotal + (lesson.duration_seconds || 0), 0
+      total + module.videos.reduce((moduleTotal: number, video: any) => 
+        moduleTotal + (video.duration_seconds || 0), 0
       ), 0
     );
     
@@ -291,17 +291,17 @@ export default function TrainingPage() {
       id: course.id,
       title: course.title,
       description: course.description || 'Learn essential skills for network marketing success.',
-      thumbnail: course.thumbnail_url || '',
+      thumbnail: course.cover_image || '',
       duration,
-      lessons: totalLessons,
-      progress: completedLessons > 0 ? progress : undefined,
-      isEnrolled: completedLessons > 0 || course.modules.some((m: any) => 
-        m.lessons.some((l: any) => l.progress)
+      lessons: totalVideos,
+      progress: completedVideos > 0 ? progress : undefined,
+      isEnrolled: completedVideos > 0 || course.modules.some((m: any) => 
+        m.videos.some((v: any) => v.progress)
       ),
       instructor: 'Expert Trainer', // Could be added to database later
       rating: 4.8, // Could be added to database later
       ratingCount: 150, // Could be added to database later
-      level: totalLessons <= 5 ? 'Beginner' : totalLessons <= 15 ? 'Intermediate' : 'Advanced'
+      level: totalVideos <= 5 ? 'Beginner' : totalVideos <= 15 ? 'Intermediate' : 'Advanced'
     };
   });
 
