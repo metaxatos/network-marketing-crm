@@ -118,7 +118,7 @@ function ModernCourseCard({ course }: { course: any }) {
 
         {/* Action Button */}
         <Link 
-          href={nextVideo ? `/training/video/${nextVideo.id}` : `/training/course/${course.id}`}
+          href={`/training/course/${course.id}`}
           className="w-full"
         >
           <button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 group-hover:shadow-lg">
@@ -369,27 +369,12 @@ export default function TrainingPage() {
     )
   }
 
-  // Debug info
-  const debugInfo = {
-    authUser: authStatus.user ? { id: authStatus.user.id, email: authStatus.user.email } : null,
-    coursesCount: courses?.length || 0,
-    isLoading,
-    error: error?.message,
-    cookies: typeof document !== 'undefined' ? document.cookie : 'N/A'
-  }
+
 
 
 
   return (
     <DashboardLayout>
-      {/* Debug Panel */}
-      <div className="mb-6 p-4 bg-gray-100 rounded-lg">
-        <h3 className="font-semibold text-gray-800 mb-2">🔍 Debug Info:</h3>
-        <pre className="text-xs text-gray-600 overflow-auto">
-          {JSON.stringify(debugInfo, null, 2)}
-        </pre>
-      </div>
-
       <div className="space-y-8">
         <Suspense fallback={<TrainingLoadingSkeleton />}>
           <TrainingContent />
