@@ -65,8 +65,9 @@ export const useTrainingCourses = () => {
         throw new Error('Failed to fetch training courses')
       }
       
-      const data = await response.json()
-      return data as CoursesResponse
+      const result = await response.json()
+      // Handle the API response structure with data wrapper
+      return result.data as CoursesResponse
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
   })
