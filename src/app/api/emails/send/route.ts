@@ -8,7 +8,13 @@ export async function POST(req: NextRequest) {
     const supabase = await createApiClient(req)
     const { templateId, contactIds, customSubject, customContent, to } = await req.json()
 
-    console.log('[Email Send API] Processing email send request')
+    console.log('[Email Send API] Processing email send request with payload:', {
+      templateId,
+      contactIds,
+      customSubject,
+      customContent: customContent ? `${customContent.substring(0, 100)}...` : null,
+      to
+    })
 
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -80,6 +86,14 @@ export async function POST(req: NextRequest) {
       ...(to || []).map((email: string) => ({ email, type: 'direct' }))
     ].filter(r => r.email)
 
+    console.log(`[Email Send API] Recipients before filter:`, {
+      contacts: contacts.length,
+      directEmails: (to || []).length,
+      combined: recipients.length
+    })
+    
+    console.log(`[Email Send API] Final recipients:`, recipients)
+
     if (recipients.length === 0) {
       return apiError('No valid recipients found', 400)
     }
@@ -88,6 +102,13 @@ export async function POST(req: NextRequest) {
 
     // Create communication records for each recipient (NEW: using communications table)
     const communicationPromises = recipients.map(async (recipient) => {
+      console.log(`[Email Send API] Processing recipient:`, {
+        email: recipient.email,
+        name: recipient.name,
+        type: recipient.type,
+        id: recipient.id
+      })
+      
       // Insert communication record
       const communicationData = {
         member_id: member.id,
@@ -105,6 +126,8 @@ export async function POST(req: NextRequest) {
           sender_name: member.first_name ? `${member.first_name} ${member.last_name || ''}`.trim() : member.email
         }
       }
+      
+      console.log(`[Email Send API] Creating communication record:`, communicationData)
 
       const { data: communication, error: commError } = await supabase
         .from('communications')
@@ -119,7 +142,9 @@ export async function POST(req: NextRequest) {
 
       // Send email using Resend
       try {
-        console.log(`[Email Send API] Sending email to ${recipient.email}`)
+        console.log(`[Email Send API] About to send email to ${recipient.email} with subject: "${emailSubject}"`)
+        console.log(`[Email Send API] Email content length: ${emailContent.length} characters`)
+        console.log(`[Email Send API] Member email (reply-to): ${member.email}`)
         
         const emailResult = await sendEmail({
           to: recipient.email,
@@ -128,6 +153,12 @@ export async function POST(req: NextRequest) {
           text: emailContent.replace(/<[^>]*>/g, ''), // Strip HTML for text version
           replyTo: member.email,
           useEdgeFunction: false // Temporarily disable Edge Function to test direct API
+        })
+        
+        console.log(`[Email Send API] Email result for ${recipient.email}:`, {
+          success: emailResult.success,
+          messageId: emailResult.messageId,
+          error: emailResult.error
         })
 
         if (emailResult.success) {
