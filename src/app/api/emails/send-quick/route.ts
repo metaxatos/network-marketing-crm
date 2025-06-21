@@ -7,9 +7,23 @@ interface Contact {
   email: string | null
 }
 
+// Template ID mapping based on user's provided IDs
+const TEMPLATE_IDS = {
+  customer: {
+    en: '887ea132-5230-4638-b217-4dfc4fe8858e',
+    gr: '34e1b729-92e0-42d2-a3f6-db58319f80bf'
+  },
+  partner: {
+    en: '5f1956dc-8660-451d-aa5c-5943fcd87100',
+    gr: '9fce18c1-3078-4ff5-b5c2-081ac79b8e3f'
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { contactIds, templateName, language = 'en', targetAudience } = await request.json()
+    const { contactIds, language = 'en', targetAudience } = await request.json()
+
+    console.log('Send quick email request:', { contactIds, language, targetAudience })
 
     if (!contactIds || !Array.isArray(contactIds) || contactIds.length === 0) {
       return NextResponse.json(
@@ -18,29 +32,44 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!templateName) {
+    if (!targetAudience || !['customer', 'partner'].includes(targetAudience)) {
       return NextResponse.json(
-        { error: 'Template name is required' },
+        { error: 'Valid target audience is required (customer or partner)' },
         { status: 400 }
       )
     }
 
-    // Find the template by name and language
+    // Get the template ID based on target audience and language
+    const templateId = TEMPLATE_IDS[targetAudience as keyof typeof TEMPLATE_IDS]?.[language as keyof typeof TEMPLATE_IDS.customer]
+    
+    if (!templateId) {
+      console.error('Template ID not found for:', { targetAudience, language })
+      return NextResponse.json(
+        { error: `Template not found for ${targetAudience} in ${language}` },
+        { status: 404 }
+      )
+    }
+
+    console.log('Using template ID:', templateId)
+
+    // Find the template by ID
     const { data: template, error: templateError } = await supabase
       .from('email_templates')
       .select('*')
-      .eq('name', templateName)
-      .eq('language', language)
+      .eq('id', templateId)
       .eq('is_active', true)
       .single()
 
     if (templateError || !template) {
-      console.error('Template error:', templateError)
+      console.error('Template lookup error:', templateError)
+      console.error('Template lookup failed for ID:', templateId)
       return NextResponse.json(
-        { error: 'Email template not found' },
+        { error: 'Email template not found in database' },
         { status: 404 }
       )
     }
+
+    console.log('Found template:', { id: template.id, name: template.name })
 
     // Get contact details
     const { data: contacts, error: contactsError } = await supabase
@@ -65,6 +94,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    console.log('Sending to contacts:', contactsWithEmail.map(c => ({ name: c.name, email: c.email })))
 
     // For now, we'll just create a record in sent_emails table
     // In production, you would integrate with your email service (Resend, etc.)
@@ -110,6 +141,8 @@ export async function POST(request: NextRequest) {
       .update({ last_contacted_at: new Date().toISOString() })
       .in('id', contactsWithEmail.map((c: Contact) => c.id))
 
+    console.log('Successfully sent emails:', sentEmails?.length)
+
     return NextResponse.json({
       success: true,
       data: {
@@ -120,6 +153,7 @@ export async function POST(request: NextRequest) {
           email: c.email
         })),
         template: {
+          id: template.id,
           name: template.name,
           subject: template.subject
         }

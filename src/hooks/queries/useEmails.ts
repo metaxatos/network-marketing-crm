@@ -342,12 +342,10 @@ export const useSendQuickEmail = () => {
   return useMutation({
     mutationFn: async ({
       contactIds,
-      templateName,
       language = 'en',
       targetAudience,
     }: {
       contactIds: string[]
-      templateName: string
       language?: string
       targetAudience: 'customer' | 'partner'
     }) => {
@@ -358,7 +356,6 @@ export const useSendQuickEmail = () => {
         },
         body: JSON.stringify({
           contactIds,
-          templateName,
           language,
           targetAudience,
         }),

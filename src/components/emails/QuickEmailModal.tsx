@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Mail, Users, Check, Send, Sparkles, Heart, Plus, User } from 'lucide-react'
+import { X, Mail, Users, Check, Send, Sparkles, Heart, Plus, User, Globe } from 'lucide-react'
 import { useContacts, useCreateContact } from '@/hooks/queries/useContacts'
 import { useSendQuickEmail } from '@/hooks/queries/useEmails'
 import { useUserStore } from '@/stores/userStore'
@@ -36,6 +36,7 @@ export function QuickEmailModal({
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>([])
   const [selectedContacts, setSelectedContacts] = useState<any[]>([])
   const [showAddContact, setShowAddContact] = useState(false)
+  const [selectedLanguage, setSelectedLanguage] = useState<'en' | 'gr'>('en')
   const [newContactData, setNewContactData] = useState({
     name: '',
     email: ''
@@ -53,6 +54,7 @@ export function QuickEmailModal({
       setSelectedContactIds([])
       setSelectedContacts([])
       setShowAddContact(false)
+      setSelectedLanguage('en') // Default to English
       setNewContactData({ name: '', email: '' })
     }
   }, [isOpen])
@@ -66,9 +68,8 @@ export function QuickEmailModal({
     }
   })
 
-  // Get user's language preference (default to 'en')
-  const userLanguage = (typeof navigator !== 'undefined' && navigator.language.startsWith('el')) ? 'gr' : 'en'
-  const templateName = config.templateName[userLanguage as keyof typeof config.templateName]
+  // Get template name based on selected language
+  const templateName = config.templateName[selectedLanguage]
 
   const handleContactSelect = (contact: any) => {
     const isSelected = selectedContactIds.includes(contact.id)
@@ -131,8 +132,7 @@ export function QuickEmailModal({
     try {
       await sendQuickEmail({
         contactIds: selectedContactIds,
-        templateName,
-        language: userLanguage,
+        language: selectedLanguage,
         targetAudience: config.targetAudience,
       })
       
@@ -199,6 +199,43 @@ export function QuickEmailModal({
         <div className="p-6">
           {step === 'contacts' && (
             <div className="space-y-4">
+              {/* Language Selection */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
+                <h4 className="font-medium text-blue-900 flex items-center gap-2 mb-3">
+                  <Globe className="w-4 h-4" />
+                  Select Email Language
+                </h4>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setSelectedLanguage('en')}
+                    className={`
+                      flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
+                      ${selectedLanguage === 'en' 
+                        ? 'bg-blue-600 text-white shadow-md' 
+                        : 'bg-white text-blue-700 hover:bg-blue-100 border border-blue-300'
+                      }
+                    `}
+                  >
+                    🇺🇸 English
+                  </button>
+                  <button
+                    onClick={() => setSelectedLanguage('gr')}
+                    className={`
+                      flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
+                      ${selectedLanguage === 'gr' 
+                        ? 'bg-blue-600 text-white shadow-md' 
+                        : 'bg-white text-blue-700 hover:bg-blue-100 border border-blue-300'
+                      }
+                    `}
+                  >
+                    🇬🇷 Ελληνικά
+                  </button>
+                </div>
+                <p className="text-xs text-blue-600 mt-2">
+                  Template: {templateName}
+                </p>
+              </div>
+
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                   <Users className="w-5 h-5 text-gray-600" />
