@@ -1,16 +1,15 @@
 ﻿import { NextRequest } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin-client'
-import { apiResponse } from '@/lib/api-helpers'
+import { createClient } from '@/lib/supabase/server'
+import { apiResponse, withAuth, getCurrentMember } from '@/lib/api-helpers'
 
 // Define types based on our SIMPLIFIED database structure
-interface CourseWithVideos {
+interface Course {
   id: string
   title: string
   description?: string
   cover_image?: string
   order_index: number
   is_published: boolean
-  // Group videos by module
   modules: Array<{
     name: string
     order: number
@@ -34,13 +33,41 @@ interface CourseWithVideos {
   }>
 }
 
+interface CoursesResponse {
+  courses: Course[]
+  recommendedNext?: string
+  totalCourses: number
+  totalLessons: number
+  completedLessons: number
+  overallProgress: number
+}
+
 // GET /api/training/courses - Using our SIMPLIFIED training structure
-export const GET = async (req: NextRequest) => {
+export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
-    console.log('🎓 Training Courses API - Starting (bypassing auth for testing)...')
+    console.log('🎓 Training Courses API - Starting request for user:', userId)
+    const supabase = await createClient()
     
-    const supabase = createAdminClient()
-    
+    // Get member's company ID for RLS
+    let member = null
+    try {
+      member = await getCurrentMember(userId)
+      console.log('🎓 Training Courses API - Member data:', { 
+        memberId: member?.id, 
+        companyId: member?.company_id 
+      })
+    } catch (error) {
+      console.warn('🎓 Training Courses API - Member not found:', error)
+      return apiResponse({ 
+        courses: [],
+        recommendedNext: undefined,
+        totalCourses: 0,
+        totalLessons: 0,
+        completedLessons: 0,
+        overallProgress: 0,
+      }, 200)
+    }
+
     // Get all published courses with their videos
     const { data: courses, error: coursesError } = await supabase
       .from('courses')
@@ -72,20 +99,51 @@ export const GET = async (req: NextRequest) => {
       .order('order_index', { ascending: true })
 
     if (coursesError) {
-      console.error('❌ Error fetching courses:', coursesError)
-      return apiResponse({ error: 'Failed to fetch courses' }, 500)
+      console.error('🎓 Training Courses API - Database error:', coursesError)
+      return apiResponse({ 
+        courses: [],
+        recommendedNext: undefined,
+        totalCourses: 0,
+        totalLessons: 0,
+        completedLessons: 0,
+        overallProgress: 0,
+      }, 200)
     }
 
-    console.log(`✅ Found ${courses?.length || 0} courses`)
+    console.log(`🎓 Training Courses API - Found ${courses?.length || 0} courses`)
+
+    // Get user progress
+    const { data: progressData, error: progressError } = await supabase
+      .from('member_progress')
+      .select('video_id, progress_seconds, completed, last_watched_at')
+      .eq('member_id', userId)
+
+    if (progressError) {
+      console.warn('🎓 Training Courses API - Progress query error:', progressError)
+    }
+
+    // Create progress lookup map
+    const progressMap = new Map()
+    if (progressData) {
+      progressData.forEach((p: any) => {
+        progressMap.set(p.video_id, {
+          progress_seconds: p.progress_seconds,
+          completed: p.completed,
+          last_watched_at: p.last_watched_at
+        })
+      })
+    }
+
+    console.log('🎓 Training Courses API - Progress records found:', progressData?.length || 0)
 
     // Transform the data to organize videos by modules
-    const transformedCourses = courses?.map(course => {
+    const transformedCourses = courses?.map((course: any) => {
       const videos = course.training_videos || []
       
       // Group videos by module
       const moduleMap = new Map()
       
-      videos.forEach(video => {
+      videos.forEach((video: any) => {
         const moduleKey = video.module_name || 'General'
         if (!moduleMap.has(moduleKey)) {
           moduleMap.set(moduleKey, {
@@ -94,7 +152,15 @@ export const GET = async (req: NextRequest) => {
             videos: []
           })
         }
-        moduleMap.get(moduleKey).videos.push(video)
+        
+        // Add progress to video
+        const videoProgress = progressMap.get(video.id)
+        const videoWithProgress = {
+          ...video,
+          progress: videoProgress
+        }
+        
+        moduleMap.get(moduleKey).videos.push(videoWithProgress)
       })
       
       // Convert to array and sort
@@ -112,13 +178,52 @@ export const GET = async (req: NextRequest) => {
       }
     }) || []
 
-    console.log(`🎥 Transformed courses with modules:`, transformedCourses.length)
+    console.log(`🎓 Training Courses API - Transformed courses with modules:`, transformedCourses.length)
 
-    return apiResponse(transformedCourses, 200)
+    // Calculate overall stats
+    let totalVideos = 0
+    let completedVideos = 0
+    let recommendedNext: string | undefined
+
+    transformedCourses.forEach((course: any) => {
+      course.modules.forEach((module: any) => {
+        module.videos.forEach((video: any) => {
+          totalVideos++
+          if (video.progress?.completed) {
+            completedVideos++
+          } else if (!recommendedNext) {
+            recommendedNext = video.id
+          }
+        })
+      })
+    })
+
+    const result: CoursesResponse = {
+      courses: transformedCourses,
+      recommendedNext,
+      totalCourses: transformedCourses.length,
+      totalLessons: totalVideos,
+      completedLessons: completedVideos,
+      overallProgress: totalVideos > 0 ? Math.round((completedVideos / totalVideos) * 100) : 0,
+    }
+
+    console.log('🎓 Training Courses API - Final result:', {
+      coursesCount: result.courses.length,
+      totalLessons: result.totalLessons,
+      completedLessons: result.completedLessons,
+      overallProgress: result.overallProgress
+    })
+
+    return apiResponse(result, 200)
   } catch (error) {
-    console.error('❌ Training courses API error:', error)
+    console.error('🎓 Training courses API error:', error)
     return apiResponse({ 
-      error: error instanceof Error ? error.message : 'Internal server error' 
-    }, 500)
+      courses: [],
+      recommendedNext: undefined,
+      totalCourses: 0,
+      totalLessons: 0,
+      completedLessons: 0,
+      overallProgress: 0,
+    }, 200)
   }
-}
+})

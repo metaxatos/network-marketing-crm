@@ -58,7 +58,9 @@ export const useTrainingCourses = () => {
   return useQuery({
     queryKey: queryKeys.training,
     queryFn: async () => {
-      const response = await fetch('/api/training/courses')
+      const response = await fetch('/api/training/courses', {
+        credentials: 'include'
+      })
       if (!response.ok) {
         throw new Error('Failed to fetch training courses')
       }
@@ -78,7 +80,9 @@ export const useVideoProgress = () => {
   return useQuery({
     queryKey: queryKeys.videoProgress(),
     queryFn: async () => {
-      const response = await fetch('/api/training/progress')
+      const response = await fetch('/api/training/progress', {
+        credentials: 'include'
+      })
       if (!response.ok) {
         throw new Error('Failed to fetch video progress')
       }
@@ -95,7 +99,9 @@ export const useVideoProgressById = (videoId: string) => {
   return useQuery({
     queryKey: queryKeys.videoProgressById(videoId),
     queryFn: async () => {
-      const response = await fetch(`/api/training/progress?videoId=${videoId}`)
+      const response = await fetch(`/api/training/progress?videoId=${videoId}`, {
+        credentials: 'include'
+      })
       if (!response.ok) {
         throw new Error('Failed to fetch video progress')
       }
@@ -119,6 +125,7 @@ export const useStartWatchingVideo = () => {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({ videoId }),
       })
       
@@ -159,6 +166,7 @@ export const useUpdateVideoProgress = () => {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           videoId,
           progressSeconds,
@@ -250,7 +258,9 @@ export const useVideoCategories = () => {
   return useQuery({
     queryKey: queryKeys.videoCategories(),
     queryFn: async () => {
-      const response = await fetch('/api/training/courses?categoriesOnly=true')
+      const response = await fetch('/api/training/courses?categoriesOnly=true', {
+        credentials: 'include'
+      })
       if (!response.ok) {
         throw new Error('Failed to fetch course categories')
       }
