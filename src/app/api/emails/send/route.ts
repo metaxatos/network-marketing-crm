@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
         type: 'email',
         subject: emailSubject,
         content: emailContent,
-        status: 'pending',
+        status: 'sent', // Use 'sent' as initial status (allowed values: sent, delivered, opened, clicked, bounced, failed)
         template_id: templateId || null,
         metadata: {
           recipient_email: recipient.email,
@@ -175,11 +175,10 @@ export async function POST(req: NextRequest) {
         })
 
         if (emailResult.success) {
-          // Update communication status to sent
+          // Update communication record with send details (status already set to 'sent')
           await supabase
             .from('communications')
             .update({ 
-              status: 'sent', 
               sent_at: new Date().toISOString(),
               metadata: {
                 ...communicationData.metadata,
