@@ -13,6 +13,7 @@ interface DatabaseEmailTemplate {
   variables?: string[]
   template_type: string
   company_id?: string
+  [key: string]: any // Allow additional dynamic columns
 }
 
 // GET /api/emails/templates - Get available email templates
@@ -78,23 +79,25 @@ export async function GET(req: NextRequest) {
         throw basicError
       }
       
-      const templatesWithDefaults = (basicTemplates || []).map(template => ({
+      const safeBasicTemplates = Array.isArray(basicTemplates) ? basicTemplates as unknown as DatabaseEmailTemplate[] : []
+      
+      const templatesWithDefaults = safeBasicTemplates.map(template => ({
         ...template,
-        body_text: '',
-        variables: [],
-        template_type: 'personal',
-        company_id: null,
-        member_id: null,
-        is_active: true,
-        language: 'en',
-        preview_text: null,
-        usage_priority: 0,
-        target_audience: 'general',
-        is_quick_action: false,
-        usage_count: 0,
-        last_used_at: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        body_text: template.body_text || '',
+        variables: template.variables || [],
+        template_type: template.template_type || 'personal',
+        company_id: template.company_id || null,
+        member_id: template.member_id || null,
+        is_active: template.is_active ?? true,
+        language: template.language || 'en',
+        preview_text: template.preview_text || null,
+        usage_priority: template.usage_priority || 0,
+        target_audience: template.target_audience || 'general',
+        is_quick_action: template.is_quick_action || false,
+        usage_count: template.usage_count || 0,
+        last_used_at: template.last_used_at || null,
+        created_at: template.created_at || new Date().toISOString(),
+        updated_at: template.updated_at || new Date().toISOString()
       }))
       
       return apiResponse({ templates: templatesWithDefaults }, 200)
@@ -174,8 +177,11 @@ export async function GET(req: NextRequest) {
       throw error
     }
 
+    // Ensure templates is an array and properly typed
+    const safeTemplates = Array.isArray(templates) ? templates as unknown as DatabaseEmailTemplate[] : []
+
     // Add default values for missing columns
-    const templatesWithDefaults = (templates || []).map(template => ({
+    const templatesWithDefaults = safeTemplates.map(template => ({
       id: template.id,
       name: template.name,
       subject: template.subject,
