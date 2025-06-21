@@ -63,11 +63,32 @@ export default function EmailsPage() {
   // Calculate template counts by category
   const templateCounts = useMemo(() => {
     const counts: Record<string, number> = {}
+    
+    // Debug: Log all templates to see what we have
+    console.log('[Email Templates Debug] All templates:', templates.map(t => ({
+      name: t.name,
+      category: t.category,
+      language: t.language || 'undefined'
+    })))
+    
+    console.log('[Email Templates Debug] Selected language:', selectedLanguage)
+    
     templates.forEach(template => {
       if (template.language === selectedLanguage) {
         counts[template.category] = (counts[template.category] || 0) + 1
       }
     })
+    
+    // If no templates match the selected language, fall back to show all templates
+    const totalInLanguage = Object.values(counts).reduce((sum, count) => sum + count, 0)
+    if (totalInLanguage === 0) {
+      console.log('[Email Templates Debug] No templates found for language', selectedLanguage, 'falling back to all templates')
+      templates.forEach(template => {
+        counts[template.category] = (counts[template.category] || 0) + 1
+      })
+    }
+    
+    console.log('[Email Templates Debug] Final counts:', counts)
     return counts
   }, [templates, selectedLanguage])
 

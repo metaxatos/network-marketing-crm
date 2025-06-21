@@ -137,27 +137,35 @@ export async function GET(req: NextRequest) {
       if (userId && memberCompanyId) {
         // User is authenticated and has a company - get both system and company templates
         query = query.or(`template_type.eq.system,and(template_type.eq.company,company_id.eq.${memberCompanyId})`)
+        console.log('[Email Templates API] Filtering for authenticated user with company:', memberCompanyId)
       } else {
         // User not authenticated or no company - just get system templates
         query = query.eq('template_type', 'system')
+        console.log('[Email Templates API] Filtering for system templates only (no auth or company)')
       }
+    } else {
+      console.log('[Email Templates API] No template_type column, skipping filtering')
     }
     
     // Apply Phase 3 filters if columns exist
     if (language && availableColumns.has('language')) {
       query = query.eq('language', language)
+      console.log('[Email Templates API] Filtering by language:', language)
     }
     
     if (category && availableColumns.has('category')) {
       query = query.eq('category', category)
+      console.log('[Email Templates API] Filtering by category:', category)
     }
     
     if (isQuickAction === 'true' && availableColumns.has('is_quick_action')) {
       query = query.eq('is_quick_action', true)
+      console.log('[Email Templates API] Filtering for quick actions only')
     }
     
     if (targetAudience && availableColumns.has('target_audience')) {
       query = query.eq('target_audience', targetAudience)
+      console.log('[Email Templates API] Filtering by target audience:', targetAudience)
     }
 
     // Apply ordering based on available columns

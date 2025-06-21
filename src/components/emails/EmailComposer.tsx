@@ -38,11 +38,22 @@ export function EmailComposer({
 
   // Filter templates by category and language
   const filteredTemplates = useMemo(() => {
-    return templates.filter(template => {
+    let filtered = templates.filter(template => {
       const matchesCategory = !selectedCategory || template.category === selectedCategory
       const matchesLanguage = template.language === selectedLanguage
       return matchesCategory && matchesLanguage
     })
+    
+    // If no templates match the selected language, fall back to show all templates in the category
+    if (filtered.length === 0 && selectedLanguage) {
+      console.log('[EmailComposer] No templates found for language', selectedLanguage, 'falling back to all templates')
+      filtered = templates.filter(template => {
+        const matchesCategory = !selectedCategory || template.category === selectedCategory
+        return matchesCategory
+      })
+    }
+    
+    return filtered
   }, [templates, selectedCategory, selectedLanguage])
 
   // Filter contacts by search
