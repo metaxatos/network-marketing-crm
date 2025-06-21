@@ -53,7 +53,7 @@ interface CoursesResponse {
   overallProgress: number
 }
 
-// Training courses query
+// Training courses query with realtime progress updates
 export const useTrainingCourses = () => {
   return useQuery({
     queryKey: queryKeys.training,
@@ -69,7 +69,8 @@ export const useTrainingCourses = () => {
       // Handle the API response structure with data wrapper
       return result.data as CoursesResponse
     },
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 2 * 60 * 1000, // 2 minutes - shorter to get fresh progress
+    refetchOnWindowFocus: true, // Refetch when user returns to the page
   })
 }
 
