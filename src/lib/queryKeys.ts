@@ -51,9 +51,10 @@ export const queryKeys = {
   landingPageStats: (id: string) => [...queryKeys.landingPages, id, 'stats'] as const,
   
   // Events (new)
-  events: ['events'] as const,
-  event: (id: string) => [...queryKeys.events, id] as const,
-  eventRegistrations: (eventId: string) => [...queryKeys.events, eventId, 'registrations'] as const,
+  events: (filters?: any) => filters ? ['events', 'list', filters] : ['events', 'list'] as const,
+  event: (id: string) => ['events', id] as const,
+  eventStats: () => ['events', 'stats'] as const,
+  eventRegistrations: (eventId: string) => ['events', eventId, 'registrations'] as const,
   
   // Dashboard (updated for new schema)
   dashboard: ['dashboard'] as const,
@@ -73,4 +74,5 @@ export const getInvalidationQueries = {
   emails: () => [queryKeys.emails, queryKeys.dashboard],
   training: () => [queryKeys.training, queryKeys.dashboard],
   landingPages: () => [queryKeys.landingPages, queryKeys.dashboard],
+  events: () => [queryKeys.events(), queryKeys.eventStats(), queryKeys.dashboard],
 } 

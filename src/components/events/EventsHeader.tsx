@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { EventStats, EventView, EventListFilter } from '@/types/events';
-import { getEventStats } from '@/actions/events';
+import { EventView, EventListFilter } from '@/types/events';
+import { useEventStats } from '@/hooks/queries/useEvents';
 
 interface EventsHeaderProps {
   onCreateEvent: () => void;
@@ -19,23 +18,7 @@ export default function EventsHeader({
   filter,
   onFilterChange
 }: EventsHeaderProps) {
-  const [stats, setStats] = useState<EventStats | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadStats = async () => {
-      try {
-        const eventStats = await getEventStats();
-        setStats(eventStats);
-      } catch (error) {
-        console.error('Failed to load event stats:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadStats();
-  }, []);
+  const { data: stats, isLoading: loading } = useEventStats();
 
   const filterOptions = [
     { value: 'all', label: 'All Events', icon: '📋', count: stats?.total_events || 0 },

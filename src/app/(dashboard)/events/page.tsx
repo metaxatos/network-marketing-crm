@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { DashboardLayout } from '@/components/ui/dashboard-layout';
 import { useAuth } from '@/hooks/useAuth';
-import { Event, EventView, EventListFilter, EventStats } from '@/types/events';
-import { getEvents, getEventStats, createEvent, registerForEvent, cancelEventRegistration } from '@/actions/events';
+import { Event, EventView, EventListFilter } from '@/types/events';
+import { useEvents, useCreateEvent, useRegisterForEvent, useCancelEventRegistration } from '@/hooks/queries/useEvents';
 import EventsHeader from '@/components/events/EventsHeader';
 import EventsCalendarView from '@/components/events/EventsCalendarView';
 import EventsListView from '@/components/events/EventsListView';
@@ -12,11 +12,6 @@ import CreateEventModal from '@/components/events/CreateEventModal';
 
 export default function EventsPage() {
   const { user } = useAuth();
-  // State
-  const [events, setEvents] = useState<Event[]>([]);
-  const [stats, setStats] = useState<EventStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   
   // View state
   const [view, setView] = useState<EventView>('list');
@@ -26,49 +21,20 @@ export default function EventsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
-  // Load initial data
-  useEffect(() => {
-    loadData();
-  }, []);
+  // Hooks for data fetching
+  const { data: events = [], isLoading, error } = useEvents();
+  const createEventMutation = useCreateEvent();
+  const registerMutation = useRegisterForEvent();
+  const cancelRegistrationMutation = useCancelEventRegistration();
 
-  // Filter events when filter changes
-  useEffect(() => {
-    loadEvents();
-  }, [filter]);
-
-  const loadData = async () => {
+  const handleCreateEvent = async (eventData: any) => {
     try {
-      setLoading(true);
-      const [eventsData, statsData] = await Promise.all([
-        getEvents(),
-        getEventStats()
-      ]);
-      setEvents(eventsData);
-      setStats(statsData);
+      await createEventMutation.mutateAsync(eventData);
+      setShowCreateModal(false);
+      console.log('Event created successfully!', eventData);
     } catch (err) {
-      console.error('Failed to load events:', err);
-      setError('Failed to load events. Please try again.');
-    } finally {
-      setLoading(false);
+      console.error('Failed to create event:', err);
     }
-  };
-
-  const loadEvents = async () => {
-    try {
-      const eventsData = await getEvents();
-      setEvents(eventsData);
-    } catch (err) {
-      console.error('Failed to load events:', err);
-      setError('Failed to load events. Please try again.');
-    }
-  };
-
-  const handleCreateEvent = async (eventData: Event) => {
-    setEvents(prev => [eventData, ...prev]);
-    setShowCreateModal(false);
-    
-    // Show success message
-    console.log('Event created successfully!', eventData);
   };
 
   const handleEventView = (event: Event) => {
@@ -88,26 +54,15 @@ export default function EventsPage() {
     try {
       if (event.user_registration) {
         // Cancel registration
-        await cancelEventRegistration(event.id);
-        setEvents(prev => prev.map(e => 
-          e.id === event.id 
-            ? { ...e, user_registration: undefined, registration_count: Math.max(0, (e.registration_count || 0) - 1) }
-            : e
-        ));
+        await cancelRegistrationMutation.mutateAsync(event.id);
         console.log('Registration cancelled');
       } else {
         // Register for event
-        const registration = await registerForEvent(event.id);
-        setEvents(prev => prev.map(e => 
-          e.id === event.id 
-            ? { ...e, user_registration: registration, registration_count: (e.registration_count || 0) + 1 }
-            : e
-        ));
+        await registerMutation.mutateAsync(event.id);
         console.log('Successfully registered for event');
       }
     } catch (err) {
       console.error('Registration failed:', err);
-      setError('Failed to update registration. Please try again.');
     }
   };
 
@@ -136,7 +91,7 @@ export default function EventsPage() {
     }
   });
 
-  if (loading) {
+  if (isLoading) {
     return (
       <DashboardLayout user={user || undefined}>
         <div className="min-h-screen gradient-main">
@@ -179,9 +134,9 @@ export default function EventsPage() {
           <h3 className="text-xl font-semibold text-slate-900 mb-2">
             Something went wrong
           </h3>
-          <p className="text-slate-600 mb-6">{error}</p>
+          <p className="text-slate-600 mb-6">{(error as Error)?.message || 'Failed to load events'}</p>
           <button
-            onClick={loadData}
+            onClick={() => window.location.reload()}
             className="px-6 py-3 bg-purple-500 text-white rounded-full hover:bg-purple-600 
                      transition-all duration-200 font-medium shadow-lg hover:shadow-xl 
                      hover:scale-105 active:scale-95"

@@ -56,7 +56,7 @@ export const useTrainingVideos = (category?: string) => {
       }
       
       const data = await response.json()
-      return data.courses as Course[]
+      return data // Return the full response object, not just courses array
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
   })

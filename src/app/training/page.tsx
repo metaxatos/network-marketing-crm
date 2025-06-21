@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import { 
   Play, 
   Clock, 
@@ -16,7 +15,8 @@ import {
   Heart
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/ui/dashboard-layout';
-import { useTrainingStore } from '@/stores/training-store';
+import { useTrainingVideos, useVideoProgress } from '@/hooks/queries/useTraining';
+import { useState } from 'react';
 
 interface CourseCardProps {
   id: string;
@@ -175,7 +175,7 @@ function CourseCard({
         `}>
           {isEnrolled 
             ? (progress === 100 ? 'Review Course' : 'Continue Learning') 
-            : 'Enroll Now'
+            : 'Start Learning'
           }
         </button>
       </div>
@@ -199,116 +199,148 @@ function LearningPathStep({
   isLocked: boolean;
 }) {
   return (
-    <div className="flex items-center gap-6 p-5 relative">
-      {/* Connection line */}
-      <div className="absolute left-7 top-16 w-0.5 h-16 bg-gray-200"></div>
-      
+    <div className={`
+      flex items-center space-x-4 p-4 rounded-xl transition-all duration-300
+      ${isCurrent ? 'bg-action-purple/10 border-2 border-action-purple/30' : 
+        isCompleted ? 'bg-action-green/10' : 
+        isLocked ? 'bg-gray-50 opacity-60' : 'bg-gray-50 hover:bg-gray-100'}
+    `}>
       {/* Step indicator */}
       <div className={`
-        w-14 h-14 rounded-full flex items-center justify-center font-bold relative z-10
-        ${isCompleted ? 'bg-action-green text-white' :
-          isCurrent ? 'bg-action-purple text-white shadow-lg shadow-purple-300' :
-          'bg-gray-100 text-gray-400'}
+        w-12 h-12 rounded-full flex items-center justify-center font-semibold
+        ${isCompleted ? 'bg-action-green text-white' : 
+          isCurrent ? 'bg-action-purple text-white' : 
+          isLocked ? 'bg-gray-300 text-gray-500' : 'bg-white border-2 border-gray-300 text-gray-600'}
       `}>
         {isCompleted ? <CheckCircle className="w-6 h-6" /> : stepNumber}
       </div>
 
-      {/* Step content */}
+      {/* Content */}
       <div className="flex-1">
-        <h4 className="font-semibold text-text-primary mb-1">{title}</h4>
-        <p className="text-sm text-text-light">{duration}</p>
+        <h4 className={`font-semibold mb-1 ${isLocked ? 'text-gray-400' : 'text-text-primary'}`}>
+          {title}
+        </h4>
+        <div className="flex items-center space-x-4 text-sm text-text-light">
+          <div className="flex items-center space-x-1">
+            <Clock className="w-4 h-4" />
+            <span>{duration}</span>
+          </div>
+          {isCurrent && (
+            <span className="bg-action-purple text-white px-2 py-1 rounded-full text-xs font-medium">
+              Current
+            </span>
+          )}
+          {isCompleted && (
+            <span className="bg-action-green text-white px-2 py-1 rounded-full text-xs font-medium">
+              Complete
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Action button */}
-      <button className={`
-        px-6 py-2 rounded-full text-sm font-medium transition-all duration-300
-        ${isCompleted ? 'bg-action-green text-white' :
-          isCurrent ? 'bg-action-purple text-white hover:bg-purple-500' :
-          isLocked ? 'bg-gray-100 text-gray-400 cursor-not-allowed' :
-          'bg-gray-100 text-gray-600 hover:bg-gray-200'}
-      `}>
-        {isCompleted ? 'Completed' : 
-         isCurrent ? 'Continue' : 
-         isLocked ? 'Locked' : 'Start'}
-      </button>
+      <div>
+        {!isLocked && (
+          <button className={`
+            px-4 py-2 rounded-lg font-medium transition-all duration-300
+            ${isCompleted ? 'bg-action-green/20 text-action-green hover:bg-action-green/30' : 
+              isCurrent ? 'bg-action-purple text-white hover:bg-purple-500' : 
+              'bg-gray-200 text-gray-600 hover:bg-gray-300'}
+          `}>
+            {isCompleted ? 'Review' : isCurrent ? 'Continue' : 'Start'}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
 
 export default function TrainingPage() {
-  const { videos, fetchVideos } = useTrainingStore();
+  const [activeCategory, setActiveCategory] = useState('All Courses');
+  
+  // Use real API data instead of sample data
+  const { data: coursesData, isLoading, error } = useTrainingVideos();
+  const { data: progressData } = useVideoProgress();
 
-  useEffect(() => {
-    fetchVideos();
-  }, [fetchVideos]);
+  // Transform API data to component format
+  const courses = coursesData?.courses || [];
+  const transformedCourses: CourseCardProps[] = courses.map((course: any) => {
+    // Calculate total lessons and progress
+    const totalLessons = course.modules.reduce((total: number, module: any) => 
+      total + module.lessons.length, 0
+    );
+    
+    const completedLessons = course.modules.reduce((total: number, module: any) => 
+      total + module.lessons.filter((lesson: any) => lesson.progress?.completed).length, 0
+    );
+    
+    const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+    
+    // Calculate total duration
+    const totalSeconds = course.modules.reduce((total: number, module: any) => 
+      total + module.lessons.reduce((moduleTotal: number, lesson: any) => 
+        moduleTotal + (lesson.duration_seconds || 0), 0
+      ), 0
+    );
+    
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const duration = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+    
+    return {
+      id: course.id,
+      title: course.title,
+      description: course.description || 'Learn essential skills for network marketing success.',
+      thumbnail: course.thumbnail_url || '',
+      duration,
+      lessons: totalLessons,
+      progress: completedLessons > 0 ? progress : undefined,
+      isEnrolled: completedLessons > 0 || course.modules.some((m: any) => 
+        m.lessons.some((l: any) => l.progress)
+      ),
+      instructor: 'Expert Trainer', // Could be added to database later
+      rating: 4.8, // Could be added to database later
+      ratingCount: 150, // Could be added to database later
+      level: totalLessons <= 5 ? 'Beginner' : totalLessons <= 15 ? 'Intermediate' : 'Advanced'
+    };
+  });
 
-  // Sample data - replace with real data from store
+  // Calculate stats from real data  
   const stats = {
-    coursesCompleted: '12',
-    totalHours: '45',
-    currentStreak: '7',
-    achievements: '23'
+    coursesCompleted: progressData?.filter((p: any) => p.completed).length?.toString() || '0',
+    totalHours: Math.floor((progressData?.reduce((total: number, p: any) => total + (p.progressSeconds || 0), 0) || 0) / 3600).toString(),
+    currentStreak: '7', // TODO: Calculate actual streak from database
+    achievements: coursesData?.completedLessons?.toString() || '0'
   };
 
-  const categories = ['All Courses', 'Getting Started', 'Sales Training', 'Leadership', 'Marketing', 'Team Building'];
-  const activeCategory = 'All Courses';
+  const categories = ['All Courses', 'Getting Started', 'Core Principles', 'Advanced Training'];
 
-  const sampleCourses: CourseCardProps[] = [
-    {
-      id: '1',
-      title: 'Network Marketing Fundamentals',
-      description: 'Master the basics of network marketing and build a solid foundation for your business success.',
-      thumbnail: '',
-      duration: '2h 30m',
-      lessons: 12,
-      progress: 75,
-      isEnrolled: true,
-      instructor: 'Sarah Johnson',
-      rating: 4.8,
-      ratingCount: 234,
-      level: 'Beginner'
-    },
-    {
-      id: '2',
-      title: 'Advanced Sales Strategies',
-      description: 'Learn proven sales techniques and closing strategies that top performers use to maximize their results.',
-      thumbnail: '',
-      duration: '3h 15m',
-      lessons: 18,
-      progress: 30,
-      isEnrolled: true,
-      instructor: 'Mike Chen',
-      rating: 4.9,
-      ratingCount: 187,
-      level: 'Advanced'
-    },
-    {
-      id: '3',
-      title: 'Building Your Team',
-      description: 'Discover how to recruit, train, and motivate a high-performing team that drives exponential growth.',
-      thumbnail: '',
-      duration: '4h 20m',
-      lessons: 24,
-      isEnrolled: false,
-      instructor: 'Lisa Rodriguez',
-      rating: 4.7,
-      ratingCount: 156,
-      level: 'Intermediate'
-    },
-    {
-      id: '4',
-      title: 'Digital Marketing Mastery',
-      description: 'Leverage social media and digital tools to build your brand and attract qualified prospects online.',
-      thumbnail: '',
-      duration: '3h 45m',
-      lessons: 20,
-      isEnrolled: false,
-      instructor: 'David Kim',
-      rating: 4.6,
-      ratingCount: 203,
-      level: 'Intermediate'
-    }
-  ];
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="min-h-screen gradient-dawn pb-6">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-xl text-text-secondary">Loading courses...</div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <div className="min-h-screen gradient-dawn pb-6">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="text-xl text-text-secondary mb-4">Failed to load courses</div>
+              <p className="text-text-light">{error.message}</p>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -327,10 +359,10 @@ export default function TrainingPage() {
 
               {/* Stats Grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-                <StatCard number={stats.coursesCompleted} label="Courses Completed" icon={BookOpen} />
+                <StatCard number={stats.coursesCompleted} label="Lessons Completed" icon={BookOpen} />
                 <StatCard number={stats.totalHours} label="Hours Learned" icon={Clock} />
                 <StatCard number={stats.currentStreak} label="Day Streak" icon={TrendingUp} />
-                <StatCard number={stats.achievements} label="Achievements" icon={Award} />
+                <StatCard number={stats.achievements} label="Total Lessons" icon={Award} />
               </div>
 
               {/* CTA Buttons */}
@@ -355,7 +387,7 @@ export default function TrainingPage() {
                   key={category}
                   label={category}
                   isActive={category === activeCategory}
-                  onClick={() => {}}
+                  onClick={() => setActiveCategory(category)}
                 />
               ))}
             </div>
@@ -364,89 +396,109 @@ export default function TrainingPage() {
           {/* Courses Grid */}
           <div className="mb-12">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-text-primary">Featured Courses</h2>
-              <button className="text-action-purple font-medium hover:text-purple-600 transition-colors flex items-center gap-2">
-                View All
-                <Target className="w-4 h-4" />
-              </button>
+              <h2 className="text-2xl font-bold text-text-primary">
+                {transformedCourses.length > 0 ? 'Your Courses' : 'No Courses Available'}
+              </h2>
+              {transformedCourses.length > 0 && (
+                <button className="text-action-purple font-medium hover:text-purple-600 transition-colors flex items-center gap-2">
+                  View All
+                  <Target className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {sampleCourses.map((course) => (
-                <CourseCard key={course.id} {...course} />
-              ))}
-            </div>
+            {transformedCourses.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {transformedCourses.map((course) => (
+                  <CourseCard key={course.id} {...course} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">📚</div>
+                <h3 className="text-xl font-semibold text-text-primary mb-2">No courses available yet</h3>
+                <p className="text-text-secondary">Check back soon for new training content!</p>
+              </div>
+            )}
           </div>
 
-          {/* Learning Path Section */}
-          <div className="bg-white rounded-2xl p-6 md:p-8 shadow-lg mb-8">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-16 h-16 bg-gradient-to-br from-action-purple to-action-coral rounded-2xl flex items-center justify-center">
-                <Zap className="w-8 h-8 text-white" />
+          {/* Learning Path Section - Show only if courses exist */}
+          {transformedCourses.length > 0 && (
+            <div className="bg-white rounded-2xl p-6 md:p-8 shadow-lg mb-8">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-16 h-16 bg-gradient-to-br from-action-purple to-action-coral rounded-2xl flex items-center justify-center">
+                  <Zap className="w-8 h-8 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-2xl font-bold text-text-primary mb-2">Your Learning Path</h3>
+                  <p className="text-text-secondary">Complete this structured path to become a network marketing expert</p>
+                </div>
+                <div className="text-right hidden md:block">
+                  <div className="text-3xl font-bold text-action-purple">
+                    {coursesData?.overallProgress || 0}%
+                  </div>
+                  <div className="text-sm text-text-light">Complete</div>
+                </div>
               </div>
-              <div className="flex-1">
-                <h3 className="text-2xl font-bold text-text-primary mb-2">Your Learning Path</h3>
-                <p className="text-text-secondary">Complete this structured path to become a network marketing expert</p>
-              </div>
-              <div className="text-right hidden md:block">
-                <div className="text-3xl font-bold text-action-purple">65%</div>
-                <div className="text-sm text-text-light">Complete</div>
-              </div>
-            </div>
 
-            <div className="space-y-0">
-              <LearningPathStep
-                stepNumber={1}
-                title="Foundation Basics"
-                duration="2 hours"
-                isCompleted={true}
-                isCurrent={false}
-                isLocked={false}
-              />
-              <LearningPathStep
-                stepNumber={2}
-                title="Building Relationships"
-                duration="3 hours"
-                isCompleted={true}
-                isCurrent={false}
-                isLocked={false}
-              />
-              <LearningPathStep
-                stepNumber={3}
-                title="Advanced Sales Techniques"
-                duration="4 hours"
-                isCompleted={false}
-                isCurrent={true}
-                isLocked={false}
-              />
-              <LearningPathStep
-                stepNumber={4}
-                title="Leadership Development"
-                duration="5 hours"
-                isCompleted={false}
-                isCurrent={false}
-                isLocked={false}
-              />
-              <LearningPathStep
-                stepNumber={5}
-                title="Business Scaling"
-                duration="3 hours"
-                isCompleted={false}
-                isCurrent={false}
-                isLocked={true}
-              />
+              <div className="space-y-0">
+                <LearningPathStep
+                  stepNumber={1}
+                  title="Foundation Basics"
+                  duration="2 hours"
+                  isCompleted={true}
+                  isCurrent={false}
+                  isLocked={false}
+                />
+                <LearningPathStep
+                  stepNumber={2}
+                  title="Building Relationships"
+                  duration="3 hours"
+                  isCompleted={true}
+                  isCurrent={false}
+                  isLocked={false}
+                />
+                <LearningPathStep
+                  stepNumber={3}
+                  title="Advanced Sales Techniques"
+                  duration="4 hours"
+                  isCompleted={false}
+                  isCurrent={true}
+                  isLocked={false}
+                />
+                <LearningPathStep
+                  stepNumber={4}
+                  title="Leadership Development"
+                  duration="5 hours"
+                  isCompleted={false}
+                  isCurrent={false}
+                  isLocked={false}
+                />
+                <LearningPathStep
+                  stepNumber={5}
+                  title="Business Scaling"
+                  duration="3 hours"
+                  isCompleted={false}
+                  isCurrent={false}
+                  isLocked={true}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Achievement Showcase */}
-          <div className="bg-gradient-to-r from-action-golden to-yellow-400 rounded-2xl p-6 md:p-8 text-center text-white">
-            <Trophy className="w-16 h-16 mx-auto mb-4" />
-            <h3 className="text-2xl font-bold mb-2">Congratulations!</h3>
-            <p className="text-lg opacity-90 mb-6">You've completed 3 courses this month. Keep up the amazing work!</p>
-            <button className="bg-white text-action-golden px-8 py-3 rounded-xl font-medium hover:bg-gray-50 transition-colors">
-              View All Achievements
-            </button>
-          </div>
+          {(coursesData?.completedLessons || 0) > 0 && (
+            <div className="bg-gradient-to-r from-action-golden to-yellow-400 rounded-2xl p-6 md:p-8 text-center text-white">
+              <Trophy className="w-16 h-16 mx-auto mb-4" />
+              <h3 className="text-2xl font-bold mb-2">Congratulations!</h3>
+              <p className="text-lg opacity-90 mb-6">
+                You've completed {coursesData?.completedLessons} lessons! Keep up the amazing work!
+              </p>
+              <button className="bg-white text-action-golden px-8 py-3 rounded-xl font-medium hover:bg-gray-50 transition-colors">
+                View All Achievements
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </DashboardLayout>
