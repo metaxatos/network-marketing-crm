@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+// Dynamic import will be used inline
 
 export default function TestAuthPage() {
   const [email, setEmail] = useState('')
@@ -15,6 +15,8 @@ export default function TestAuthPage() {
     
     try {
       // Test direct Supabase authentication
+      const { createClient } = await import('@/lib/supabase/client')
+      const supabase = createClient()
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -39,6 +41,8 @@ export default function TestAuthPage() {
   }
 
   const checkSession = async () => {
+    const { createClient } = await import('@/lib/supabase/client')
+    const supabase = createClient()
     const { data: { session }, error } = await supabase.auth.getSession()
     setResult({
       session,
