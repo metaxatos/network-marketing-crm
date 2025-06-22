@@ -13,17 +13,11 @@ export const GET = withAuthWithContext(async (req: NextRequest, userId: string, 
     }
 
     const supabase = await createClient()
+    
+    // Get the contact first
     const { data: contact, error } = await supabase
       .from('contacts')
-      .select(`
-          *,
-          interactions:contact_interactions (
-            id,
-            interaction_type,
-            notes,
-            created_at
-          )
-        `)
+      .select('*')
       .eq('id', contactId)
       .eq('member_id', userId)
       .single()
@@ -39,8 +33,30 @@ export const GET = withAuthWithContext(async (req: NextRequest, userId: string, 
     if (!contact) {
       return apiError('Contact not found', 404)
     }
+
+    // Get communications for this contact (replaces contact_interactions)
+    const { data: communications } = await supabase
+      .from('communications')
+      .select(`
+        id,
+        type,
+        subject,
+        content,
+        metadata,
+        created_at
+      `)
+      .eq('contact_id', contactId)
+      .eq('member_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(10)
+
+    // Add communications to the response
+    const contactWithCommunications = {
+      ...contact,
+      communications: communications || []
+    }
     
-    return apiResponse(contact, 200)
+    return apiResponse(contactWithCommunications, 200)
 
   } catch (error) {
     console.error('[GET CONTACT]', error)
@@ -110,13 +126,18 @@ export const PUT = withAuthWithContext(async (req: NextRequest, userId: string, 
       throw error
     }
 
-    // Add an interaction record for status change
+    // Add a communication record for status change
     if (body.status) {
-      await supabase.from('contact_interactions').insert({
-        contact_id: contactId,
-        interaction_type: 'status_changed',
-        metadata: { new_status: body.status },
+      await supabase.from('communications').insert({
         member_id: userId,
+        contact_id: contactId,
+        type: 'note',
+        subject: 'Status Updated',
+        content: `Contact status changed to ${body.status}`,
+        metadata: { 
+          interaction_type: 'status_changed', 
+          new_status: body.status 
+        },
       })
     }
 
