@@ -28,9 +28,15 @@ export default function CoursePage() {
   // Find the specific course
   const course = coursesData?.courses?.find((c: any) => c.id === courseId)
   
-  const handleVideoClick = (videoId: string) => {
-    // Navigate to video player page
-    router.push(`/training/video/${videoId}`)
+  const handleVideoClick = (video: any) => {
+    // Create a slug from the video title
+    const lessonSlug = video.title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+    
+    // Navigate to lesson page using slug
+    router.push(`/training/lesson/${lessonSlug}`)
   }
 
   const handleBackToCourses = () => {
@@ -177,7 +183,7 @@ export default function CoursePage() {
 function ModuleSection({ module, moduleIndex, onVideoClick }: { 
   module: any
   moduleIndex: number
-  onVideoClick: (videoId: string) => void
+  onVideoClick: (video: any) => void
 }) {
   const [isExpanded, setIsExpanded] = useState(true)
   
@@ -256,7 +262,7 @@ function ModuleSection({ module, moduleIndex, onVideoClick }: {
 function VideoItem({ video, videoIndex, onVideoClick }: { 
   video: any
   videoIndex: number
-  onVideoClick: (videoId: string) => void
+  onVideoClick: (video: any) => void
 }) {
   const isCompleted = video.progress?.completed || false
   const progressPercent = video.duration_seconds && video.progress?.progress_seconds 
@@ -275,7 +281,7 @@ function VideoItem({ video, videoIndex, onVideoClick }: {
       className={`group relative bg-white rounded-lg border transition-all duration-200 hover:shadow-md cursor-pointer hover:border-blue-300 ${
         isCompleted ? 'border-green-200 bg-green-50' : 'border-gray-200'
       }`}
-      onClick={() => onVideoClick(video.id)}
+      onClick={() => onVideoClick(video)}
     >
       <div className="p-4">
         <div className="flex items-start gap-4">
