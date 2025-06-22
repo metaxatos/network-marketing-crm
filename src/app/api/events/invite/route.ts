@@ -134,7 +134,11 @@ export async function POST(req: NextRequest) {
         }
 
         // Send email via bulk email system
-        const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/emails/send`, {
+        const baseUrl = req.headers.get('host')?.includes('localhost') 
+          ? 'http://localhost:3000' 
+          : 'https://ourteam.gr';
+          
+        const emailResponse = await fetch(`${baseUrl}/api/emails/send`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -142,19 +146,10 @@ export async function POST(req: NextRequest) {
           },
           body: JSON.stringify({
             templateId: finalTemplateId,
-            recipientEmail: recipient.email,
-            recipientName: recipient.name,
-            variables: {
-              recipient_name: recipient.name,
-              sender_name: senderName,
-              event_title: event.title,
-              event_description: event.description,
-              event_date: event.start_time,
-              event_location: event.location_name || 'Online',
-              event_url: event.meeting_url,
-              register_url: `${process.env.NEXT_PUBLIC_BASE_URL}/events/${eventId}/register`,
-              invitation_id: invitation.id
-            }
+            to: [recipient.email], // Use 'to' array format expected by the API
+            customSubject: `Invitation: ${event.title}`,
+            // Note: The email template should already contain the event details
+            // If we need to pass variables, we'd need to modify the email send API
           })
         });
 
@@ -165,11 +160,12 @@ export async function POST(req: NextRequest) {
             invitationId: invitation.id
           });
         } else {
-          console.error('Failed to send email to:', recipient.email);
+          const errorData = await emailResponse.json().catch(() => ({ error: 'Unknown error' }));
+          console.error('Failed to send email to:', recipient.email, 'Error:', errorData);
           invitationResults.push({
             email: recipient.email,
             status: 'failed',
-            error: 'Email sending failed'
+            error: `Email sending failed: ${errorData.error || errorData.message || 'Unknown error'}`
           });
         }
 
