@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/providers/AuthProvider'
 import { DashboardLayout } from '@/components/ui/dashboard-layout'
 import { useContactStore } from '@/stores/contactStore'
@@ -9,7 +10,7 @@ import { ContactCard } from '@/components/contacts/ContactCard'
 import { SearchBar } from '@/components/contacts/SearchBar'
 import { StatusFilter } from '@/components/contacts/StatusFilter'
 import { AddContactModal } from '@/components/contacts/AddContactModal'
-import { ContactDetailModal } from '@/components/contacts/ContactDetailModal'
+
 import { ViewToggle, type ViewType } from '@/components/contacts/ViewToggle'
 import { AdvancedFilters, type FilterOptions } from '@/components/contacts/AdvancedFilters'
 import { ContactTable } from '@/components/contacts/ContactTable'
@@ -22,6 +23,7 @@ import { useContacts } from '@/hooks/queries/useContacts'
 
 export default function ContactsPage() {
   const { user, loading } = useAuth()
+  const router = useRouter()
   const { 
     searchQuery,
     statusFilter,
@@ -43,7 +45,7 @@ export default function ContactsPage() {
   })
 
   const [showAddModal, setShowAddModal] = useState(false)
-  const [showDetailModal, setShowDetailModal] = useState(false)
+
   const [view, setView] = useState<ViewType>('grid')
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [advancedFilters, setAdvancedFilters] = useState<FilterOptions>({})
@@ -53,8 +55,7 @@ export default function ContactsPage() {
   useContactsRealtime()
 
   const handleContactClick = (contact: Contact) => {
-    selectContact(contact)
-    setShowDetailModal(true)
+    router.push(`/contacts/${contact.id}`)
   }
 
   const handleApplyAdvancedFilters = (filters: FilterOptions) => {
@@ -306,15 +307,7 @@ export default function ContactsPage() {
           />
         )}
 
-        {showDetailModal && selectedContact && (
-          <ContactDetailModal
-            contact={selectedContact}
-            onClose={() => {
-              setShowDetailModal(false)
-              selectContact(null)
-            }}
-          />
-        )}
+
 
         {showAdvancedFilters && (
           <AdvancedFilters

@@ -34,8 +34,8 @@ export default function MobileBottomNav() {
       iconFilled: UserGroupIconSolid,
     },
     {
-      name: 'More',
-      href: '/more',
+      name: 'Settings',
+      href: '/settings',
       icon: Bars3Icon,
       iconFilled: Bars3IconSolid,
     },

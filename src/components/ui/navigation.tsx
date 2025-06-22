@@ -9,8 +9,7 @@ import {
   Mail, 
   Calendar, 
   GraduationCap,
-  BarChart3,
-  Globe,
+  Settings,
   Menu,
   X,
   Plus
@@ -26,11 +25,10 @@ const navItems: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
   { name: 'Contacts', href: '/contacts', icon: Users },
   { name: 'Email', href: '/emails', icon: Mail },
-  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Events', href: '/events', icon: Calendar },
   { name: 'Training', href: '/training', icon: GraduationCap },
   { name: 'Team', href: '/team', icon: Users },
-  { name: 'Landing Page', href: '/landing-page', icon: Globe },
+  { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
 // Mobile bottom navigation items (5 items max for optimal UX)

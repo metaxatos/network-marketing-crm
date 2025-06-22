@@ -3,169 +3,13 @@
 import { createClient } from '@/lib/supabase/server';
 import { TeamMember, TeamStats } from '@/types/team';
 
-// Mock data for testing - replace with real database calls later
-const mockTeamData: TeamMember[] = [
-  {
-    id: 'user-1',
-    name: 'John Smith',
-    firstName: 'John',
-    lastName: 'Smith',
-    avatar: null,
-    status: 'active',
-    joinDate: '2024-01-15T00:00:00Z',
-    position: null,
-    level: 1,
-    depth: 0,
-    metrics: {
-      directTeam: 3,
-      totalTeam: 8,
-      contactsThisMonth: 15,
-      emailsSent: 12,
-      trainingProgress: 0.85
-    },
-    children: [
-      {
-        id: 'user-2',
-        name: 'Sarah Johnson',
-        firstName: 'Sarah',
-        lastName: 'Johnson',
-        avatar: null,
-        status: 'active',
-        joinDate: '2024-02-01T00:00:00Z',
-        position: 'left',
-        level: 2,
-        depth: 1,
-        metrics: {
-          directTeam: 2,
-          totalTeam: 3,
-          contactsThisMonth: 8,
-          emailsSent: 6,
-          trainingProgress: 0.65
-        },
-        children: [
-          {
-            id: 'user-4',
-            name: 'Mike Wilson',
-            firstName: 'Mike',
-            lastName: 'Wilson',
-            avatar: null,
-            status: 'active',
-            joinDate: '2024-03-10T00:00:00Z',
-            position: 'left',
-            level: 3,
-            depth: 2,
-            metrics: {
-              directTeam: 0,
-              totalTeam: 0,
-              contactsThisMonth: 3,
-              emailsSent: 2,
-              trainingProgress: 0.25
-            },
-            children: []
-          },
-          {
-            id: 'user-5',
-            name: 'Lisa Brown',
-            firstName: 'Lisa',
-            lastName: 'Brown',
-            avatar: null,
-            status: 'inactive',
-            joinDate: '2024-03-15T00:00:00Z',
-            position: 'right',
-            level: 3,
-            depth: 2,
-            metrics: {
-              directTeam: 0,
-              totalTeam: 0,
-              contactsThisMonth: 1,
-              emailsSent: 0,
-              trainingProgress: 0.10
-            },
-            children: []
-          }
-        ]
-      },
-      {
-        id: 'user-3',
-        name: 'David Lee',
-        firstName: 'David',
-        lastName: 'Lee',
-        avatar: null,
-        status: 'active',
-        joinDate: '2024-02-15T00:00:00Z',
-        position: 'right',
-        level: 2,
-        depth: 1,
-        metrics: {
-          directTeam: 1,
-          totalTeam: 2,
-          contactsThisMonth: 12,
-          emailsSent: 8,
-          trainingProgress: 0.75
-        },
-        children: [
-          {
-            id: 'user-6',
-            name: 'Emma Davis',
-            firstName: 'Emma',
-            lastName: 'Davis',
-            avatar: null,
-            status: 'active',
-            joinDate: '2024-03-20T00:00:00Z',
-            position: 'left',
-            level: 3,
-            depth: 2,
-            metrics: {
-              directTeam: 0,
-              totalTeam: 0,
-              contactsThisMonth: 5,
-              emailsSent: 4,
-              trainingProgress: 0.40
-            },
-            children: []
-          }
-        ]
-      },
-      {
-        id: 'user-7',
-        name: 'Robert Taylor',
-        firstName: 'Robert',
-        lastName: 'Taylor',
-        avatar: null,
-        status: 'suspended',
-        joinDate: '2024-01-30T00:00:00Z',
-        position: null,
-        level: 2,
-        depth: 1,
-        metrics: {
-          directTeam: 0,
-          totalTeam: 0,
-          contactsThisMonth: 0,
-          emailsSent: 0,
-          trainingProgress: 0.05
-        },
-        children: []
-      }
-    ]
-  }
-];
 
-const mockTeamStats: TeamStats = {
-  directTeam: 3,
-  totalTeam: 8,
-  activeThisMonth: 5,
-  newThisWeek: 2,
-  teamGrowthRate: 15
-};
 
 export async function getTeamHierarchy(memberId: string): Promise<TeamMember[]> {
-  // For now, return mock data
-  // TODO: Replace with actual database query
+  // TODO: Implement actual team hierarchy query when database schema is ready
   
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  return mockTeamData;
+  // For now, return empty array - no mock data
+  return [];
 
   /* 
   // Real implementation would be:
@@ -185,13 +29,16 @@ export async function getTeamHierarchy(memberId: string): Promise<TeamMember[]> 
 }
 
 export async function getTeamStats(memberId: string): Promise<TeamStats> {
-  // For now, return mock data
-  // TODO: Replace with actual database query
+  // TODO: Implement actual team stats query when database schema is ready
   
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 300));
-  
-  return mockTeamStats;
+  // For now, return zero stats - no mock data
+  return {
+    directTeam: 0,
+    totalTeam: 0,
+    activeThisMonth: 0,
+    newThisWeek: 0,
+    teamGrowthRate: 0
+  };
 
   /*
   // Real implementation would be:

@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
 
     // Extract base event ID (remove _occ1, _occ2 suffixes for recurring events)
     const baseEventId = eventId.replace(/_occ[12]$/, '');
+    console.log('Event ID processing:', { originalEventId: eventId, baseEventId });
     
     // Get event details to verify ownership and get event info
     const { data: event, error: eventError } = await supabase
@@ -69,8 +70,11 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (eventError || !event) {
-      return apiError('Event not found or access denied', 404);
+      console.error('Event lookup failed:', { eventError, baseEventId, userId: user.id });
+      return apiError(`Event not found or access denied: ${eventError?.message || 'No event found'}`, 404);
     }
+
+    console.log('Event found:', { eventId: event.id, title: event.title, type: event.event_type });
 
     // Get member details for sender info
     const { data: member, error: memberError } = await supabase
@@ -108,28 +112,39 @@ export async function POST(req: NextRequest) {
 
     for (const recipient of recipients as InviteRecipient[]) {
       try {
+        // Debug: Log the data we're trying to insert
+        const insertData = {
+          event_id: baseEventId, // Use base event ID for database
+          sent_by: user.id,
+          sent_to_type: recipient.type,
+          recipient_email: recipient.email,
+          recipient_name: recipient.name,
+          email_template_id: finalTemplateId,
+          language: language,
+          sent_at: new Date().toISOString()
+        };
+        console.log('Attempting to insert invitation:', insertData);
+
         // Create invitation record
         const { data: invitation, error: inviteError } = await supabase
           .from('event_invitations')
-          .insert({
-            event_id: baseEventId, // Use base event ID for database
-            sent_by: user.id,
-            sent_to_type: recipient.type,
-            recipient_email: recipient.email,
-            recipient_name: recipient.name,
-            email_template_id: finalTemplateId,
-            language: language,
-            sent_at: new Date().toISOString()
-          })
+          .insert(insertData)
           .select()
           .single();
 
         if (inviteError) {
-          console.error('Failed to create invitation record:', inviteError);
+          console.error('Failed to create invitation record:', {
+            error: inviteError,
+            eventId: baseEventId,
+            userId: user.id,
+            recipientType: recipient.type,
+            recipientEmail: recipient.email,
+            templateId: finalTemplateId
+          });
           invitationResults.push({
             email: recipient.email,
             status: 'failed',
-            error: 'Database error'
+            error: `Database error: ${inviteError.message || inviteError.code || 'Unknown error'}`
           });
           continue;
         }
