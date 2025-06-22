@@ -54,6 +54,38 @@ export function VimeoVideo({
     const handleLoad = () => {
       setIsLoading(false)
       setError(null)
+      
+      // Set up event listeners after iframe loads
+      if (iframe.contentWindow) {
+        // Add event listeners
+        iframe.contentWindow.postMessage(
+          JSON.stringify({ method: 'addEventListener', value: 'play' }),
+          '*'
+        )
+        iframe.contentWindow.postMessage(
+          JSON.stringify({ method: 'addEventListener', value: 'pause' }),
+          '*'
+        )
+        iframe.contentWindow.postMessage(
+          JSON.stringify({ method: 'addEventListener', value: 'ended' }),
+          '*'
+        )
+        iframe.contentWindow.postMessage(
+          JSON.stringify({ method: 'addEventListener', value: 'timeupdate' }),
+          '*'
+        )
+
+        // Set start time if provided
+        if (startTime > 0) {
+          setTimeout(() => {
+            iframe.contentWindow?.postMessage(
+              JSON.stringify({ method: 'setCurrentTime', value: startTime }),
+              '*'
+            )
+          }, 1000)
+        }
+      }
+      
       onReady?.()
     }
 
@@ -83,7 +115,7 @@ export function VimeoVideo({
       iframe.removeEventListener('error', handleError)
       window.removeEventListener('message', handleMessage)
     }
-  }, [cleanVideoId, onReady, onProgress])
+  }, [cleanVideoId, onReady, onProgress, startTime])
 
   if (!cleanVideoId) {
     return (
@@ -93,7 +125,22 @@ export function VimeoVideo({
     )
   }
 
-  const embedUrl = `https://player.vimeo.com/video/${cleanVideoId}?api=1&player_id=vimeo-player`
+  // Build embed URL with all parameters
+  const embedParams = new URLSearchParams({
+    api: '1',
+    player_id: 'vimeo-player',
+    autoplay: autoplay ? '1' : '0',
+    muted: muted ? '1' : '0',
+    loop: loop ? '1' : '0',
+    controls: controls ? '1' : '0',
+    title: '0',
+    byline: '0',
+    portrait: '0',
+    dnt: '1',
+    app_id: '122963'
+  })
+
+  const embedUrl = `https://player.vimeo.com/video/${cleanVideoId}?${embedParams.toString()}`
 
   return (
     <div 
