@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useUserStore } from '@/stores/userStore'
-import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 
 export default function DiagnosticsPage() {
@@ -16,6 +15,8 @@ export default function DiagnosticsPage() {
 
     try {
       // 1. Check Supabase session
+      const { createClient } = await import('@/lib/supabase/client')
+      const supabase = createClient()
       const { data: { session } } = await supabase.auth.getSession()
       results.session = {
         exists: !!session,

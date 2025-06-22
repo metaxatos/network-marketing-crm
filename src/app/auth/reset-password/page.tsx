@@ -3,8 +3,6 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-
 function ResetPasswordForm() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -18,6 +16,8 @@ function ResetPasswordForm() {
   useEffect(() => {
     // Check if we have a valid session for password reset
     const checkSession = async () => {
+      const { createClient } = await import('@/lib/supabase/client')
+      const supabase = createClient()
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
         setIsValidSession(true)
@@ -60,6 +60,8 @@ function ResetPasswordForm() {
     setIsLoading(true)
 
     try {
+      const { createClient } = await import('@/lib/supabase/client')
+      const supabase = createClient()
       const { error } = await supabase.auth.updateUser({
         password: password
       })
