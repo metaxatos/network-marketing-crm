@@ -6,7 +6,6 @@ import { ArrowLeft, Play, CheckCircle, Clock, BookOpen, SkipForward } from 'luci
 import { DashboardLayout } from '@/components/ui/dashboard-layout'
 import { VideoPlayer } from '@/components/training/video-player'
 import { useAuth } from '@/hooks'
-import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import type { VideoPlatform } from '@/types/training'
 
@@ -53,6 +52,9 @@ export function LessonDisplay({ video, navigation }: LessonDisplayProps) {
       
       try {
         setIsLoadingProgress(true)
+        
+        // Dynamic import to avoid server-side execution
+        const { createClient } = await import('@/lib/supabase/client')
         const supabase = createClient()
         
         const { data: progressData } = await supabase
