@@ -16,10 +16,6 @@ export async function middleware(req: NextRequest) {
       console.error('Middleware auth error:', error)
     }
     
-    // Check if this is a training/lesson page
-    const isTrainingPage = req.nextUrl.pathname.startsWith('/training')
-    const isLessonPage = req.nextUrl.pathname.includes('/lesson') || req.nextUrl.pathname.includes('/video')
-    
     // For authenticated routes, redirect to login if no session
     const protectedRoutes = ['/dashboard', '/training', '/campaigns', '/team', '/analytics', '/contacts', '/settings']
     const isProtectedRoute = protectedRoutes.some(route => req.nextUrl.pathname.startsWith(route))
@@ -31,20 +27,8 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(redirectUrl)
     }
     
-    // Add security headers for video content
-    if (isTrainingPage || isLessonPage) {
-      res.headers.set('X-Frame-Options', 'SAMEORIGIN')
-      res.headers.set('Content-Security-Policy', 
-        "default-src 'self'; " +
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://player.vimeo.com https://f.vimeocdn.com; " +
-        "style-src 'self' 'unsafe-inline'; " +
-        "img-src 'self' data: https: blob: https://*.vimeo.com https://*.vimeocdn.com; " +
-        "media-src 'self' blob: https://player.vimeo.com https://vimeo.com https://*.vimeocdn.com; " +
-        "frame-src 'self' https://player.vimeo.com https://vimeo.com; " +
-        "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://player.vimeo.com https://vimeo.com https://*.vimeocdn.com"
-      )
-    }
-    
+    // Don't set CSP headers here - they're already set in next.config.js
+    // Just return the response with refreshed session
     return res
   } catch (error) {
     console.error('Middleware error:', error)
