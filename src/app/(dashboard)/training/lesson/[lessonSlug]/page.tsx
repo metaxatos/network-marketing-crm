@@ -1,6 +1,5 @@
 import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
-import { createAdminClient } from '@/lib/supabase/admin-client'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { LessonDisplay } from './lesson-display'
 import type { VideoPlatform } from '@/types/training'
@@ -39,6 +38,36 @@ function LessonPageSkeleton() {
   )
 }
 
+// Direct HTTP call to Supabase REST API (no client, no browser APIs)
+async function fetchFromSupabase(endpoint: string, params: Record<string, string> = {}) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  
+  if (!supabaseUrl || !serviceKey) {
+    throw new Error('Missing Supabase configuration')
+  }
+  
+  const url = new URL(`${supabaseUrl}/rest/v1/${endpoint}`)
+  Object.entries(params).forEach(([key, value]) => {
+    url.searchParams.append(key, value)
+  })
+  
+  const response = await fetch(url.toString(), {
+    headers: {
+      'apikey': serviceKey,
+      'Authorization': `Bearer ${serviceKey}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    }
+  })
+  
+  if (!response.ok) {
+    throw new Error(`Supabase API error: ${response.status} ${response.statusText}`)
+  }
+  
+  return response.json()
+}
+
 // Server Component - eliminates 502 errors on refresh
 export default async function LessonPage({ params }: LessonPageProps) {
   const { lessonSlug } = params
@@ -49,97 +78,76 @@ export default async function LessonPage({ params }: LessonPageProps) {
   }
 
   try {
-    // Fetch data on server using admin client (no auth session, no document access)
-    const supabase = createAdminClient()
+    console.log('🎓 [Server] Fetching lesson via direct HTTP:', lessonSlug)
     
-    console.log('🎓 [Server] Fetching lesson directly from Supabase:', lessonSlug)
-    
-    // First get the video data
-    const { data: videoData, error: videoError } = await supabase
-      .from('training_videos')
-      .select(`
-        id,
-        title,
-        description,
-        video_url,
-        video_platform,
-        thumbnail_url,
-        duration_seconds,
-        lesson_order,
-        course_id,
-        slug
-      `)
-      .eq('slug', lessonSlug)
-      .eq('is_published', true)
-      .single()
+    // Direct HTTP call - no Supabase client, no browser APIs
+    const videoData = await fetchFromSupabase('training_videos', {
+      'slug': `eq.${lessonSlug}`,
+      'is_published': 'eq.true',
+      'select': 'id,title,description,video_url,video_platform,thumbnail_url,duration_seconds,lesson_order,course_id,slug',
+      'limit': '1'
+    })
 
-    if (videoError) {
-      console.error('🎓 [Server] Video query error:', videoError)
-      if (videoError.code === 'PGRST116') {
-        console.log('🎓 [Server] Video not found for slug:', lessonSlug)
-        notFound()
-      }
-      throw new Error(`Failed to load lesson data: ${videoError.message}`)
-    }
-
-    if (!videoData) {
-      console.log('🎓 [Server] No video data returned for slug:', lessonSlug)
+    if (!videoData || videoData.length === 0) {
+      console.log('🎓 [Server] Video not found for slug:', lessonSlug)
       notFound()
     }
 
-    console.log('🎓 [Server] Found video:', videoData.title, 'Course ID:', videoData.course_id)
+    const video = videoData[0]
+    console.log('🎓 [Server] Found video:', video.title, 'Course ID:', video.course_id)
 
-    // Get course information separately
-    const { data: courseData, error: courseError } = await supabase
-      .from('courses')
-      .select('id, title, description')
-      .eq('id', videoData.course_id)
-      .single()
-
-    if (courseError) {
-      console.error('🎓 [Server] Course query error:', courseError)
-      // Don't fail the whole page for course data
+    // Get course information
+    let courseData = null
+    try {
+      const courseResult = await fetchFromSupabase('courses', {
+        'id': `eq.${video.course_id}`,
+        'select': 'id,title,description',
+        'limit': '1'
+      })
+      courseData = courseResult[0] || null
+    } catch (error) {
+      console.error('🎓 [Server] Course query error:', error)
     }
 
     // Get all lessons in this course for navigation
-    const { data: allLessons, error: lessonsError } = await supabase
-      .from('training_videos')
-      .select('id, title, lesson_order, slug')
-      .eq('course_id', videoData.course_id)
-      .eq('is_published', true)
-      .order('lesson_order')
-
-    if (lessonsError) {
-      console.error('🎓 [Server] Lessons query error:', lessonsError)
-      // Don't fail the whole page for navigation data
+    let allLessons = []
+    try {
+      allLessons = await fetchFromSupabase('training_videos', {
+        'course_id': `eq.${video.course_id}`,
+        'is_published': 'eq.true',
+        'select': 'id,title,lesson_order,slug',
+        'order': 'lesson_order'
+      })
+    } catch (error) {
+      console.error('🎓 [Server] Lessons query error:', error)
     }
 
     // Find current lesson index and next/previous lessons
-    const currentIndex = allLessons?.findIndex((lesson: LessonData) => lesson.id === videoData.id) ?? -1
-    const nextLesson = currentIndex >= 0 && allLessons && currentIndex < allLessons.length - 1 
+    const currentIndex = allLessons.findIndex((lesson: LessonData) => lesson.id === video.id)
+    const nextLesson = currentIndex >= 0 && currentIndex < allLessons.length - 1 
       ? allLessons[currentIndex + 1] 
       : null
-    const previousLesson = currentIndex > 0 && allLessons
+    const previousLesson = currentIndex > 0
       ? allLessons[currentIndex - 1] 
       : null
 
     // Build props for client component with defensive programming
     const videoProps = {
       video: {
-        ...videoData,
+        ...video,
         // Ensure all required fields are present
-        title: videoData.title || 'Untitled Lesson',
-        description: videoData.description || '',
-        video_url: videoData.video_url || '',
-        video_platform: (videoData.video_platform as VideoPlatform) || 'youtube',
-        thumbnail_url: videoData.thumbnail_url || '',
-        duration_seconds: videoData.duration_seconds || 0,
+        title: video.title || 'Untitled Lesson',
+        description: video.description || '',
+        video_url: video.video_url || '',
+        video_platform: (video.video_platform as VideoPlatform) || 'youtube',
+        thumbnail_url: video.thumbnail_url || '',
+        duration_seconds: video.duration_seconds || 0,
         course: courseData ? {
           id: courseData.id,
           title: courseData.title,
           description: courseData.description || ''
         } : {
-          id: videoData.course_id,
+          id: video.course_id,
           title: 'Unknown Course',
           description: ''
         }
@@ -155,7 +163,7 @@ export default async function LessonPage({ params }: LessonPageProps) {
           title: previousLesson.title,
           slug: previousLesson.slug
         } : null,
-        allLessons: (allLessons || []).map((lesson: LessonData) => ({
+        allLessons: allLessons.map((lesson: LessonData) => ({
           id: lesson.id,
           title: lesson.title,
           lesson_order: lesson.lesson_order,
