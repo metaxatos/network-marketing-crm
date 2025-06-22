@@ -1,5 +1,14 @@
 import { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js'
-import { supabase } from './supabase'
+import { createClient } from './supabase/client'
+
+// Create a singleton supabase client for realtime operations
+let supabaseClient: any = null
+const getSupabaseClient = () => {
+  if (!supabaseClient) {
+    supabaseClient = createClient()
+  }
+  return supabaseClient
+}
 
 export type DatabaseEvent = 'INSERT' | 'UPDATE' | 'DELETE' | '*'
 
@@ -30,11 +39,11 @@ export function createRealtimeSubscription(
   const existingChannel = activeChannels.get(channelName)
   if (existingChannel) {
     console.log(`🔄 Cleaning up existing channel: ${channelName}`)
-    supabase.removeChannel(existingChannel)
+    getSupabaseClient().removeChannel(existingChannel)
     activeChannels.delete(channelName)
   }
 
-  const channel = supabase.channel(channelName)
+  const channel = getSupabaseClient().channel(channelName)
   activeChannels.set(channelName, channel)
 
   // Subscribe to postgres changes
@@ -65,7 +74,7 @@ export function createRealtimeSubscription(
     channel,
     unsubscribe: () => {
       try {
-        supabase.removeChannel(channel)
+        getSupabaseClient().removeChannel(channel)
         activeChannels.delete(channelName)
         console.log(`🔌 Unsubscribed from ${channelName}`)
       } catch (error) {
@@ -112,7 +121,7 @@ export function cleanupAllChannels(): void {
   console.log(`🧹 Cleaning up ${activeChannels.size} active channels`)
   activeChannels.forEach((channel, name) => {
     try {
-      supabase.removeChannel(channel)
+      getSupabaseClient().removeChannel(channel)
     } catch (error) {
       console.warn(`Error cleaning up channel ${name}:`, error)
     }
@@ -144,22 +153,22 @@ export class RealtimeConnection {
     try {
       // Monitor connection by checking if we can create a test channel
       const testChannelName = `connection_test_${Date.now()}`
-      const testChannel = supabase.channel(testChannelName)
+      const testChannel = getSupabaseClient().channel(testChannelName)
       
       // Subscribe to test channel to verify connection
       testChannel.subscribe((status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED') => {
         if (status === 'SUBSCRIBED') {
           this.updateStatus('CONNECTED')
           // Clean up test channel immediately
-          supabase.removeChannel(testChannel)
+          getSupabaseClient().removeChannel(testChannel)
         } else if (status === 'CHANNEL_ERROR') {
           this.updateStatus('DISCONNECTED')
           // Clean up test channel
-          supabase.removeChannel(testChannel)
+          getSupabaseClient().removeChannel(testChannel)
         } else if (status === 'TIMED_OUT') {
           this.updateStatus('RECONNECTING')
           // Clean up test channel
-          supabase.removeChannel(testChannel)
+          getSupabaseClient().removeChannel(testChannel)
         }
       })
 
@@ -228,21 +237,21 @@ export class RealtimeConnection {
       
       // Test new connection by creating a test channel
       const testChannelName = `reconnect_test_${Date.now()}`
-      const testChannel = supabase.channel(testChannelName)
+      const testChannel = getSupabaseClient().channel(testChannelName)
       
       testChannel.subscribe((status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED') => {
         if (status === 'SUBSCRIBED') {
           this.updateStatus('CONNECTED')
           console.log('✅ Reconnection successful')
           // Clean up test channel
-          supabase.removeChannel(testChannel)
+          getSupabaseClient().removeChannel(testChannel)
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           // Retry once after a short delay
           setTimeout(() => {
             this.updateStatus('CONNECTED')
           }, 2000)
           // Clean up test channel
-          supabase.removeChannel(testChannel)
+          getSupabaseClient().removeChannel(testChannel)
         }
       })
       
