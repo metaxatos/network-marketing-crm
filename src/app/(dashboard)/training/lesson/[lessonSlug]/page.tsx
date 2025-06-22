@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin-client'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { LessonDisplay } from './lesson-display'
 import type { VideoPlatform } from '@/types/training'
@@ -27,8 +27,8 @@ export default async function LessonPage({ params }: LessonPageProps) {
   }
 
   try {
-    // Fetch data on server using direct Supabase client
-    const supabase = await createClient()
+    // Fetch data on server using admin client (no auth session, no document access)
+    const supabase = createAdminClient()
     
     console.log('🎓 [Server] Fetching lesson directly from Supabase:', lessonSlug)
     
@@ -96,7 +96,7 @@ export default async function LessonPage({ params }: LessonPageProps) {
     const videoProps = {
       video: {
         ...videoData,
-        course: videoData.courses
+        course: videoData.courses[0] // Get first (and only) course from the join
       },
       navigation: {
         nextLesson: nextLesson ? {
