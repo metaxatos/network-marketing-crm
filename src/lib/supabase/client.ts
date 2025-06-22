@@ -91,7 +91,11 @@ function createSafeClient() {
               cookieString += `; HttpOnly`
             }
             
-            console.log('🍪 Setting cookie:', cookieString)
+            // Only log cookie name in development, never the full value for security
+            if (process.env.NODE_ENV === 'development') {
+              console.log('🍪 Setting cookie:', name)
+            }
+            
             document.cookie = cookieString
           })
         }
