@@ -245,12 +245,12 @@ function VideoPageContent() {
   }
 
   const handleBackToCourse = () => {
-    if (!videoData || !isBrowser) return
+    if (!videoData?.course?.id || !isBrowser) return
     router.push(`/training/course/${videoData.course.id}`)
   }
 
   const handleNextLesson = () => {
-    if (!videoData?.nextVideo || !isBrowser) return
+    if (!videoData?.nextVideo?.id || !isBrowser) return
     router.push(`/training/video/${videoData.nextVideo.id}`)
   }
 
@@ -341,6 +341,12 @@ function VideoPageContent() {
   }
 
   const renderVideo = () => {
+    if (!videoData?.video) return (
+      <div className="w-full aspect-video rounded-lg shadow-lg bg-gray-200 flex items-center justify-center">
+        <p className="text-gray-500">Loading video...</p>
+      </div>
+    )
+    
     const { video } = videoData
     
     if (video.videoPlatform === 'vimeo' && video.vimeoVideoId) {
@@ -356,7 +362,7 @@ function VideoPageContent() {
           frameBorder="0"
           allow="autoplay; fullscreen; picture-in-picture"
           allowFullScreen
-          title={video.title}
+          title={video.title || 'Training Video'}
         />
       )
     }
@@ -384,14 +390,14 @@ function VideoPageContent() {
   }
 
   const getCurrentProgressSeconds = () => {
-    if (videoData?.video.videoPlatform === 'vimeo') {
+    if (videoData?.video?.videoPlatform === 'vimeo') {
       return vimeoCurrentTime
     }
     return videoRef.current?.currentTime || 0
   }
 
   const getCurrentDuration = () => {
-    if (videoData?.video.videoPlatform === 'vimeo') {
+    if (videoData?.video?.videoPlatform === 'vimeo') {
       return vimeoDuration
     }
     return videoRef.current?.duration || 0
@@ -415,10 +421,10 @@ function VideoPageContent() {
             </button>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
-                {videoData.video.title}
+                {videoData?.video?.title || 'Loading...'}
               </h1>
               <p className="text-sm text-gray-600">
-                Course: {videoData.course.title}
+                Course: {videoData?.course?.title || 'Loading...'}
               </p>
             </div>
           </div>
@@ -459,9 +465,9 @@ function VideoPageContent() {
               </div>
               <div className="flex-1">
                 <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                  {videoData.video.title}
+                  {videoData?.video?.title || 'Loading...'}
                 </h2>
-                {videoData.video.description && (
+                {videoData?.video?.description && (
                   <p className="text-gray-600 mb-4">
                     {videoData.video.description}
                   </p>
@@ -491,7 +497,7 @@ function VideoPageContent() {
               Back to Course
             </button>
             
-            {videoData.nextVideo && (
+            {videoData?.nextVideo && (
               <button
                 onClick={handleNextLesson}
                 className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all flex items-center gap-2"
