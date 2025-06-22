@@ -29,8 +29,8 @@ export default function CoursePage() {
   const course = coursesData?.courses?.find((c: any) => c.id === courseId)
   
   const handleVideoClick = (video: any) => {
-    // Create a slug from the video title
-    const lessonSlug = video.title
+    // Use the slug from database, fallback to generated slug if needed
+    const lessonSlug = video.slug || video.title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')

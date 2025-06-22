@@ -38,8 +38,8 @@ export default function LessonPage() {
         
         const result = await response.json()
         
-        if (result.success && result.data) {
-          setVideoData(result.data)
+        if (result.video) {
+          setVideoData(result)
         } else {
           throw new Error(result.error || 'Failed to load lesson')
         }
@@ -65,8 +65,8 @@ export default function LessonPage() {
   }
 
   const handleNextLesson = () => {
-    if (!videoData?.nextVideo?.slug) return
-    router.push(`/training/lesson/${videoData.nextVideo.slug}`)
+    if (!videoData?.navigation?.nextLesson?.slug) return
+    router.push(`/training/lesson/${videoData.navigation.nextLesson.slug}`)
   }
 
   // Show auth loading state
@@ -134,8 +134,8 @@ export default function LessonPage() {
   const renderVideo = () => {
     const { video } = videoData
     
-    if (video.videoPlatform === 'vimeo' && video.vimeoVideoId) {
-      const vimeoUrl = `https://player.vimeo.com/video/${video.vimeoVideoId}`
+    if (video.video_platform === 'vimeo' && video.vimeo_video_id) {
+      const vimeoUrl = `https://player.vimeo.com/video/${video.vimeo_video_id}`
       
       return (
         <iframe
@@ -149,14 +149,14 @@ export default function LessonPage() {
       )
     }
     
-    if (video.videoUrl) {
+    if (video.video_url) {
       return (
         <video
           className="w-full aspect-video rounded-lg shadow-lg"
           controls
-          poster={video.thumbnailUrl || undefined}
+          poster={video.thumbnail_url || undefined}
         >
-          <source src={video.videoUrl} type="video/mp4" />
+          <source src={video.video_url} type="video/mp4" />
           Your browser does not support the video tag.
         </video>
       )
@@ -216,9 +216,9 @@ export default function LessonPage() {
                 <div className="flex items-center gap-4 text-sm text-gray-500">
                   <div className="flex items-center gap-1">
                     <Clock className="w-4 h-4" />
-                    <span>{Math.floor((videoData?.video?.durationSeconds || 0) / 60)} minutes</span>
+                    <span>{Math.floor((videoData?.video?.duration_seconds || 0) / 60)} minutes</span>
                   </div>
-                  {videoData?.video?.progress?.completed && (
+                  {videoData?.progress?.completed && (
                     <div className="flex items-center gap-1 text-green-600">
                       <CheckCircle className="w-4 h-4" />
                       <span>Completed</span>
@@ -238,7 +238,7 @@ export default function LessonPage() {
               Back to Course
             </button>
             
-            {videoData?.nextVideo && (
+            {videoData?.navigation?.nextLesson && (
               <button
                 onClick={handleNextLesson}
                 className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all flex items-center gap-2"

@@ -91,7 +91,8 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
           lesson_order,
           order_index,
           is_required,
-          is_published
+          is_published,
+          slug
         )
       `)
       .eq('is_published', true)
