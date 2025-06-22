@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Event, EVENT_TYPE_CONFIG } from '@/types/events';
 import { format, isToday, isPast, isFuture } from 'date-fns';
 import { getMeetingPlatform } from '@/lib/video-conferencing';
@@ -13,6 +14,8 @@ interface EventCardProps {
 }
 
 export default function EventCard({ event, onView, onEdit, onInvite, onJoin }: EventCardProps) {
+  const [showDropdown, setShowDropdown] = useState(false);
+  
   const eventConfig = EVENT_TYPE_CONFIG[event.event_type];
   const isOnline = event.format === 'online';
   const eventDate = new Date(event.start_time);
@@ -155,11 +158,111 @@ export default function EventCard({ event, onView, onEdit, onInvite, onJoin }: E
           
           {/* Dropdown Menu */}
           <div className="relative opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <button className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowDropdown(!showDropdown);
+              }}
+              className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+            >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
               </svg>
             </button>
+            
+            {/* Dropdown Content */}
+            {showDropdown && (
+              <>
+                {/* Backdrop to close dropdown */}
+                <div 
+                  className="fixed inset-0 z-10" 
+                  onClick={() => setShowDropdown(false)}
+                ></div>
+                
+                {/* Dropdown Menu */}
+                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-20">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowDropdown(false);
+                      onView(event);
+                    }}
+                    className="w-full px-4 py-2 text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    View Details
+                  </button>
+                  
+                  {event.is_creator && (
+                    <>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowDropdown(false);
+                          onInvite(event);
+                        }}
+                        className="w-full px-4 py-2 text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        Send Invites
+                      </button>
+                      
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowDropdown(false);
+                          onEdit(event);
+                        }}
+                        className="w-full px-4 py-2 text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Edit Event
+                      </button>
+                      
+                      <hr className="my-2" />
+                      
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowDropdown(false);
+                          // TODO: Implement delete functionality
+                          console.log('Delete event:', event);
+                        }}
+                        className="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Delete Event
+                      </button>
+                    </>
+                  )}
+                  
+                  {!event.is_creator && !isEventPast && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowDropdown(false);
+                        onJoin?.(event);
+                      }}
+                      className="w-full px-4 py-2 text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                    >
+                      <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                      </svg>
+                      Register for Event
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
 

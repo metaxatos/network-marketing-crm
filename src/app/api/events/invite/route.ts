@@ -1,0 +1,203 @@
+import { NextRequest } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { apiResponse, apiError } from '@/lib/api-helpers';
+
+// Email template IDs as provided by the user
+const EMAIL_TEMPLATES = {
+  presentation: {
+    opportunity: {
+      live: {
+        en: '4ca32706-59d2-47fe-8fb0-de7e3f6fbc15',
+        gr: '2cca8a5b-a2f4-4236-a953-3dcf1598c986'
+      },
+      online: {
+        en: 'ad7cbaf8-d6cf-425d-bf3d-25e21087cb18',
+        gr: 'e4ddd266-36d1-47dc-88f5-5d4aab684f09'
+      }
+    },
+    product: {
+      live: {
+        en: '4ca32706-59d2-47fe-8fb0-de7e3f6fbc15',
+        gr: '2cca8a5b-a2f4-4236-a953-3dcf1598c986'
+      },
+      online: {
+        en: 'ad7cbaf8-d6cf-425d-bf3d-25e21087cb18',
+        gr: 'e4ddd266-36d1-47dc-88f5-5d4aab684f09'
+      }
+    }
+  },
+  training: {
+    en: '29136692-427c-4013-af4c-3dcd6768b7fc',
+    gr: '7c320974-7552-4e0c-8cd1-8dd3d47728de'
+  }
+};
+
+interface InviteRecipient {
+  id: string;
+  email: string;
+  name: string;
+  type: 'contact' | 'team' | 'new';
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { eventId, recipients, language = 'en', templateId } = body;
+
+    if (!eventId || !recipients || !Array.isArray(recipients)) {
+      return apiError('Missing required fields', 400);
+    }
+
+    const supabase = await createClient();
+
+    // Get current user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return apiError('Authentication required', 401);
+    }
+
+    // Get event details to verify ownership and get event info
+    const { data: event, error: eventError } = await supabase
+      .from('events')
+      .select('*')
+      .eq('id', eventId)
+      .eq('member_id', user.id)
+      .single();
+
+    if (eventError || !event) {
+      return apiError('Event not found or access denied', 404);
+    }
+
+    // Get member details for sender info
+    const { data: member, error: memberError } = await supabase
+      .from('members')
+      .select('*, member_profiles(*)')
+      .eq('id', user.id)
+      .single();
+
+    if (memberError || !member) {
+      return apiError('Member profile not found', 404);
+    }
+
+    const senderName = member.member_profiles?.first_name 
+      ? `${member.member_profiles.first_name} ${member.member_profiles.last_name || ''}`.trim()
+      : member.username;
+
+         // Determine email template
+     let finalTemplateId = templateId;
+     if (!finalTemplateId) {
+       const isTraining = event.event_type === 'training_workshop';
+       const isOnline = event.format === 'online';
+       const lang = language as 'en' | 'gr';
+       
+       if (isTraining) {
+         finalTemplateId = EMAIL_TEMPLATES.training[lang];
+       } else {
+         const presentationType = event.event_type === 'opportunity_presentation' ? 'opportunity' : 'product';
+         const formatType = isOnline ? 'online' : 'live';
+         finalTemplateId = EMAIL_TEMPLATES.presentation[presentationType][formatType][lang];
+       }
+     }
+
+    // Process recipients and send invitations
+    const invitationResults = [];
+
+    for (const recipient of recipients as InviteRecipient[]) {
+      try {
+        // Create invitation record
+        const { data: invitation, error: inviteError } = await supabase
+          .from('event_invitations')
+          .insert({
+            event_id: eventId,
+            sent_by: user.id,
+            sent_to_type: recipient.type,
+            recipient_email: recipient.email,
+            recipient_name: recipient.name,
+            email_template_id: finalTemplateId,
+            language: language,
+            sent_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (inviteError) {
+          console.error('Failed to create invitation record:', inviteError);
+          invitationResults.push({
+            email: recipient.email,
+            status: 'failed',
+            error: 'Database error'
+          });
+          continue;
+        }
+
+        // Send email via bulk email system
+        const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/emails/send`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': req.headers.get('Authorization') || ''
+          },
+          body: JSON.stringify({
+            templateId: finalTemplateId,
+            recipientEmail: recipient.email,
+            recipientName: recipient.name,
+            variables: {
+              recipient_name: recipient.name,
+              sender_name: senderName,
+              event_title: event.title,
+              event_description: event.description,
+              event_date: event.start_time,
+              event_location: event.location_name || 'Online',
+              event_url: event.meeting_url,
+              register_url: `${process.env.NEXT_PUBLIC_BASE_URL}/events/${eventId}/register`,
+              invitation_id: invitation.id
+            }
+          })
+        });
+
+        if (emailResponse.ok) {
+          invitationResults.push({
+            email: recipient.email,
+            status: 'sent',
+            invitationId: invitation.id
+          });
+        } else {
+          console.error('Failed to send email to:', recipient.email);
+          invitationResults.push({
+            email: recipient.email,
+            status: 'failed',
+            error: 'Email sending failed'
+          });
+        }
+
+      } catch (error) {
+        console.error('Error processing recipient:', recipient.email, error);
+        invitationResults.push({
+          email: recipient.email,
+          status: 'failed',
+          error: 'Processing error'
+        });
+      }
+    }
+
+    // Summary
+    const successful = invitationResults.filter(r => r.status === 'sent').length;
+    const failed = invitationResults.filter(r => r.status === 'failed').length;
+
+    return apiResponse({
+      success: true,
+      summary: {
+        total: recipients.length,
+        sent: successful,
+        failed: failed
+      },
+      results: invitationResults,
+      eventId: eventId,
+      templateId: finalTemplateId
+    }, 200, `Sent ${successful} invitation${successful !== 1 ? 's' : ''}`);
+
+  } catch (error) {
+    console.error('Event invitation API error:', error);
+    return apiError('Failed to send invitations', 500);
+  }
+} 

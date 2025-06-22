@@ -9,6 +9,8 @@ import EventsHeader from '@/components/events/EventsHeader';
 import EventsCalendarView from '@/components/events/EventsCalendarView';
 import EventsListView from '@/components/events/EventsListView';
 import CreateEventModal from '@/components/events/CreateEventModal';
+import EventDetailsModal from '@/components/events/EventDetailsModal';
+import EventInviteModal from '@/components/events/EventInviteModal';
 
 export default function EventsPage() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
@@ -19,6 +21,8 @@ export default function EventsPage() {
   
   // Modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
   // Hooks for data fetching
@@ -39,14 +43,19 @@ export default function EventsPage() {
 
   const handleEventView = (event: Event) => {
     setSelectedEvent(event);
+    setShowDetailsModal(true);
     console.log('Viewing event:', event);
   };
 
   const handleEventEdit = (event: Event) => {
+    setSelectedEvent(event);
+    // TODO: Implement edit modal or redirect to edit page
     console.log('Editing event:', event);
   };
 
   const handleEventInvite = (event: Event) => {
+    setSelectedEvent(event);
+    setShowInviteModal(true);
     console.log('Inviting to event:', event);
   };
 
@@ -69,6 +78,13 @@ export default function EventsPage() {
   const handleCalendarSlotSelect = (slotInfo: { start: Date; end: Date }) => {
     setShowCreateModal(true);
     console.log('Creating event for slot:', slotInfo);
+  };
+
+  const handleInviteSuccess = () => {
+    setShowInviteModal(false);
+    setSelectedEvent(null);
+    // Optionally show success message
+    console.log('Invitations sent successfully!');
   };
 
   // Filter events based on current filter
@@ -195,6 +211,29 @@ export default function EventsPage() {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSuccess={handleCreateEvent}
+      />
+
+      {/* Event Details Modal */}
+      <EventDetailsModal
+        event={selectedEvent}
+        isOpen={showDetailsModal}
+        onClose={() => {
+          setShowDetailsModal(false);
+          setSelectedEvent(null);
+        }}
+        onEdit={handleEventEdit}
+        onInvite={handleEventInvite}
+      />
+
+      {/* Event Invite Modal */}
+      <EventInviteModal
+        event={selectedEvent}
+        isOpen={showInviteModal}
+        onClose={() => {
+          setShowInviteModal(false);
+          setSelectedEvent(null);
+        }}
+        onSuccess={handleInviteSuccess}
       />
 
       {/* Mobile Bottom Navigation Space */}
