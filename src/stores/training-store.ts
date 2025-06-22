@@ -85,7 +85,7 @@ export const useTrainingStore = create<TrainingStore>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const response = await fetch(`/api/training/${videoId}`);
+      const response = await fetch(`/api/training/video/${videoId}`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch video');
@@ -238,4 +238,4 @@ export const useTrainingStore = create<TrainingStore>((set, get) => ({
 // Deprecated exports for backward compatibility - no need to re-export
 
 // Legacy hooks have been removed to prevent deprecated warnings
-// Use useTrainingVideos and useVideoProgress from '@/hooks/queries/useTraining' instead 
+// Use useTrainingVideos and useVideoProgress from '@/hooks/queries/useTraining' instead
