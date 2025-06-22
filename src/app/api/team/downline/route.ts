@@ -20,7 +20,9 @@ export async function GET(req: NextRequest) {
         id,
         email,
         username,
-        member_profiles(first_name, last_name)
+        first_name,
+        last_name,
+        name
       `)
       .eq('sponsor_id', user.id)
       .limit(50);
@@ -35,9 +37,9 @@ export async function GET(req: NextRequest) {
       id: member.id,
       email: member.email,
       username: member.username,
-      name: member.member_profiles?.first_name 
-        ? `${member.member_profiles.first_name} ${member.member_profiles.last_name || ''}`.trim()
-        : member.username
+      name: member.first_name 
+        ? `${member.first_name} ${member.last_name || ''}`.trim()
+        : (member.name || member.username)
     }));
 
     return apiResponse({

@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     // Get member details for sender info
     const { data: member, error: memberError } = await supabase
       .from('members')
-      .select('*, member_profiles(*)')
+      .select('id, email, username, first_name, last_name, name')
       .eq('id', user.id)
       .single();
 
@@ -82,9 +82,9 @@ export async function POST(req: NextRequest) {
       return apiError('Member profile not found', 404);
     }
 
-    const senderName = member.member_profiles?.first_name 
-      ? `${member.member_profiles.first_name} ${member.member_profiles.last_name || ''}`.trim()
-      : member.username;
+    const senderName = member.first_name 
+      ? `${member.first_name} ${member.last_name || ''}`.trim()
+      : (member.name || member.username);
 
          // Determine email template
      let finalTemplateId = templateId;
