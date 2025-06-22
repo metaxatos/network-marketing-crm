@@ -95,14 +95,16 @@ export function VimeoVideo({
     }
 
     const handleMessage = (event: MessageEvent) => {
-      if (!event.origin.includes('vimeo.com')) return
+      // Strict origin check to prevent security vulnerabilities
+      if (event.origin !== 'https://player.vimeo.com') return
+      
       try {
         const data = JSON.parse(event.data)
         if (data.event === 'timeupdate' && data.data?.seconds) {
           onProgress?.(data.data.seconds)
         }
       } catch (err) {
-        console.error('Error parsing Vimeo message:', err)
+        // Silently ignore parse errors from non-JSON messages
       }
     }
 
