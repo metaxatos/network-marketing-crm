@@ -82,7 +82,7 @@ export async function GET(
       .limit(1)
       .single()
 
-    // Prepare response data
+    // Prepare response data - handle null course gracefully
     const responseData = {
       video: {
         id: video.id,
@@ -100,11 +100,11 @@ export async function GET(
           lastWatchedAt: progress.last_watched_at
         } : null
       },
-      course: {
+      course: video.course ? {
         id: video.course.id,
         title: video.course.title,
         description: video.course.description
-      },
+      } : null,
       nextVideo: nextVideo ? {
         id: nextVideo.id,
         title: nextVideo.title
