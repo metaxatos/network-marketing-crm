@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { supabase } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import type { Member } from '@/types'
 
@@ -40,6 +39,29 @@ interface UserActions {
   checkUsernameAvailability: (username: string) => Promise<boolean>
 }
 
+// Helper to get Supabase client only when needed
+async function getSupabaseClient() {
+  if (typeof window === 'undefined') {
+    // Return a dummy object on server to prevent crashes
+    return {
+      auth: {
+        signOut: async () => ({ error: null }),
+        getSession: async () => ({ data: { session: null }, error: null }),
+        signInWithPassword: async () => ({ data: null, error: { message: 'Server-side auth not supported' } })
+      },
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            single: async () => ({ data: null, error: { message: 'Server-side queries not supported' } })
+          })
+        })
+      })
+    }
+  }
+  const { createClient } = await import('@/lib/supabase/client')
+  return createClient()
+}
+
 export const useUserStore = create<UserState & UserActions>((set, get) => ({
   user: null,
   member: null,
@@ -55,6 +77,7 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
 
   signOut: async () => {
     try {
+      const supabase = await getSupabaseClient()
       await supabase.auth.signOut()
       set({ 
         user: null, 
@@ -76,6 +99,7 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
 
   login: async (email: string, password: string) => {
     try {
+      const supabase = await getSupabaseClient()
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -153,6 +177,7 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
   logout: async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
+      const supabase = await getSupabaseClient()
       await supabase.auth.signOut()
     } catch (error) {
       console.error('Logout error:', error)
@@ -212,6 +237,7 @@ export const useUserStore = create<UserState & UserActions>((set, get) => ({
     try {
       set({ isLoading: true })
       
+      const supabase = await getSupabaseClient()
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       
       if (sessionError) {
