@@ -1,9 +1,11 @@
 'use server'
 
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/server'
 
 export async function updateContactMetrics(memberId: string) {
   try {
+    const supabase = await createClient()
+    
     // Count contacts added this week
     const oneWeekAgo = new Date()
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)

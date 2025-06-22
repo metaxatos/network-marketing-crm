@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/server'
 import { 
   isValidRedirectUrl, 
   getClientIp, 
@@ -12,6 +12,7 @@ export async function GET(
   { params }: { params: Promise<{ emailId: string }> }
 ) {
   try {
+    const supabase = await createClient()
     const { emailId } = await params
     const url = request.nextUrl
     
@@ -126,6 +127,7 @@ export async function GET(
  */
 async function updateEmailClickStats(emailId: string) {
   try {
+    const supabase = await createClient()
     // Get current click count
     const { data: clickData } = await supabase
       .from('email_clicks')
@@ -157,6 +159,7 @@ async function updateEmailClickStats(emailId: string) {
  */
 async function updateContactLastInteraction(contactId: string) {
   try {
+    const supabase = await createClient()
     await supabase
       .from('contacts')
       .update({ last_contacted_at: new Date().toISOString() })
@@ -175,6 +178,7 @@ async function logMemberActivity(
   metadata: Record<string, any>
 ) {
   try {
+    const supabase = await createClient()
     await supabase
       .from('member_activities')
       .insert({

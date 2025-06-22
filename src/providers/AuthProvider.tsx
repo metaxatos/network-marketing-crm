@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useEffect, useState } from 'react'
 import { User, AuthChangeEvent, Session } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
 
 interface AuthContextType {
   user: User | null
@@ -37,6 +36,8 @@ export default function AuthProvider({ children }: AuthProviderProps) {
     // Get initial session
     const getInitialSession = async () => {
       try {
+        const { createClient } = await import('@/lib/supabase/client')
+        const supabase = createClient()
         const { data: { session }, error } = await supabase.auth.getSession()
         
         if (error) {
@@ -67,32 +68,42 @@ export default function AuthProvider({ children }: AuthProviderProps) {
     }, 5000) // Reduced from 10 seconds to 5 seconds
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event: AuthChangeEvent, session: Session | null) => {
-        try {
-          if (isMounted) {
-            setUser(session?.user ?? null)
-            
-            // Only set loading to false if we're not already finished loading
-            if (loading) {
-              setLoading(false)
+    let subscription: any
+    const setupAuthListener = async () => {
+      const { createClient } = await import('@/lib/supabase/client')
+      const supabase = createClient()
+      const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
+        async (event: AuthChangeEvent, session: Session | null) => {
+          try {
+            if (isMounted) {
+              setUser(session?.user ?? null)
+              
+              // Only set loading to false if we're not already finished loading
+              if (loading) {
+                setLoading(false)
+              }
             }
-          }
-        } catch (error) {
-          console.warn('Auth state change failed:', error)
-          if (isMounted) {
-            setUser(null)
-            if (loading) {
-              setLoading(false)
+          } catch (error) {
+            console.warn('Auth state change failed:', error)
+            if (isMounted) {
+              setUser(null)
+              if (loading) {
+                setLoading(false)
+              }
             }
           }
         }
-      }
-    )
+      )
+      subscription = authSubscription
+    }
+
+    setupAuthListener()
 
     return () => {
       isMounted = false
-      subscription.unsubscribe()
+      if (subscription) {
+        subscription.unsubscribe()
+      }
       if (timeoutId) {
         clearTimeout(timeoutId)
       }

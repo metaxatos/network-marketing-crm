@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/server'
 
 interface Contact {
   id: string
@@ -21,6 +21,7 @@ const TEMPLATE_IDS = {
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = await createClient()
     console.log('[Send Quick Email] API route called')
     
     const { contactIds, language = 'en', targetAudience } = await request.json()
