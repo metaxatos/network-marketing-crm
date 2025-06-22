@@ -112,7 +112,7 @@ function VideoPageContent() {
         setIsLoading(true)
         setError(null)
         
-        const response = await fetch(`/api/training/${videoId}`, {
+        const response = await fetch(`/api/training/video/${videoId}`, {
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
