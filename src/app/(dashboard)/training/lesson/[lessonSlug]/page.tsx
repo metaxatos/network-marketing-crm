@@ -1,14 +1,12 @@
-'use client';
-
-import { useState, useEffect, useRef, Suspense } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { Suspense } from 'react'
+import { notFound, redirect } from 'next/navigation'
 import { ArrowLeft, Play, CheckCircle, Clock, BookOpen, SkipForward } from 'lucide-react'
 import { DashboardLayout } from '@/components/ui/dashboard-layout'
-import { useAuth } from '@/hooks'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { VideoPlayer } from '@/components/training/video-player'
 import type { VideoPlatform } from '@/types/training'
 import { createClient } from '@/lib/supabase/client'
+import Link from 'next/link'
 
 interface LessonData {
   id: string
@@ -17,270 +15,263 @@ interface LessonData {
   slug: string
 }
 
-// Loading component for better UX
-function LessonLoading() {
-  return (
-    <DashboardLayout>
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-300 rounded mb-4"></div>
-            <div className="h-96 bg-gray-300 rounded mb-6"></div>
-            <div className="space-y-2">
-              <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-              <div className="h-4 bg-gray-300 rounded w-1/2"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </DashboardLayout>
-  )
+interface LessonPageProps {
+  params: {
+    lessonSlug: string
+  }
 }
 
-// Error component for better error handling
-function LessonError({ error, retry }: { error: string; retry: () => void }) {
-  const router = useRouter()
+// Server Component - eliminates 502 errors on refresh
+export default async function LessonPage({ params }: LessonPageProps) {
+  const { lessonSlug } = params
   
-  return (
-    <DashboardLayout>
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-            <h2 className="text-xl font-bold text-red-800 mb-2">Unable to Load Lesson</h2>
-            <p className="text-red-600 mb-4">{error}</p>
-            <div className="flex gap-2">
-              <button
-                onClick={retry}
-                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
-              >
-                Try Again
-              </button>
-              <button
-                onClick={() => router.push('/training')}
-                className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
-              >
-                Back to Training
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </DashboardLayout>
-  )
-}
+  if (!lessonSlug) {
+    notFound()
+  }
 
-// Main lesson component
-function LessonContent() {
-  const params = useParams()
-  const router = useRouter()
-  const { user, isLoading: authLoading } = useAuth()
-  const lessonSlug = params.lessonSlug as string
-  const [videoData, setVideoData] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [retryCount, setRetryCount] = useState(0)
-
-  // Fetch video data directly from Supabase (eliminates serverless function bottleneck)
-  const fetchVideoData = async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      
-      // Don't fetch if no user or lessonSlug
-      if (!lessonSlug || !user) {
-        if (!user && !authLoading) {
-          throw new Error('Please log in to access training lessons')
-        }
-        return
-      }
-
-      const supabase = createClient()
-      
-      console.log('🎓 Fetching lesson directly from Supabase:', lessonSlug)
-      
-      // Single optimized query to get video with course info
-      const { data: videoData, error: videoError } = await supabase
-        .from('training_videos')
-        .select(`
+  try {
+    // Fetch data on server using direct Supabase client
+    const supabase = createClient()
+    
+    console.log('🎓 [Server] Fetching lesson directly from Supabase:', lessonSlug)
+    
+    // Single optimized query to get video with course info
+    const { data: videoData, error: videoError } = await supabase
+      .from('training_videos')
+      .select(`
+        id,
+        title,
+        description,
+        video_url,
+        video_platform,
+        thumbnail_url,
+        duration_seconds,
+        lesson_order,
+        course_id,
+        slug,
+        courses!inner(
           id,
           title,
-          description,
-          video_url,
-          video_platform,
-          thumbnail_url,
-          duration_seconds,
-          lesson_order,
-          course_id,
-          slug,
-          courses!inner(
-            id,
-            title,
-            description
-          )
-        `)
-        .eq('slug', lessonSlug)
-        .eq('is_published', true)
-        .single()
+          description
+        )
+      `)
+      .eq('slug', lessonSlug)
+      .eq('is_published', true)
+      .single()
 
-      if (videoError) {
-        console.error('🎓 Video query error:', videoError)
-        if (videoError.code === 'PGRST116') {
-          throw new Error('Lesson not found. Please check the URL or try again.')
-        }
-        throw new Error('Failed to load lesson data')
+    if (videoError) {
+      console.error('🎓 [Server] Video query error:', videoError)
+      if (videoError.code === 'PGRST116') {
+        notFound()
       }
+      throw new Error('Failed to load lesson data')
+    }
 
-      if (!videoData) {
-        throw new Error('Lesson not found')
+    if (!videoData) {
+      notFound()
+    }
+
+    console.log('🎓 [Server] Found video:', videoData.title)
+
+    // Get all lessons in this course for navigation
+    const { data: allLessons, error: lessonsError } = await supabase
+      .from('training_videos')
+      .select('id, title, lesson_order, slug')
+      .eq('course_id', videoData.course_id)
+      .eq('is_published', true)
+      .order('lesson_order')
+
+    if (lessonsError) {
+      console.error('🎓 [Server] Lessons query error:', lessonsError)
+      // Don't fail the whole page for navigation data
+    }
+
+    // Find current lesson index and next/previous lessons
+    const currentIndex = allLessons?.findIndex((lesson: LessonData) => lesson.id === videoData.id) ?? -1
+    const nextLesson = currentIndex >= 0 && allLessons && currentIndex < allLessons.length - 1 
+      ? allLessons[currentIndex + 1] 
+      : null
+    const previousLesson = currentIndex > 0 && allLessons
+      ? allLessons[currentIndex - 1] 
+      : null
+
+    // Build props for client component
+    const videoProps = {
+      video: {
+        ...videoData,
+        course: videoData.courses
+      },
+      navigation: {
+        nextLesson: nextLesson ? {
+          id: nextLesson.id,
+          title: nextLesson.title,
+          slug: nextLesson.slug
+        } : null,
+        previousLesson: previousLesson ? {
+          id: previousLesson.id,
+          title: previousLesson.title,
+          slug: previousLesson.slug
+        } : null,
+        allLessons: (allLessons || []).map((lesson: LessonData) => ({
+          id: lesson.id,
+          title: lesson.title,
+          lesson_order: lesson.lesson_order,
+          slug: lesson.slug
+        }))
       }
+    }
 
-      console.log('🎓 Found video:', videoData.title)
+    return (
+      <ErrorBoundary>
+        <LessonDisplay {...videoProps} />
+      </ErrorBoundary>
+    )
+    
+  } catch (error) {
+    console.error('🚨 [Server] Lesson page error:', error)
+    notFound()
+  }
+}
 
-      // Get user progress in parallel with lesson navigation
-      const [progressResult, lessonsResult] = await Promise.all([
-        // User progress for this video
-        supabase
+// Client Component for interactivity
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/hooks'
+
+interface LessonDisplayProps {
+  video: {
+    id: string
+    title: string
+    description?: string
+    video_url: string
+    video_platform: VideoPlatform
+    thumbnail_url?: string
+    duration_seconds?: number
+    lesson_order: number
+    course_id: string
+    slug: string
+    course: {
+      id: string
+      title: string
+      description?: string
+    }
+  }
+  navigation: {
+    nextLesson: { id: string; title: string; slug: string } | null
+    previousLesson: { id: string; title: string; slug: string } | null
+    allLessons: Array<{
+      id: string
+      title: string
+      lesson_order: number
+      slug: string
+    }>
+  }
+}
+
+function LessonDisplay({ video, navigation }: LessonDisplayProps) {
+  const router = useRouter()
+  const { user, isLoading: authLoading } = useAuth()
+  const [progress, setProgress] = useState<any>(null)
+  const [isLoadingProgress, setIsLoadingProgress] = useState(true)
+
+  // Fetch user progress on client side (user-specific data)
+  useEffect(() => {
+    async function fetchProgress() {
+      if (!user || authLoading) return
+      
+      try {
+        setIsLoadingProgress(true)
+        const supabase = createClient()
+        
+        const { data: progressData } = await supabase
           .from('member_progress')
           .select('*')
           .eq('member_id', user.id)
-          .eq('video_id', videoData.id)
-          .maybeSingle(),
+          .eq('video_id', video.id)
+          .maybeSingle()
         
-        // All lessons in this course for navigation
-        supabase
-          .from('training_videos')
-          .select('id, title, lesson_order, slug')
-          .eq('course_id', videoData.course_id)
-          .eq('is_published', true)
-          .order('lesson_order')
-      ])
-
-      const progressData = progressResult.data
-      const allLessons = lessonsResult.data || []
-
-      // Find current lesson index and next/previous lessons
-      const currentIndex = allLessons.findIndex((lesson: LessonData) => lesson.id === videoData.id)
-      const nextLesson = currentIndex >= 0 && currentIndex < allLessons.length - 1 
-        ? allLessons[currentIndex + 1] 
-        : null
-      const previousLesson = currentIndex > 0 
-        ? allLessons[currentIndex - 1] 
-        : null
-
-      // Build result object
-      const result = {
-        video: {
-          ...videoData,
-          course: videoData.courses // Fix the course reference
-        },
-        progress: progressData || null,
-        navigation: {
-          nextLesson: nextLesson ? {
-            id: nextLesson.id,
-            title: nextLesson.title,
-            slug: nextLesson.slug
-          } : null,
-          previousLesson: previousLesson ? {
-            id: previousLesson.id,
-            title: previousLesson.title,
-            slug: previousLesson.slug
-          } : null,
-          allLessons: allLessons.map((lesson: LessonData) => ({
-            id: lesson.id,
-            title: lesson.title,
-            lesson_order: lesson.lesson_order,
-            slug: lesson.slug
-          }))
-        }
+        setProgress(progressData)
+      } catch (error) {
+        console.error('Progress fetch error:', error)
+      } finally {
+        setIsLoadingProgress(false)
       }
-
-      setVideoData(result)
-      
-    } catch (err) {
-      console.error('🚨 Lesson fetch error:', err)
-      if (err instanceof Error) {
-        setError(err.message)
-      } else {
-        setError('An unexpected error occurred loading the lesson')
-      }
-    } finally {
-      setIsLoading(false)
     }
-  }
 
-  // Retry function
-  const retryFetch = () => {
-    setRetryCount(prev => prev + 1)
-    fetchVideoData()
-  }
+    fetchProgress()
+  }, [user, video.id, authLoading])
 
+  // Redirect to login if not authenticated
   useEffect(() => {
-    // Wait for auth to be ready before fetching
-    if (!authLoading) {
-      fetchVideoData()
+    if (!authLoading && !user) {
+      router.push('/login')
     }
-  }, [lessonSlug, user, authLoading, retryCount])
+  }, [user, authLoading, router])
 
   const handleBackToCourse = () => {
-    if (!videoData?.course?.id) {
-      router.push('/training')
-      return
-    }
-    router.push(`/training/course/${videoData.course.id}`)
+    router.push('/training')
   }
 
   const handleNextLesson = () => {
-    if (!videoData?.navigation?.nextLesson?.slug) return
-    router.push(`/training/lesson/${videoData.navigation.nextLesson.slug}`)
+    if (navigation.nextLesson) {
+      router.push(`/training/lesson/${navigation.nextLesson.slug}`)
+    }
   }
 
-  // Show auth loading state
-  if (authLoading) {
-    return <LessonLoading />
-  }
-
-  // Show error state
-  if (error) {
-    return <LessonError error={error} retry={retryFetch} />
-  }
-
-  // Show loading state
-  if (isLoading || !videoData) {
-    return <LessonLoading />
+  const handlePreviousLesson = () => {
+    if (navigation.previousLesson) {
+      router.push(`/training/lesson/${navigation.previousLesson.slug}`)
+    }
   }
 
   const renderVideo = () => {
-    const { video } = videoData
-    
-    // Use the unified VideoPlayer component for all video types
-    if (video.video_platform && video.video_url) {
+    if (!video.video_url) {
       return (
-        <VideoPlayer
-          videoId={video.id}
-          url={video.video_url}
-          platform={video.video_platform as VideoPlatform}
-          initialProgress={videoData.progress?.progress_seconds || 0}
-          autoSave={true}
-          onProgress={(seconds) => {
-            // Optional: Add any additional progress handling here
-            console.log('Video progress:', seconds)
-          }}
-          onEnd={() => {
-            // Optional: Handle video completion
-            console.log('Video ended')
-          }}
-        />
+        <div className="bg-gray-100 rounded-lg aspect-video flex items-center justify-center">
+          <div className="text-center">
+            <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+            <p className="text-gray-600">Video content coming soon</p>
+          </div>
+        </div>
       )
     }
-    
+
     return (
-      <div className="w-full aspect-video rounded-lg shadow-lg bg-gray-200 flex items-center justify-center">
-        <div className="text-center">
-          <Play className="w-16 h-16 text-gray-400 mx-auto mb-2" />
-          <p className="text-gray-500">Video not available</p>
-        </div>
+      <div className="bg-black rounded-lg overflow-hidden shadow-2xl aspect-video">
+        <VideoPlayer
+          url={video.video_url}
+          platform={video.video_platform}
+          videoId={video.id}
+          initialProgress={progress?.progress_seconds || 0}
+          autoSave={true}
+        />
       </div>
     )
+  }
+
+  if (authLoading || isLoadingProgress) {
+    return (
+      <DashboardLayout>
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-300 rounded mb-4"></div>
+              <div className="h-96 bg-gray-300 rounded mb-6"></div>
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (!user) {
+    return null // Will redirect to login
   }
 
   return (
@@ -288,78 +279,131 @@ function LessonContent() {
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
-          <div className="flex items-center gap-4 mb-6">
+          <div className="flex items-center justify-between mb-6">
             <button
               onClick={handleBackToCourse}
-              className="p-2 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
+              className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 transition-colors"
             >
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
+              <ArrowLeft className="w-5 h-5" />
+              <span className="font-medium">Back to Course</span>
             </button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                {videoData?.video?.title || 'Loading...'}
-              </h1>
-              <p className="text-sm text-gray-600">
-                Course: {videoData?.course?.title || 'Loading...'}
-              </p>
+            
+            <div className="text-right">
+              <p className="text-sm text-gray-600">{video.course.title}</p>
+              <p className="text-xs text-gray-500">Lesson {video.lesson_order}</p>
             </div>
           </div>
 
           {/* Video Player */}
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-6">
-            <div className="p-6">
-              {renderVideo()}
-            </div>
+          <div className="mb-8">
+            {renderVideo()}
           </div>
 
-          {/* Lesson Description */}
-          {videoData?.video?.description && (
-            <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-3">About This Lesson</h2>
-              <p className="text-gray-600 leading-relaxed">{videoData.video.description}</p>
+          {/* Lesson Info */}
+          <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex-1">
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                  {video.title}
+                </h1>
+                
+                {progress?.completed && (
+                  <div className="flex items-center gap-2 text-green-600 mb-2">
+                    <CheckCircle className="w-5 h-5" />
+                    <span className="font-medium">Completed</span>
+                  </div>
+                )}
+                
+                {video.duration_seconds && (
+                  <div className="flex items-center gap-2 text-gray-600 mb-2">
+                    <Clock className="w-4 h-4" />
+                    <span className="text-sm">
+                      {Math.ceil(video.duration_seconds / 60)} minutes
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
-          )}
 
-          {/* Navigation */}
-          <div className="flex justify-between items-center">
-            <button
-              onClick={handleBackToCourse}
-              className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
-            >
-              <BookOpen className="w-4 h-4" />
-              Back to Course
-            </button>
-            
-            {videoData?.navigation?.nextLesson && (
-              <button
-                onClick={handleNextLesson}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-              >
-                Next Lesson
-                <SkipForward className="w-4 h-4" />
-              </button>
+            {video.description && (
+              <div className="prose prose-gray max-w-none">
+                <p className="text-gray-700 leading-relaxed">
+                  {video.description}
+                </p>
+              </div>
             )}
           </div>
+
+          {/* Navigation */}
+          <div className="flex justify-between items-center bg-white rounded-lg shadow-lg p-6">
+            <div className="flex-1">
+              {navigation.previousLesson && (
+                <button
+                  onClick={handlePreviousLesson}
+                  className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <div className="text-left">
+                    <p className="text-xs text-gray-500">Previous</p>
+                    <p className="font-medium">{navigation.previousLesson.title}</p>
+                  </div>
+                </button>
+              )}
+            </div>
+
+            <div className="flex-1 text-right">
+              {navigation.nextLesson && (
+                <button
+                  onClick={handleNextLesson}
+                  className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 transition-colors ml-auto"
+                >
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Next</p>
+                    <p className="font-medium">{navigation.nextLesson.title}</p>
+                  </div>
+                  <SkipForward className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Course Progress */}
+          {navigation.allLessons.length > 0 && (
+            <div className="mt-6 bg-white rounded-lg shadow-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Course Progress</h3>
+              <div className="space-y-2">
+                {navigation.allLessons.map((lesson) => (
+                  <Link
+                    key={lesson.id}
+                    href={`/training/lesson/${lesson.slug}`}
+                    className={`block p-3 rounded-lg transition-colors ${
+                      lesson.id === video.id
+                        ? 'bg-indigo-50 border-2 border-indigo-200'
+                        : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-gray-500">
+                          {lesson.lesson_order}
+                        </span>
+                        <span className={`font-medium ${
+                          lesson.id === video.id ? 'text-indigo-700' : 'text-gray-700'
+                        }`}>
+                          {lesson.title}
+                        </span>
+                      </div>
+                      {lesson.id === video.id && (
+                        <Play className="w-4 h-4 text-indigo-600" />
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </DashboardLayout>
-  )
-}
-
-// Main export with error boundary
-export default function LessonPage() {
-  return (
-    <ErrorBoundary 
-      fallback={({ error, resetError }) => (
-        <LessonError 
-          error={error?.message || "Something went wrong. Please try refreshing the page."} 
-          retry={resetError} 
-        />
-      )}
-    >
-      <Suspense fallback={<LessonLoading />}>
-        <LessonContent />
-      </Suspense>
-    </ErrorBoundary>
   )
 } 
