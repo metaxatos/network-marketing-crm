@@ -49,13 +49,13 @@ export async function GET(
       )
     }
 
-    // Check if user has access to this course
+    // Check if user has access to this course - use maybeSingle() to handle no enrollment
     const { data: enrollment } = await supabase
       .from('course_enrollments')
       .select('*')
       .eq('user_id', user.id)
       .eq('course_id', video.course_id)
-      .single()
+      .maybeSingle()
 
     if (!enrollment) {
       return NextResponse.json(
@@ -64,15 +64,15 @@ export async function GET(
       )
     }
 
-    // Get user's progress for this video
+    // Get user's progress for this video - use maybeSingle() to handle no progress
     const { data: progress } = await supabase
       .from('video_progress')
       .select('*')
       .eq('user_id', user.id)
       .eq('video_id', videoId)
-      .single()
+      .maybeSingle()
 
-    // Get next video in the course
+    // Get next video in the course - use maybeSingle() to handle last video
     const { data: nextVideo } = await supabase
       .from('training_videos')
       .select('id, title')
@@ -80,7 +80,7 @@ export async function GET(
       .gt('order_index', video.order_index)
       .order('order_index', { ascending: true })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     // Prepare response data - handle null course gracefully
     const responseData = {
