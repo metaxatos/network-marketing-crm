@@ -15,7 +15,7 @@ const nextConfig = {
           script-src 'self' 'unsafe-eval' 'unsafe-inline' https://va.vercel-scripts.com https://www.youtube.com https://player.vimeo.com https://vimeo.com https://f.vimeocdn.com;
           style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://player.vimeo.com https://vimeo.com;
           style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com https://player.vimeo.com https://vimeo.com;
-          img-src 'self' blob: data: https: https://*.vimeocdn.com https://vimeo.com https://player.vimeo.com;
+          img-src 'self' blob: data: https: https://*.vimeocdn.com https://vimeo.com https://player.vimeo.com https://i.vimeocdn.com;
           font-src 'self' data: https://fonts.gstatic.com https://player.vimeo.com;
           connect-src 'self' https://*.supabase.co https://*.supabase.io wss://*.supabase.co wss://*.supabase.io https://vimeo.com https://player.vimeo.com https://*.vimeocdn.com;
           frame-src 'self' https://js.stripe.com https://www.youtube.com https://player.vimeo.com https://vimeo.com;
@@ -45,9 +45,28 @@ const nextConfig = {
             key: 'Referrer-Policy',
             value: 'strict-origin-when-cross-origin',
           },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=()'
+          }
         ],
       },
     ]
+  },
+  
+  // Add image domains for Vimeo
+  images: {
+    domains: ['i.vimeocdn.com', 'vimeo.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**.vimeo.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.vimeocdn.com',
+      },
+    ],
   },
   
   // Experimental features for Next.js 15
@@ -78,6 +97,8 @@ const nextConfig = {
         fs: false,
         path: false,
         crypto: false,
+        net: false,
+        tls: false,
       }
     }
     
