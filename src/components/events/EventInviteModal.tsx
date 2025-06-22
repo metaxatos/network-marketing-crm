@@ -359,7 +359,7 @@ export default function EventInviteModal({
                       onClick={() => handleRecipientToggle({
                         id: contact.id,
                         name: contact.name,
-                        email: contact.email,
+                        email: contact.email || '',
                         type: 'contact'
                       })}
                       className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
@@ -375,7 +375,7 @@ export default function EventInviteModal({
                           </div>
                           <div>
                             <h3 className="font-medium text-slate-900">{contact.name}</h3>
-                            <p className="text-sm text-slate-600">{contact.email}</p>
+                            <p className="text-sm text-slate-600">{contact.email || 'No email'}</p>
                           </div>
                         </div>
                         {isSelected && (
@@ -414,7 +414,7 @@ export default function EventInviteModal({
                       onClick={() => handleRecipientToggle({
                         id: member.id,
                         name: member.name,
-                        email: member.email,
+                        email: member.email || '',
                         type: 'team'
                       })}
                       className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
@@ -430,7 +430,7 @@ export default function EventInviteModal({
                           </div>
                           <div>
                             <h3 className="font-medium text-slate-900">{member.name}</h3>
-                            <p className="text-sm text-slate-600">{member.email}</p>
+                            <p className="text-sm text-slate-600">{member.email || 'No email'}</p>
                             <p className="text-xs text-slate-500">@{member.username}</p>
                           </div>
                         </div>
@@ -497,7 +497,7 @@ export default function EventInviteModal({
                       <div key={contact.id} className="flex items-center justify-between bg-white rounded-lg p-3">
                         <div>
                           <p className="font-medium text-slate-900">{contact.name}</p>
-                          <p className="text-sm text-slate-600">{contact.email}</p>
+                          <p className="text-sm text-slate-600">{contact.email || 'No email'}</p>
                         </div>
                         <button
                           onClick={() => setSelectedRecipients(prev => prev.filter(r => r.id !== contact.id))}
