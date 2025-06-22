@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/server'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { LessonDisplay } from './lesson-display'
 import type { VideoPlatform } from '@/types/training'
@@ -28,7 +28,7 @@ export default async function LessonPage({ params }: LessonPageProps) {
 
   try {
     // Fetch data on server using direct Supabase client
-    const supabase = createClient()
+    const supabase = await createClient()
     
     console.log('🎓 [Server] Fetching lesson directly from Supabase:', lessonSlug)
     
