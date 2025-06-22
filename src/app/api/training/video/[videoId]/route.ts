@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 
+/**
+ * @deprecated This API route is no longer used as of Fix #2 implementation.
+ * Video data is now fetched directly from Supabase client-side to eliminate
+ * serverless function timeouts and improve performance.
+ * 
+ * This endpoint is kept for backwards compatibility but may be removed in future versions.
+ */
+
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 

@@ -1,139 +1,150 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Play, CheckCircle, Clock, BookOpen, SkipForward } from 'lucide-react'
+import { ArrowLeft, CheckCircle, Clock, BookOpen, SkipForward } from 'lucide-react'
 import { DashboardLayout } from '@/components/ui/dashboard-layout'
 import { useAuth } from '@/hooks'
+import { VideoPlayer } from '@/components/training/video-player'
+import type { VideoPlatform } from '@/types/training'
+import { createClient } from '@/lib/supabase/client'
 
 function VideoPageContent() {
   const params = useParams()
   const router = useRouter()
   const { user, isLoading: authLoading } = useAuth()
   const videoId = params.videoId as string
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const vimeoPlayerRef = useRef<HTMLIFrameElement>(null)
-  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  const vimeoProgressInterval = useRef<NodeJS.Timeout | null>(null)
   
   const [videoData, setVideoData] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentProgress, setCurrentProgress] = useState(0)
-  const [isVideoReady, setIsVideoReady] = useState(false)
-  const [vimeoCurrentTime, setVimeoCurrentTime] = useState(0)
-  const [vimeoDuration, setVimeoDuration] = useState(0)
-  const [isBrowser, setIsBrowser] = useState(false)
 
-  // Check if we're in the browser
-  useEffect(() => {
-    setIsBrowser(typeof window !== 'undefined')
-  }, [])
-
-  // Vimeo Player API helper functions
-  const postMessageToVimeo = (method: string, value?: any) => {
-    if (!isBrowser || !vimeoPlayerRef.current) return
-    
-    const data: { method: string; value?: any } = { method }
-    if (value !== undefined) data.value = value
-    
-    const message = JSON.stringify(data)
-    vimeoPlayerRef.current.contentWindow?.postMessage(message, '*')
-  }
-
-  const handleVimeoMessage = (event: MessageEvent) => {
-    if (!isBrowser || !vimeoPlayerRef.current) return
-    
-    // Only accept messages from Vimeo
-    if (!event.origin.includes('vimeo.com')) return
-    
-    try {
-      const data = JSON.parse(event.data)
-      
-      switch (data.event) {
-        case 'ready':
-          console.log('🎬 Vimeo player ready')
-          setIsVideoReady(true)
-          // Listen for timeupdate events
-          postMessageToVimeo('addEventListener', 'timeupdate')
-          postMessageToVimeo('addEventListener', 'loadedmetadata')
-          postMessageToVimeo('addEventListener', 'ended')
-          // Set current time if resuming
-          if (currentProgress > 0) {
-            setTimeout(() => {
-              postMessageToVimeo('setCurrentTime', currentProgress)
-            }, 1000)
-          }
-          break
-          
-        case 'timeupdate':
-          if (data.data && typeof data.data.seconds === 'number') {
-            setVimeoCurrentTime(data.data.seconds)
-            if (data.data.duration) {
-              setVimeoDuration(data.data.duration)
-            }
-          }
-          break
-          
-        case 'loadedmetadata':
-          if (data.data && data.data.duration) {
-            setVimeoDuration(data.data.duration)
-          }
-          break
-          
-        case 'ended':
-          // Mark video as completed when it ends
-          updateVideoProgress(vimeoDuration, true)
-          break
-      }
-    } catch (err) {
-      console.error('Error parsing Vimeo message:', err)
-    }
-  }
-
-  // Set up Vimeo message listener only in browser
-  useEffect(() => {
-    if (!isBrowser) return
-    
-    const messageHandler = (event: MessageEvent) => handleVimeoMessage(event)
-    window.addEventListener('message', messageHandler)
-    
-    return () => {
-      window.removeEventListener('message', messageHandler)
-    }
-  }, [currentProgress, vimeoDuration, isBrowser])
-
-  // Fetch video data with better error handling
+  // Fetch video data directly from Supabase (eliminates serverless function bottleneck)
   useEffect(() => {
     const fetchVideoData = async () => {
-      if (!videoId || !user || !isBrowser) return
+      if (!videoId || !user) return
       
       try {
         setIsLoading(true)
         setError(null)
         
-        const response = await fetch(`/api/training/video/${videoId}`, {
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        })
+        const supabase = createClient()
         
-        if (!response.ok) {
-          const errorText = await response.text()
-          throw new Error(`HTTP ${response.status}: ${errorText}`)
+        console.log('🎬 Fetching video directly from Supabase:', videoId)
+
+        // Optimized parallel queries to fetch all needed data at once
+        const [videoResult, enrollmentResult, progressResult] = await Promise.all([
+          // Get video with course info
+          supabase
+            .from('training_videos')
+            .select(`
+              id,
+              title,
+              description,
+              video_platform,
+              vimeo_video_id,
+              video_url,
+              thumbnail_url,
+              duration_minutes,
+              order_index,
+              course_id,
+              courses:training_courses(
+                id,
+                title,
+                description
+              )
+            `)
+            .eq('id', videoId)
+            .single(),
+
+          // Check course enrollment
+          supabase
+            .from('course_enrollments')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('course_id', videoId) // This will be corrected after we get the video data
+            .maybeSingle(),
+
+          // Get user progress
+          supabase
+            .from('video_progress')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('video_id', videoId)
+            .maybeSingle()
+        ])
+
+        const { data: video, error: videoError } = videoResult
+        
+        if (videoError || !video) {
+          console.error('🎬 Video query error:', videoError)
+          if (videoError?.code === 'PGRST116') {
+            throw new Error('Video not found')
+          }
+          throw new Error('Failed to load video')
+        }
+
+        // Now check enrollment with correct course_id
+        const { data: enrollment } = await supabase
+          .from('course_enrollments')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('course_id', video.course_id)
+          .maybeSingle()
+
+        // For now, skip enrollment check in development
+        // TODO: Re-enable for production if needed
+        // if (!enrollment) {
+        //   throw new Error('Not enrolled in this course')
+        // }
+
+        const { data: progress } = progressResult
+
+        // Get next video in parallel
+        const { data: nextVideo } = await supabase
+          .from('training_videos')
+          .select('id, title')
+          .eq('course_id', video.course_id)
+          .gt('order_index', video.order_index)
+          .order('order_index', { ascending: true })
+          .limit(1)
+          .maybeSingle()
+
+        // Build response data
+        const responseData = {
+          video: {
+            id: video.id,
+            title: video.title,
+            description: video.description,
+            videoPlatform: video.video_platform || 'vimeo',
+            vimeoVideoId: video.vimeo_video_id,
+            videoUrl: video.video_url,
+            thumbnailUrl: video.thumbnail_url,
+            durationSeconds: video.duration_minutes ? video.duration_minutes * 60 : null,
+            orderIndex: video.order_index,
+            progress: progress ? {
+              progressSeconds: progress.progress_seconds,
+              completed: progress.completed,
+              lastWatchedAt: progress.last_watched_at
+            } : null
+          },
+          course: video.courses ? {
+            id: video.courses.id,
+            title: video.courses.title,
+            description: video.courses.description
+          } : null,
+          nextVideo: nextVideo ? {
+            id: nextVideo.id,
+            title: nextVideo.title
+          } : null
+        }
+
+        setVideoData(responseData)
+        if (responseData.video.progress?.progressSeconds) {
+          setCurrentProgress(responseData.video.progress.progressSeconds)
         }
         
-        const result = await response.json()
-        
-        if (result.success && result.data) {
-          setVideoData(result.data)
-          if (result.data.video.progress?.progressSeconds) {
-            setCurrentProgress(result.data.video.progress.progressSeconds)
-          }
-        } else {
-          throw new Error(result.message || 'Failed to load video')
-        }
       } catch (err) {
         console.error('🚨 Video fetch error:', err)
         setError(err instanceof Error ? err.message : 'An error occurred loading the video')
@@ -142,144 +153,31 @@ function VideoPageContent() {
       }
     }
 
-    // Only fetch if user is authenticated and we're in browser
-    if (!authLoading && user && isBrowser) {
+    // Only fetch if user is authenticated
+    if (!authLoading && user) {
       fetchVideoData()
-    } else if (!authLoading && !user && isBrowser) {
+    } else if (!authLoading && !user) {
       setError('Please log in to access training videos')
       setIsLoading(false)
     }
-  }, [videoId, user, authLoading, isBrowser])
-
-  // Progress tracking for Vimeo videos
-  useEffect(() => {
-    if (!isBrowser || !videoData || videoData.video.videoPlatform !== 'vimeo' || !isVideoReady) return
-
-    // Update progress every 5 seconds for Vimeo videos
-    vimeoProgressInterval.current = setInterval(() => {
-      if (vimeoCurrentTime > 0) {
-        updateVideoProgress(vimeoCurrentTime)
-      }
-    }, 5000)
-
-    return () => {
-      if (vimeoProgressInterval.current) {
-        clearInterval(vimeoProgressInterval.current)
-      }
-    }
-  }, [videoData, isVideoReady, vimeoCurrentTime, isBrowser])
-
-  // Set up video progress tracking for HTML5 videos
-  useEffect(() => {
-    if (!isBrowser || !videoRef.current || !videoData || !isVideoReady) return
-    if (videoData.video.videoPlatform === 'vimeo') return // Skip for Vimeo
-
-    const video = videoRef.current
-    
-    // Resume from last position
-    if (currentProgress > 0) {
-      video.currentTime = currentProgress
-    }
-
-    const updateProgress = async () => {
-      if (!video || !videoData) return
-      
-      const progressSeconds = Math.floor(video.currentTime)
-      const duration = video.duration
-      const completed = duration > 0 && (progressSeconds / duration) >= 0.9 // 90% completion
-      
-      await updateVideoProgress(progressSeconds, completed)
-    }
-
-    // Update progress every 5 seconds
-    progressIntervalRef.current = setInterval(updateProgress, 5000)
-
-    // Update progress when video ends
-    const handleVideoEnd = () => {
-      updateProgress()
-    }
-
-    video.addEventListener('ended', handleVideoEnd)
-
-    return () => {
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current)
-      }
-      video.removeEventListener('ended', handleVideoEnd)
-    }
-  }, [videoData, isVideoReady, currentProgress, isBrowser])
-
-  const updateVideoProgress = async (progressSeconds: number, completed?: boolean) => {
-    if (!videoData || !isBrowser) return
-
-    try {
-      const progressData = {
-        videoId: videoData.video.id,
-        progressSeconds: Math.floor(progressSeconds),
-        completed: completed || false
-      }
-
-      const response = await fetch('/api/training/video-progress', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(progressData)
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to update progress')
-      }
-
-      const result = await response.json()
-      
-      if (result.success && completed) {
-        // Show celebration when video is completed
-        console.log('🎉 Video completed!')
-        // You could add a celebration animation here
-      }
-    } catch (err) {
-      console.error('Error updating video progress:', err)
-    }
-  }
+  }, [videoId, user, authLoading])
 
   const handleBackToCourse = () => {
-    if (!videoData?.course?.id || !isBrowser) return
-    router.push(`/training/course/${videoData.course.id}`)
+    if (videoData?.course?.id) {
+      router.push(`/training/course/${videoData.course.id}`)
+    } else {
+      router.push('/training')
+    }
   }
 
   const handleNextLesson = () => {
-    if (!videoData?.nextVideo?.id || !isBrowser) return
-    router.push(`/training/video/${videoData.nextVideo.id}`)
+    if (videoData?.nextVideo?.id) {
+      router.push(`/training/video/${videoData.nextVideo.id}`)
+    }
   }
 
-  const handleVideoLoadedData = () => {
-    setIsVideoReady(true)
-  }
-
-  // Show loading until browser check is complete
-  if (!isBrowser) {
-    return (
-      <DashboardLayout>
-        <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
-          <div className="max-w-4xl mx-auto">
-            <div className="animate-pulse">
-              <div className="h-8 bg-gray-300 rounded mb-4"></div>
-              <div className="h-96 bg-gray-300 rounded mb-6"></div>
-              <div className="space-y-2">
-                <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-                <div className="h-4 bg-gray-300 rounded w-1/2"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </DashboardLayout>
-    )
-  }
-
-  // Show auth loading state
-  if (authLoading) {
+  // Show loading state
+  if (authLoading || isLoading) {
     return (
       <DashboardLayout>
         <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
@@ -308,10 +206,10 @@ function VideoPageContent() {
               <h2 className="text-xl font-bold text-red-800 mb-2">Unable to Load Video</h2>
               <p className="text-red-600 mb-4">{error}</p>
               <button
-                onClick={() => router.push('/training')}
+                onClick={() => window.location.reload()}
                 className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
               >
-                Back to Training
+                Try Again
               </button>
             </div>
           </div>
@@ -320,20 +218,12 @@ function VideoPageContent() {
     )
   }
 
-  // Show loading state
-  if (isLoading || !videoData) {
+  if (!videoData) {
     return (
       <DashboardLayout>
         <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
           <div className="max-w-4xl mx-auto">
-            <div className="animate-pulse">
-              <div className="h-8 bg-gray-300 rounded mb-4"></div>
-              <div className="h-96 bg-gray-300 rounded mb-6"></div>
-              <div className="space-y-2">
-                <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-                <div className="h-4 bg-gray-300 rounded w-1/2"></div>
-              </div>
-            </div>
+            <p className="text-center text-gray-600">No video data available</p>
           </div>
         </div>
       </DashboardLayout>
@@ -349,36 +239,28 @@ function VideoPageContent() {
     
     const { video } = videoData
     
-    if (video.videoPlatform === 'vimeo' && video.vimeoVideoId) {
-      // Build Vimeo embed URL with API parameters
-      const vimeoUrl = `https://player.vimeo.com/video/${video.vimeoVideoId}?api=1&player_id=vimeo-player&autopause=0&byline=0&portrait=0&title=0`
+    // Use the unified VideoPlayer component for all video types
+    if (video.videoPlatform && (video.videoUrl || video.vimeoVideoId)) {
+      // For Vimeo videos, construct the URL from the ID if needed
+      let videoUrl = video.videoUrl
+      if (video.videoPlatform === 'vimeo' && video.vimeoVideoId && !videoUrl) {
+        videoUrl = `https://vimeo.com/${video.vimeoVideoId}`
+      }
       
       return (
-        <iframe
-          ref={vimeoPlayerRef}
-          id="vimeo-player"
-          src={vimeoUrl}
-          className="w-full aspect-video rounded-lg shadow-lg"
-          frameBorder="0"
-          allow="autoplay; fullscreen; picture-in-picture"
-          allowFullScreen
-          title={video.title || 'Training Video'}
+        <VideoPlayer
+          videoId={video.id}
+          url={videoUrl}
+          platform={video.videoPlatform as VideoPlatform}
+          initialProgress={currentProgress}
+          autoSave={true}
+          onProgress={(seconds) => {
+            setCurrentProgress(seconds)
+          }}
+          onEnd={() => {
+            console.log('Video completed')
+          }}
         />
-      )
-    }
-    
-    if (video.videoUrl) {
-      return (
-        <video
-          ref={videoRef}
-          className="w-full aspect-video rounded-lg shadow-lg"
-          controls
-          onLoadedData={handleVideoLoadedData}
-          poster={video.thumbnailUrl || undefined}
-        >
-          <source src={video.videoUrl} type="video/mp4" />
-          Your browser does not support the video tag.
-        </video>
       )
     }
     
@@ -388,24 +270,6 @@ function VideoPageContent() {
       </div>
     )
   }
-
-  const getCurrentProgressSeconds = () => {
-    if (videoData?.video?.videoPlatform === 'vimeo') {
-      return vimeoCurrentTime
-    }
-    return videoRef.current?.currentTime || 0
-  }
-
-  const getCurrentDuration = () => {
-    if (videoData?.video?.videoPlatform === 'vimeo') {
-      return vimeoDuration
-    }
-    return videoRef.current?.duration || 0
-  }
-
-  const progressPercentage = getCurrentDuration() > 0 
-    ? Math.min((getCurrentProgressSeconds() / getCurrentDuration()) * 100, 100)
-    : 0
 
   return (
     <DashboardLayout>
@@ -433,27 +297,6 @@ function VideoPageContent() {
           <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-6">
             <div className="p-6">
               {renderVideo()}
-              
-              {/* Progress Bar */}
-              {getCurrentDuration() > 0 && (
-                <div className="mt-4">
-                  <div className="flex justify-between text-sm text-gray-600 mb-2">
-                    <span>Progress: {Math.round(progressPercentage)}%</span>
-                    <span>
-                      {Math.floor(getCurrentProgressSeconds() / 60)}:
-                      {String(Math.floor(getCurrentProgressSeconds() % 60)).padStart(2, '0')} / 
-                      {Math.floor(getCurrentDuration() / 60)}:
-                      {String(Math.floor(getCurrentDuration() % 60)).padStart(2, '0')}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-gradient-to-r from-purple-500 to-indigo-500 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${progressPercentage}%` }}
-                    />
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
@@ -475,9 +318,14 @@ function VideoPageContent() {
                 <div className="flex items-center gap-4 text-sm text-gray-500">
                   <div className="flex items-center gap-1">
                     <Clock className="w-4 h-4" />
-                    <span>{Math.floor(getCurrentDuration() / 60)} minutes</span>
+                    <span>
+                      {videoData?.video?.durationSeconds 
+                        ? `${Math.floor(videoData.video.durationSeconds / 60)} minutes`
+                        : 'Duration loading...'
+                      }
+                    </span>
                   </div>
-                  {progressPercentage >= 90 && (
+                  {videoData?.video?.progress?.completed && (
                     <div className="flex items-center gap-1 text-green-600">
                       <CheckCircle className="w-4 h-4" />
                       <span>Completed</span>

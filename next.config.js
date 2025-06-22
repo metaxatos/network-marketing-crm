@@ -12,17 +12,17 @@ const nextConfig = {
       ? "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; object-src 'none';"
       : `
           default-src 'self';
-          script-src 'self' 'unsafe-eval' 'unsafe-inline' https://va.vercel-scripts.com https://www.youtube.com https://player.vimeo.com https://vimeo.com https://f.vimeocdn.com;
-          style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://player.vimeo.com https://vimeo.com;
-          style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com https://player.vimeo.com https://vimeo.com;
-          img-src 'self' blob: data: https: https://*.vimeocdn.com https://vimeo.com https://player.vimeo.com https://i.vimeocdn.com;
-          font-src 'self' data: https://fonts.gstatic.com https://player.vimeo.com;
-          connect-src 'self' https://*.supabase.co https://*.supabase.io wss://*.supabase.co wss://*.supabase.io https://vimeo.com https://player.vimeo.com https://*.vimeocdn.com;
-          frame-src 'self' https://js.stripe.com https://www.youtube.com https://player.vimeo.com https://vimeo.com;
+          script-src 'self' 'unsafe-eval' 'unsafe-inline' https://va.vercel-scripts.com https://www.youtube.com https://player.vimeo.com https://vimeo.com https://f.vimeocdn.com https://fast.wistia.com https://fast.wistia.net;
+          style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://player.vimeo.com https://vimeo.com https://fast.wistia.com;
+          style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com https://player.vimeo.com https://vimeo.com https://fast.wistia.com;
+          img-src 'self' blob: data: https: https://*.vimeocdn.com https://vimeo.com https://player.vimeo.com https://i.vimeocdn.com https://*.wistia.com https://*.wistia.net;
+          font-src 'self' data: https://fonts.gstatic.com https://player.vimeo.com https://fast.wistia.com;
+          connect-src 'self' https://*.supabase.co https://*.supabase.io wss://*.supabase.co wss://*.supabase.io https://vimeo.com https://player.vimeo.com https://*.vimeocdn.com https://*.wistia.com https://*.wistia.net;
+          frame-src 'self' https://js.stripe.com https://www.youtube.com https://player.vimeo.com https://vimeo.com https://fast.wistia.com https://fast.wistia.net;
           object-src 'none';
-          media-src 'self' blob: https: https://*.vimeocdn.com https://vimeo.com https://player.vimeo.com;
-          worker-src 'self' blob: https://player.vimeo.com;
-          child-src 'self' https://player.vimeo.com https://vimeo.com;
+          media-src 'self' blob: https: https://*.vimeocdn.com https://vimeo.com https://player.vimeo.com https://*.wistia.com https://*.wistia.net;
+          worker-src 'self' blob: https://player.vimeo.com https://fast.wistia.com;
+          child-src 'self' https://player.vimeo.com https://vimeo.com https://fast.wistia.com;
         `.replace(/\s+/g, ' ').trim()
 
     return [

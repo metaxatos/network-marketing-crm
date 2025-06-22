@@ -6,6 +6,16 @@ import { ArrowLeft, Play, CheckCircle, Clock, BookOpen, SkipForward } from 'luci
 import { DashboardLayout } from '@/components/ui/dashboard-layout'
 import { useAuth } from '@/hooks'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { VideoPlayer } from '@/components/training/video-player'
+import type { VideoPlatform } from '@/types/training'
+import { createClient } from '@/lib/supabase/client'
+
+interface LessonData {
+  id: string
+  title: string
+  lesson_order: number
+  slug: string
+}
 
 // Loading component for better UX
 function LessonLoading() {
@@ -70,7 +80,7 @@ function LessonContent() {
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
 
-  // Fetch video data by lesson slug
+  // Fetch video data directly from Supabase (eliminates serverless function bottleneck)
   const fetchVideoData = async () => {
     try {
       setIsLoading(true)
@@ -83,34 +93,109 @@ function LessonContent() {
         }
         return
       }
+
+      const supabase = createClient()
       
-      const response = await fetch(`/api/training/lesson/${lessonSlug}`, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        // Add timeout to prevent hanging
-        signal: AbortSignal.timeout(10000)
-      })
+      console.log('🎓 Fetching lesson directly from Supabase:', lessonSlug)
       
-      if (!response.ok) {
-        if (response.status === 404) {
+      // Single optimized query to get video with course info
+      const { data: videoData, error: videoError } = await supabase
+        .from('training_videos')
+        .select(`
+          id,
+          title,
+          description,
+          video_url,
+          video_platform,
+          thumbnail_url,
+          duration_seconds,
+          lesson_order,
+          course_id,
+          slug,
+          courses!inner(
+            id,
+            title,
+            description
+          )
+        `)
+        .eq('slug', lessonSlug)
+        .eq('is_published', true)
+        .single()
+
+      if (videoError) {
+        console.error('🎓 Video query error:', videoError)
+        if (videoError.code === 'PGRST116') {
           throw new Error('Lesson not found. Please check the URL or try again.')
         }
-        if (response.status === 401) {
-          throw new Error('Please log in to access this lesson.')
+        throw new Error('Failed to load lesson data')
+      }
+
+      if (!videoData) {
+        throw new Error('Lesson not found')
+      }
+
+      console.log('🎓 Found video:', videoData.title)
+
+      // Get user progress in parallel with lesson navigation
+      const [progressResult, lessonsResult] = await Promise.all([
+        // User progress for this video
+        supabase
+          .from('member_progress')
+          .select('*')
+          .eq('member_id', user.id)
+          .eq('video_id', videoData.id)
+          .maybeSingle(),
+        
+        // All lessons in this course for navigation
+        supabase
+          .from('training_videos')
+          .select('id, title, lesson_order, slug')
+          .eq('course_id', videoData.course_id)
+          .eq('is_published', true)
+          .order('lesson_order')
+      ])
+
+      const progressData = progressResult.data
+      const allLessons = lessonsResult.data || []
+
+      // Find current lesson index and next/previous lessons
+      const currentIndex = allLessons.findIndex((lesson: LessonData) => lesson.id === videoData.id)
+      const nextLesson = currentIndex >= 0 && currentIndex < allLessons.length - 1 
+        ? allLessons[currentIndex + 1] 
+        : null
+      const previousLesson = currentIndex > 0 
+        ? allLessons[currentIndex - 1] 
+        : null
+
+      // Build result object
+      const result = {
+        video: {
+          ...videoData,
+          course: videoData.courses // Fix the course reference
+        },
+        progress: progressData || null,
+        navigation: {
+          nextLesson: nextLesson ? {
+            id: nextLesson.id,
+            title: nextLesson.title,
+            slug: nextLesson.slug
+          } : null,
+          previousLesson: previousLesson ? {
+            id: previousLesson.id,
+            title: previousLesson.title,
+            slug: previousLesson.slug
+          } : null,
+          allLessons: allLessons.map((lesson: LessonData) => ({
+            id: lesson.id,
+            title: lesson.title,
+            lesson_order: lesson.lesson_order,
+            slug: lesson.slug
+          }))
         }
-        const errorText = await response.text()
-        throw new Error(`Failed to load lesson: ${response.status} ${errorText}`)
       }
+
+      setVideoData(result)
       
-      const result = await response.json()
-      
-      if (result.video) {
-        setVideoData(result)
-      } else {
-        throw new Error(result.error || 'Failed to load lesson data')
-      }
     } catch (err) {
       console.error('🚨 Lesson fetch error:', err)
       if (err instanceof Error) {
@@ -167,36 +252,24 @@ function LessonContent() {
   const renderVideo = () => {
     const { video } = videoData
     
-    if (video.video_platform === 'vimeo' && video.vimeo_video_id) {
-      // Enhanced Vimeo URL with parameters for better playback
-      const vimeoUrl = `https://player.vimeo.com/video/${video.vimeo_video_id}?title=0&byline=0&portrait=0&autoplay=0&loop=0&muted=0&controls=1&responsive=1`
-      
+    // Use the unified VideoPlayer component for all video types
+    if (video.video_platform && video.video_url) {
       return (
-        <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-          <iframe
-            src={vimeoUrl}
-            className="absolute top-0 left-0 w-full h-full rounded-lg shadow-lg"
-            frameBorder="0"
-            allow="autoplay; fullscreen; picture-in-picture"
-            allowFullScreen
-            title={video.title || 'Training Video'}
-            loading="lazy"
-          />
-        </div>
-      )
-    }
-    
-    if (video.video_url) {
-      return (
-        <video
-          className="w-full aspect-video rounded-lg shadow-lg"
-          controls
-          poster={video.thumbnail_url || undefined}
-          preload="metadata"
-        >
-          <source src={video.video_url} type="video/mp4" />
-          Your browser does not support the video tag.
-        </video>
+        <VideoPlayer
+          videoId={video.id}
+          url={video.video_url}
+          platform={video.video_platform as VideoPlatform}
+          initialProgress={videoData.progress?.progress_seconds || 0}
+          autoSave={true}
+          onProgress={(seconds) => {
+            // Optional: Add any additional progress handling here
+            console.log('Video progress:', seconds)
+          }}
+          onEnd={() => {
+            // Optional: Handle video completion
+            console.log('Video ended')
+          }}
+        />
       )
     }
     

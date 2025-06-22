@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createApiClient } from '@/lib/supabase/api-client'
 
+/**
+ * @deprecated This API route is no longer used as of Fix #2 implementation.
+ * Video lesson data is now fetched directly from Supabase client-side to eliminate
+ * serverless function timeouts and improve performance.
+ * 
+ * This endpoint is kept for backwards compatibility but may be removed in future versions.
+ */
+
 interface LessonData {
   id: string
   title: string
