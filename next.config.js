@@ -25,13 +25,24 @@ const nextConfig = {
           child-src 'self' https://player.vimeo.com https://vimeo.com https://fast.wistia.com;
         `.replace(/\s+/g, ' ').trim()
 
+    // CSP Monitoring: Enable report-only mode to catch edge-case violations
+    // Set CSP_REPORT_ONLY=true in environment to enable 24h monitoring
+    const cspHeaderName = process.env.CSP_REPORT_ONLY === 'true' 
+      ? 'Content-Security-Policy-Report-Only'
+      : 'Content-Security-Policy'
+
+    // Add report URI if monitoring is enabled
+    const finalPolicy = process.env.CSP_REPORT_ONLY === 'true'
+      ? `${cspPolicy}; report-uri /api/csp-violations`
+      : cspPolicy
+
     return [
       {
         source: '/:path*',
         headers: [
           {
-            key: 'Content-Security-Policy',
-            value: cspPolicy,
+            key: cspHeaderName,
+            value: finalPolicy,
           },
           {
             key: 'X-Frame-Options',
