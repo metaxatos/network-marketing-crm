@@ -56,11 +56,14 @@ export async function POST(req: NextRequest) {
       return apiError('Authentication required', 401);
     }
 
+    // Extract base event ID (remove _occ1, _occ2 suffixes for recurring events)
+    const baseEventId = eventId.replace(/_occ[12]$/, '');
+    
     // Get event details to verify ownership and get event info
     const { data: event, error: eventError } = await supabase
       .from('events')
       .select('*')
-      .eq('id', eventId)
+      .eq('id', baseEventId)
       .eq('member_id', user.id)
       .single();
 
@@ -108,7 +111,7 @@ export async function POST(req: NextRequest) {
         const { data: invitation, error: inviteError } = await supabase
           .from('event_invitations')
           .insert({
-            event_id: eventId,
+            event_id: baseEventId, // Use base event ID for database
             sent_by: user.id,
             sent_to_type: recipient.type,
             recipient_email: recipient.email,
