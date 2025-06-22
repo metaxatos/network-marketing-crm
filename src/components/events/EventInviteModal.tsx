@@ -232,9 +232,9 @@ export default function EventInviteModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-6 text-white">
+        <div className="bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-6 text-white flex-shrink-0">
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold mb-2 font-['Poppins']">
@@ -256,7 +256,7 @@ export default function EventInviteModal({
         </div>
 
         {/* Language Selection */}
-        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200">
+        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex-shrink-0">
           <div className="flex items-center gap-4">
             <span className="font-medium text-slate-700">Invitation Language:</span>
             <div className="flex gap-2">
@@ -285,7 +285,7 @@ export default function EventInviteModal({
         </div>
 
         {/* Tabs */}
-        <div className="px-6 py-4 border-b border-slate-200">
+        <div className="px-6 py-4 border-b border-slate-200 flex-shrink-0">
           <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
             <button
               onClick={() => setSelectedTab('contacts')}
@@ -321,7 +321,8 @@ export default function EventInviteModal({
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[50vh]">
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-6">
           {/* Search Bar */}
           {(selectedTab === 'contacts' || selectedTab === 'team') && (
             <div className="relative mb-6">
@@ -514,11 +515,12 @@ export default function EventInviteModal({
               )}
             </div>
           )}
+          </div>
         </div>
 
         {/* Selected Recipients Summary */}
         {selectedRecipients.length > 0 && (
-          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200">
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-slate-900">
@@ -548,7 +550,7 @@ export default function EventInviteModal({
         )}
 
         {/* Footer Actions */}
-        <div className="px-6 py-4 bg-white border-t border-slate-200">
+        <div className="px-6 py-4 bg-white border-t border-slate-200 flex-shrink-0">
           <div className="flex gap-3">
             <button
               onClick={onClose}
