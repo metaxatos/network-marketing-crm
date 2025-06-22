@@ -23,10 +23,16 @@ function VideoPageContent() {
   const [isVideoReady, setIsVideoReady] = useState(false)
   const [vimeoCurrentTime, setVimeoCurrentTime] = useState(0)
   const [vimeoDuration, setVimeoDuration] = useState(0)
+  const [isBrowser, setIsBrowser] = useState(false)
+
+  // Check if we're in the browser
+  useEffect(() => {
+    setIsBrowser(typeof window !== 'undefined')
+  }, [])
 
   // Vimeo Player API helper functions
   const postMessageToVimeo = (method: string, value?: any) => {
-    if (!vimeoPlayerRef.current) return
+    if (!isBrowser || !vimeoPlayerRef.current) return
     
     const data: { method: string; value?: any } = { method }
     if (value !== undefined) data.value = value
@@ -36,7 +42,7 @@ function VideoPageContent() {
   }
 
   const handleVimeoMessage = (event: MessageEvent) => {
-    if (!vimeoPlayerRef.current) return
+    if (!isBrowser || !vimeoPlayerRef.current) return
     
     // Only accept messages from Vimeo
     if (!event.origin.includes('vimeo.com')) return
@@ -85,18 +91,22 @@ function VideoPageContent() {
     }
   }
 
-  // Set up Vimeo message listener
+  // Set up Vimeo message listener only in browser
   useEffect(() => {
-    window.addEventListener('message', handleVimeoMessage)
+    if (!isBrowser) return
+    
+    const messageHandler = (event: MessageEvent) => handleVimeoMessage(event)
+    window.addEventListener('message', messageHandler)
+    
     return () => {
-      window.removeEventListener('message', handleVimeoMessage)
+      window.removeEventListener('message', messageHandler)
     }
-  }, [currentProgress, vimeoDuration])
+  }, [currentProgress, vimeoDuration, isBrowser])
 
   // Fetch video data with better error handling
   useEffect(() => {
     const fetchVideoData = async () => {
-      if (!videoId || !user) return
+      if (!videoId || !user || !isBrowser) return
       
       try {
         setIsLoading(true)
@@ -132,18 +142,18 @@ function VideoPageContent() {
       }
     }
 
-    // Only fetch if user is authenticated
-    if (!authLoading && user) {
+    // Only fetch if user is authenticated and we're in browser
+    if (!authLoading && user && isBrowser) {
       fetchVideoData()
-    } else if (!authLoading && !user) {
+    } else if (!authLoading && !user && isBrowser) {
       setError('Please log in to access training videos')
       setIsLoading(false)
     }
-  }, [videoId, user, authLoading])
+  }, [videoId, user, authLoading, isBrowser])
 
   // Progress tracking for Vimeo videos
   useEffect(() => {
-    if (!videoData || videoData.video.videoPlatform !== 'vimeo' || !isVideoReady) return
+    if (!isBrowser || !videoData || videoData.video.videoPlatform !== 'vimeo' || !isVideoReady) return
 
     // Update progress every 5 seconds for Vimeo videos
     vimeoProgressInterval.current = setInterval(() => {
@@ -157,11 +167,11 @@ function VideoPageContent() {
         clearInterval(vimeoProgressInterval.current)
       }
     }
-  }, [videoData, isVideoReady, vimeoCurrentTime])
+  }, [videoData, isVideoReady, vimeoCurrentTime, isBrowser])
 
   // Set up video progress tracking for HTML5 videos
   useEffect(() => {
-    if (!videoRef.current || !videoData || !isVideoReady) return
+    if (!isBrowser || !videoRef.current || !videoData || !isVideoReady) return
     if (videoData.video.videoPlatform === 'vimeo') return // Skip for Vimeo
 
     const video = videoRef.current
@@ -197,278 +207,300 @@ function VideoPageContent() {
       }
       video.removeEventListener('ended', handleVideoEnd)
     }
-  }, [videoData, isVideoReady, currentProgress])
+  }, [videoData, isVideoReady, currentProgress, isBrowser])
 
   const updateVideoProgress = async (progressSeconds: number, completed?: boolean) => {
-    if (!videoData) return
-    
-    const duration = videoData.video.videoPlatform === 'vimeo' 
-      ? vimeoDuration 
-      : videoRef.current?.duration || videoData.video.durationSeconds
-    
-    const isCompleted = completed !== undefined 
-      ? completed 
-      : duration > 0 && (progressSeconds / duration) >= 0.9
+    if (!videoData || !isBrowser) return
 
     try {
+      const progressData = {
+        videoId: videoData.video.id,
+        progressSeconds: Math.floor(progressSeconds),
+        completed: completed || false
+      }
+
       const response = await fetch('/api/training/video-progress', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({
-          videoId: videoData.video.id,
-          progressSeconds: Math.floor(progressSeconds),
-          completed: isCompleted
-        })
+        body: JSON.stringify(progressData)
       })
 
-      if (response.ok) {
-        setCurrentProgress(Math.floor(progressSeconds))
-        
-        // Update video data if completed
-        if (isCompleted && !videoData.video.progress?.completed) {
-          setVideoData((prev: any) => ({
-            ...prev,
-            video: {
-              ...prev.video,
-              progress: {
-                ...prev.video.progress,
-                completed: true,
-                progressSeconds: Math.floor(progressSeconds)
-              }
-            }
-          }))
-        }
+      if (!response.ok) {
+        throw new Error('Failed to update progress')
       }
-    } catch (error) {
-      console.error('Failed to update progress:', error)
+
+      const result = await response.json()
+      
+      if (result.success && completed) {
+        // Show celebration when video is completed
+        console.log('🎉 Video completed!')
+        // You could add a celebration animation here
+      }
+    } catch (err) {
+      console.error('Error updating video progress:', err)
     }
   }
 
   const handleBackToCourse = () => {
-    router.back()
+    if (!videoData || !isBrowser) return
+    router.push(`/training/course/${videoData.course.id}`)
   }
 
   const handleNextLesson = () => {
-    if (videoData?.nextRecommended) {
-      router.push(`/training/video/${videoData.nextRecommended.id}`)
-    }
+    if (!videoData?.nextVideo || !isBrowser) return
+    router.push(`/training/video/${videoData.nextVideo.id}`)
   }
 
   const handleVideoLoadedData = () => {
     setIsVideoReady(true)
   }
 
-  // Show loading while auth is checking or video is loading
-  if (authLoading || isLoading) {
+  // Show loading until browser check is complete
+  if (!isBrowser) {
     return (
       <DashboardLayout>
-        <div className="space-y-6">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="h-4 w-4 bg-gray-200 rounded animate-pulse" />
-            <div className="h-6 bg-gray-200 rounded w-32 animate-pulse" />
-          </div>
-          
-          <div className="bg-gray-200 aspect-video rounded-lg animate-pulse" />
-          
-          <div className="space-y-4">
-            <div className="h-8 bg-gray-200 rounded w-3/4 animate-pulse" />
-            <div className="h-4 bg-gray-200 rounded w-full animate-pulse" />
-            <div className="h-4 bg-gray-200 rounded w-2/3 animate-pulse" />
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-300 rounded mb-4"></div>
+              <div className="h-96 bg-gray-300 rounded mb-6"></div>
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+              </div>
+            </div>
           </div>
         </div>
       </DashboardLayout>
     )
   }
 
-  if (error || !videoData) {
+  // Show auth loading state
+  if (authLoading) {
     return (
       <DashboardLayout>
-        <div className="text-center py-12">
-          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Play className="w-8 h-8 text-red-500" />
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-300 rounded mb-4"></div>
+              <div className="h-96 bg-gray-300 rounded mb-6"></div>
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+              </div>
+            </div>
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Video Not Available</h3>
-          <p className="text-gray-600 mb-4">
-            {error || 'The requested video could not be loaded.'}
-          </p>
-          <button 
-            onClick={handleBackToCourse}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
-          >
-            Back to Course
-          </button>
         </div>
       </DashboardLayout>
     )
   }
 
-  const { video, nextRecommended } = videoData
+  // Show error state
+  if (error) {
+    return (
+      <DashboardLayout>
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+              <h2 className="text-xl font-bold text-red-800 mb-2">Unable to Load Video</h2>
+              <p className="text-red-600 mb-4">{error}</p>
+              <button
+                onClick={() => router.push('/training')}
+                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Back to Training
+              </button>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // Show loading state
+  if (isLoading || !videoData) {
+    return (
+      <DashboardLayout>
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-300 rounded mb-4"></div>
+              <div className="h-96 bg-gray-300 rounded mb-6"></div>
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
 
   const renderVideo = () => {
-    if (video.videoPlatform === 'youtube') {
-      const videoIdMatch = video.videoUrl.includes('youtube.com') 
-        ? video.videoUrl.split('v=')[1]?.split('&')[0]
-        : video.videoUrl.split('youtu.be/')[1]?.split('?')[0]
-      
-      const startTime = currentProgress > 0 ? `&start=${Math.floor(currentProgress)}` : ''
-      
-      return (
-        <iframe
-          src={`https://www.youtube.com/embed/${videoIdMatch}?autoplay=0&rel=0${startTime}`}
-          className="w-full h-full"
-          allowFullScreen
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        />
-      )
-    } else if (video.videoPlatform === 'vimeo') {
-      const videoIdMatch = video.videoUrl.split('vimeo.com/')[1]?.split('?')[0]
+    const { video } = videoData
+    
+    if (video.videoPlatform === 'vimeo' && video.vimeoVideoId) {
+      // Build Vimeo embed URL with API parameters
+      const vimeoUrl = `https://player.vimeo.com/video/${video.vimeoVideoId}?api=1&player_id=vimeo-player&autopause=0&byline=0&portrait=0&title=0`
       
       return (
         <iframe
           ref={vimeoPlayerRef}
-          src={`https://player.vimeo.com/video/${videoIdMatch}?api=1&player_id=vimeo_${video.id}`}
-          className="w-full h-full"
-          allowFullScreen
+          id="vimeo-player"
+          src={vimeoUrl}
+          className="w-full aspect-video rounded-lg shadow-lg"
+          frameBorder="0"
           allow="autoplay; fullscreen; picture-in-picture"
-          id={`vimeo_${video.id}`}
+          allowFullScreen
+          title={video.title}
         />
       )
-    } else {
+    }
+    
+    if (video.videoUrl) {
       return (
         <video
           ref={videoRef}
-          src={video.videoUrl}
+          className="w-full aspect-video rounded-lg shadow-lg"
           controls
-          className="w-full h-full"
-          poster={video.thumbnailUrl}
           onLoadedData={handleVideoLoadedData}
-        />
+          poster={video.thumbnailUrl || undefined}
+        >
+          <source src={video.videoUrl} type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
       )
     }
+    
+    return (
+      <div className="w-full aspect-video rounded-lg shadow-lg bg-gray-200 flex items-center justify-center">
+        <p className="text-gray-500">Video not available</p>
+      </div>
+    )
   }
 
   const getCurrentProgressSeconds = () => {
-    if (video.videoPlatform === 'vimeo') {
-      return Math.floor(vimeoCurrentTime)
+    if (videoData?.video.videoPlatform === 'vimeo') {
+      return vimeoCurrentTime
     }
-    return currentProgress
+    return videoRef.current?.currentTime || 0
   }
 
   const getCurrentDuration = () => {
-    if (video.videoPlatform === 'vimeo') {
+    if (videoData?.video.videoPlatform === 'vimeo') {
       return vimeoDuration
     }
-    return video.durationSeconds
+    return videoRef.current?.duration || 0
   }
 
   const progressPercentage = getCurrentDuration() > 0 
-    ? Math.round((getCurrentProgressSeconds() / getCurrentDuration()) * 100)
+    ? Math.min((getCurrentProgressSeconds() / getCurrentDuration()) * 100, 100)
     : 0
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Navigation */}
-        <div className="flex items-center justify-between">
-          <button 
-            onClick={handleBackToCourse}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Course
-          </button>
-          
-          {nextRecommended && (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
+        <div className="max-w-4xl mx-auto">
+          {/* Header */}
+          <div className="flex items-center gap-4 mb-6">
             <button
-              onClick={handleNextLesson}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+              onClick={handleBackToCourse}
+              className="p-2 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
             >
-              <span>Next Lesson</span>
-              <SkipForward className="w-4 h-4" />
+              <ArrowLeft className="w-5 h-5 text-gray-600" />
             </button>
-          )}
-        </div>
-
-        {/* Video Player */}
-        <div className="w-full aspect-video bg-black rounded-lg overflow-hidden">
-          {renderVideo()}
-        </div>
-
-        {/* Video Info */}
-        <div className="space-y-6">
-          <div>
-            <div className="flex items-start justify-between mb-4">
-              <h1 className="text-2xl font-bold text-gray-900">{video.title}</h1>
-              {video.progress?.completed && (
-                <div className="flex items-center gap-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
-                  <CheckCircle className="w-4 h-4" />
-                  Completed
-                </div>
-              )}
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {videoData.video.title}
+              </h1>
+              <p className="text-sm text-gray-600">
+                Course: {videoData.course.title}
+              </p>
             </div>
-            
-            {video.description && (
-              <p className="text-gray-600 leading-relaxed">{video.description}</p>
-            )}
-            
-            <div className="flex items-center gap-6 mt-4 text-sm text-gray-500">
-              {getCurrentDuration() && (
-                <div className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
-                  <span>{Math.ceil(getCurrentDuration() / 60)} minutes</span>
-                </div>
-              )}
-              {video.category && (
-                <div className="flex items-center gap-1">
-                  <BookOpen className="w-4 h-4" />
-                  <span>{video.category}</span>
-                </div>
-              )}
-              {video.videoPlatform && (
-                <div className="flex items-center gap-1">
-                  <Play className="w-4 h-4" />
-                  <span className="capitalize">{video.videoPlatform}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Progress Bar */}
-            {getCurrentDuration() && (
-              <div className="mt-4">
-                <div className="flex justify-between text-sm text-gray-600 mb-2">
-                  <span>Progress</span>
-                  <span>{progressPercentage}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${progressPercentage}%` }}
-                  />
-                </div>
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>{Math.floor(getCurrentProgressSeconds() / 60)}:{(getCurrentProgressSeconds() % 60).toString().padStart(2, '0')}</span>
-                  <span>{Math.floor(getCurrentDuration() / 60)}:{(Math.floor(getCurrentDuration()) % 60).toString().padStart(2, '0')}</span>
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* Next Lesson Card */}
-          {nextRecommended && (
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Next Lesson</h3>
-              <p className="text-gray-600 mb-4">{nextRecommended.title}</p>
+          {/* Video Player */}
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-6">
+            <div className="p-6">
+              {renderVideo()}
+              
+              {/* Progress Bar */}
+              {getCurrentDuration() > 0 && (
+                <div className="mt-4">
+                  <div className="flex justify-between text-sm text-gray-600 mb-2">
+                    <span>Progress: {Math.round(progressPercentage)}%</span>
+                    <span>
+                      {Math.floor(getCurrentProgressSeconds() / 60)}:
+                      {String(Math.floor(getCurrentProgressSeconds() % 60)).padStart(2, '0')} / 
+                      {Math.floor(getCurrentDuration() / 60)}:
+                      {String(Math.floor(getCurrentDuration() % 60)).padStart(2, '0')}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-gradient-to-r from-purple-500 to-indigo-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${progressPercentage}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Video Info */}
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-purple-100 rounded-lg">
+                <BookOpen className="w-6 h-6 text-purple-600" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                  {videoData.video.title}
+                </h2>
+                {videoData.video.description && (
+                  <p className="text-gray-600 mb-4">
+                    {videoData.video.description}
+                  </p>
+                )}
+                <div className="flex items-center gap-4 text-sm text-gray-500">
+                  <div className="flex items-center gap-1">
+                    <Clock className="w-4 h-4" />
+                    <span>{Math.floor(getCurrentDuration() / 60)} minutes</span>
+                  </div>
+                  {progressPercentage >= 90 && (
+                    <div className="flex items-center gap-1 text-green-600">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Completed</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Navigation */}
+          <div className="flex justify-between">
+            <button
+              onClick={handleBackToCourse}
+              className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+            >
+              Back to Course
+            </button>
+            
+            {videoData.nextVideo && (
               <button
                 onClick={handleNextLesson}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all flex items-center gap-2"
               >
-                Continue Learning
+                Next Lesson
+                <SkipForward className="w-4 h-4" />
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </DashboardLayout>
@@ -479,10 +511,16 @@ export default function VideoPage() {
   return (
     <Suspense fallback={
       <DashboardLayout>
-        <div className="flex items-center justify-center min-h-96">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading video...</p>
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-300 rounded mb-4"></div>
+              <div className="h-96 bg-gray-300 rounded mb-6"></div>
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+              </div>
+            </div>
           </div>
         </div>
       </DashboardLayout>
