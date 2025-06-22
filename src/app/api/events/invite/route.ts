@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { apiResponse, apiError } from '@/lib/api-helpers';
+import { sendEmail } from '@/lib/email';
 
 // Email template IDs as provided by the user
 const EMAIL_TEMPLATES = {
@@ -133,39 +134,75 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        // Send email via bulk email system
-        const baseUrl = req.headers.get('host')?.includes('localhost') 
-          ? 'http://localhost:3000' 
-          : 'https://ourteam.gr';
+        // Get email template content from database
+        let emailSubject = `Invitation: ${event.title}`;
+        let emailContent = `
+          <h2>You're Invited to ${event.title}</h2>
+          <p>Hello ${recipient.name},</p>
+          <p>You've been invited by ${senderName} to join this event:</p>
           
-        const emailResponse = await fetch(`${baseUrl}/api/emails/send`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': req.headers.get('Authorization') || ''
-          },
-          body: JSON.stringify({
-            templateId: finalTemplateId,
-            to: [recipient.email], // Use 'to' array format expected by the API
-            customSubject: `Invitation: ${event.title}`,
-            // Note: The email template should already contain the event details
-            // If we need to pass variables, we'd need to modify the email send API
-          })
+          <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0; background-color: #f9fafb;">
+            <h3 style="margin: 0 0 10px 0; color: #1f2937;">${event.title}</h3>
+            <p style="margin: 5px 0; color: #6b7280;"><strong>Date:</strong> ${new Date(event.start_time).toLocaleString()}</p>
+            <p style="margin: 5px 0; color: #6b7280;"><strong>Location:</strong> ${event.location_name || 'Online'}</p>
+            ${event.description ? `<p style="margin: 10px 0 0 0; color: #374151;">${event.description}</p>` : ''}
+          </div>
+          
+          <p>We hope to see you there!</p>
+          <p>Best regards,<br>${senderName}</p>
+        `;
+
+        // If we have a template ID, try to get the template content
+        if (finalTemplateId) {
+          try {
+            const { data: template } = await supabase
+              .from('email_templates')
+              .select('subject, body_html')
+              .eq('id', finalTemplateId)
+              .eq('is_active', true)
+              .single();
+            
+            if (template) {
+              emailSubject = template.subject || emailSubject;
+              emailContent = template.body_html || emailContent;
+              
+              // Simple variable replacement
+              emailContent = emailContent
+                .replace(/\{\{recipient_name\}\}/g, recipient.name)
+                .replace(/\{\{sender_name\}\}/g, senderName)
+                .replace(/\{\{event_title\}\}/g, event.title)
+                .replace(/\{\{event_description\}\}/g, event.description || '')
+                .replace(/\{\{event_date\}\}/g, new Date(event.start_time).toLocaleString())
+                .replace(/\{\{event_location\}\}/g, event.location_name || 'Online')
+                .replace(/\{\{event_url\}\}/g, event.meeting_url || '')
+                .replace(/\{\{register_url\}\}/g, `https://ourteam.gr/events/${eventId}/register`);
+            }
+          } catch (templateError) {
+            console.warn('Could not fetch email template, using default:', templateError);
+          }
+        }
+
+        // Send email directly using the email library
+        const emailResult = await sendEmail({
+          to: recipient.email,
+          subject: emailSubject,
+          html: emailContent,
+          replyTo: member.email,
+          useEdgeFunction: false
         });
 
-        if (emailResponse.ok) {
+        if (emailResult.success) {
           invitationResults.push({
             email: recipient.email,
             status: 'sent',
             invitationId: invitation.id
           });
         } else {
-          const errorData = await emailResponse.json().catch(() => ({ error: 'Unknown error' }));
-          console.error('Failed to send email to:', recipient.email, 'Error:', errorData);
+          console.error('Failed to send email to:', recipient.email, 'Error:', emailResult.error);
           invitationResults.push({
             email: recipient.email,
             status: 'failed',
-            error: `Email sending failed: ${errorData.error || errorData.message || 'Unknown error'}`
+            error: `Email sending failed: ${emailResult.error || 'Unknown error'}`
           });
         }
 
