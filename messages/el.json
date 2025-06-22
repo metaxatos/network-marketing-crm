@@ -1,0 +1,202 @@
+{
+  "common": {
+    "loading": "Φορτώνει...",
+    "error": "Κάτι πήγε στραβά",
+    "success": "Τέλεια!",
+    "save": "Αποθήκευση",
+    "cancel": "Ακύρωση",
+    "delete": "Διαγραφή",
+    "edit": "Επεξεργασία",
+    "add": "Προσθήκη",
+    "search": "Αναζήτηση",
+    "filter": "Φίλτρα",
+    "clear": "Καθάρισμα",
+    "close": "Κλείσιμο",
+    "back": "Πίσω",
+    "next": "Επόμενο",
+    "previous": "Προηγούμενο",
+    "welcome": "Καλώς ήρθες",
+    "email": "Email",
+    "password": "Κωδικός",
+    "name": "Όνομα",
+    "phone": "Τηλέφωνο"
+  },
+  "navigation": {
+    "dashboard": "Αρχική",
+    "contacts": "Επαφές",
+    "email": "Email",
+    "analytics": "Στατιστικά",
+    "events": "Εκδηλώσεις", 
+    "training": "Εκπαίδευση",
+    "team": "Ομάδα",
+    "settings": "Ρυθμίσεις",
+    "landingPage": "Σελίδα",
+    "add": "Προσθήκη"
+  },
+  "auth": {
+    "login": {
+      "title": "Καλώς ήρθες πίσω στην OurTeam!",
+      "subtitle": "Έτοιμος να μεγαλώσεις τη δουλειά σου σήμερα;",
+      "emailLabel": "Email Address",
+      "passwordLabel": "Κωδικός",
+      "emailPlaceholder": "το@email.σου",
+      "passwordPlaceholder": "••••••••",
+      "submitButton": "🚀 Πάμε!",
+      "submitting": "Συνδέεται...",
+      "forgotPassword": "Ξέχασες τον κωδικό σου;",
+      "noAccount": "Καινούργιος στη κοινότητά μας;",
+      "signupLink": "✨ Ξεκίνα το Ταξίδι σου",
+      "trustIndicators": {
+        "secure": "🔒 Τα δεδομένα σου είναι ασφαλή και προστατευμένα",
+        "successful": "🚀 Ένωσε χιλιάδες επιτυχημένους marketers",
+        "version": "Έκδοση 2.0 - Τώρα με βελτιωμένες δυνατότητες!"
+      }
+    },
+    "signup": {
+      "title": "Ξεκίνα το Ταξίδι σου!",
+      "subtitle": "Γίνε μέλος της κοινότητάς μας και ξεκίνα να χτίζεις το όνειρό σου",
+      "firstNameLabel": "Όνομα",
+      "lastNameLabel": "Επώνυμο",
+      "emailLabel": "Email",
+      "passwordLabel": "Κωδικός",
+      "confirmPasswordLabel": "Επιβεβαίωση Κωδικού",
+      "submitButton": "🎉 Ξεκινάω!",
+      "submitting": "Δημιουργία λογαριασμού...",
+      "hasAccount": "Έχεις ήδη λογαριασμό;",
+      "loginLink": "Συνδέσου εδώ"
+    },
+    "forgotPassword": {
+      "title": "Επαναφορά Κωδικού",
+      "subtitle": "Δε πειράζει! Θα σου στείλουμε οδηγίες για να επαναφέρεις τον κωδικό σου",
+      "emailLabel": "Email Address",
+      "submitButton": "Αποστολή Οδηγιών",
+      "backToLogin": "Πίσω στη Σύνδεση"
+    }
+  },
+  "dashboard": {
+    "title": "Γεια σου {name}! 👋",
+    "subtitle": "Έτοιμος για μια υπέροχη μέρα;",
+    "quickActions": {
+      "title": "Γρήγορες Ενέργειες",
+      "addContact": "Νέα Επαφή",
+      "sendEmail": "Στείλε Email",
+      "scheduleEvent": "Προγραμμάτισε Εκδήλωση",
+      "viewTraining": "Εκπαίδευση"
+    },
+    "metrics": {
+      "totalContacts": "Συνολικές Επαφές",
+      "emailsSent": "Emails που Στάλθηκαν",
+      "eventsScheduled": "Προγραμματισμένες Εκδηλώσεις",
+      "teamMembers": "Μέλη Ομάδας"
+    },
+    "recentActivity": {
+      "title": "Πρόσφατη Δραστηριότητα",
+      "noActivity": "Δεν υπάρχει δραστηριότητα ακόμη"
+    }
+  },
+  "contacts": {
+    "title": "Το Δίκτυό σου",
+    "subtitle": "Χτίζε και φροντίζε την αναπτυσσόμενη κοινότητά σου",
+    "addContact": "Προσθήκη Επαφής",
+    "totalContacts": "Συνολικές Επαφές",
+    "leads": "Leads",
+    "customers": "Πελάτες",
+    "teamMembers": "Μέλη Ομάδας",
+    "searchPlaceholder": "Αναζήτηση επαφών...",
+    "filters": {
+      "all": "Όλες",
+      "lead": "Leads",
+      "customer": "Πελάτες",
+      "teamMember": "Μέλη Ομάδας"
+    },
+    "emptyState": {
+      "title": "Ξεκίνα να χτίζεις το δίκτυό σου!",
+      "subtitle": "Πρόσθεσε την πρώτη σου επαφή για να αρχίσεις να μεγαλώνεις το δίκτυό σου και να χτίζεις ουσιαστικές σχέσεις.",
+      "addFirstContact": "Προσθήκη Πρώτης Επαφής"
+    },
+    "noResults": {
+      "title": "Δε βρέθηκαν επαφές",
+      "subtitle": "Δοκίμασε να αλλάξεις την αναζήτηση ή τα φίλτρα για να βρεις αυτό που ψάχνεις."
+    }
+  },
+  "emails": {
+    "title": "Email Marketing",
+    "subtitle": "Δημιούργησε και στείλε υπέροχα emails",
+    "compose": "Νέο Email",
+    "templates": "Πρότυπα",
+    "history": "Ιστορικό",
+    "analytics": "Στατιστικά",
+    "subject": "Θέμα",
+    "message": "Μήνυμα",
+    "recipients": "Παραλήπτες",
+    "send": "Αποστολή",
+    "saveDraft": "Αποθήκευση Προσχεδίου",
+    "emptyState": {
+      "title": "Ξεκίνα να στέλνεις υπέροχα emails!",
+      "subtitle": "Χρησιμοποίησε τα έτοιμα πρότυπά μας ή δημιούργησε το δικό σου email για να συνδεθείς με τις επαφές σου."
+    }
+  },
+  "events": {
+    "title": "Εκδηλώσεις",
+    "subtitle": "Οργάνωσε και διαχειρίσου τις εκδηλώσεις σου",
+    "createEvent": "Νέα Εκδήλωση",
+    "upcomingEvents": "Επερχόμενες Εκδηλώσεις",
+    "pastEvents": "Παρελθούσες Εκδηλώσεις",
+    "eventTitle": "Τίτλος Εκδήλωσης",
+    "eventDate": "Ημερομηνία",
+    "eventTime": "Ώρα",
+    "eventLocation": "Τοποθεσία",
+    "eventDescription": "Περιγραφή",
+    "attendees": "Συμμετέχοντες",
+    "emptyState": {
+      "title": "Οργάνωσε την πρώτη σου εκδήλωση!",
+      "subtitle": "Δημιούργησε υπέροχες εκδηλώσεις για να συνδεθείς με την ομάδα σου και να μοιραστείς την εμπειρία σου."
+    }
+  },
+  "training": {
+    "title": "Εκπαίδευση",
+    "subtitle": "Μάθε και εξελίξου με τα μαθήματά μας",
+    "courses": "Μαθήματα",
+    "videos": "Βίντεο",
+    "progress": "Πρόοδος",
+    "completed": "Ολοκληρωμένα",
+    "inProgress": "Σε Εξέλιξη",
+    "notStarted": "Δεν Έχει Ξεκινήσει",
+    "startCourse": "Ξεκίνα Μάθημα",
+    "continueCourse": "Συνέχισε Μάθημα",
+    "emptyState": {
+      "title": "Ξεκίνα τη μαθησιακή σου πορεία!",
+      "subtitle": "Ανακάλυψε υπέροχα μαθήματα που θα σε βοηθήσουν να αναπτύξεις τις δεξιότητές σου."
+    }
+  },
+  "team": {
+    "title": "Η Ομάδα σου",
+    "subtitle": "Διαχειρίσου και στήριξε τα μέλη της ομάδας σου",
+    "totalMembers": "Συνολικά Μέλη",
+    "activeMembers": "Ενεργά Μέλη",
+    "newThisMonth": "Νέα Αυτό τον Μήνα",
+    "teamTree": "Δέντρο Ομάδας",
+    "memberDetails": "Στοιχεία Μέλους",
+    "emptyState": {
+      "title": "Χτίσε την ομάδα σου!",
+      "subtitle": "Προσκάλεσε νέα μέλη και βοήθησέ τους να πετύχουν τους στόχους τους."
+    }
+  },
+  "settings": {
+    "title": "Ρυθμίσεις",
+    "subtitle": "Προσαρμόζε τις προτιμήσεις σου",
+    "profile": "Προφίλ",
+    "notifications": "Ειδοποιήσεις",
+    "language": "Γλώσσα",
+    "privacy": "Απόρρητο",
+    "account": "Λογαριασμός",
+    "logout": "Αποσύνδεση",
+    "saveChanges": "Αποθήκευση Αλλαγών",
+    "changesSaved": "Οι αλλαγές αποθηκεύτηκαν!"
+  },
+  "language": {
+    "switch": "Αλλαγή Γλώσσας",
+    "greek": "Ελληνικά",
+    "english": "English"
+  }
+}

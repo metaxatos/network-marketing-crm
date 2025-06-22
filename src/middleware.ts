@@ -1,8 +1,25 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import createIntlMiddleware from 'next-intl/middleware'
+import { locales, defaultLocale } from '../i18n'
+
+// Create the intl middleware
+const intlMiddleware = createIntlMiddleware({
+  locales,
+  defaultLocale,
+  localePrefix: 'as-needed'
+})
 
 export async function middleware(req: NextRequest) {
+  // Handle i18n routing first
+  const intlResponse = intlMiddleware(req)
+  
+  // If intl middleware returns a response (redirect), use it
+  if (intlResponse) {
+    return intlResponse
+  }
+
   let supabaseResponse = NextResponse.next({
     request: req,
   })
@@ -36,15 +53,20 @@ export async function middleware(req: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Protected routes that require authentication
-  const protectedRoutes = ['/dashboard', '/training', '/campaigns', '/team', '/analytics', '/contacts', '/settings']
-  const isProtectedRoute = protectedRoutes.some(route => req.nextUrl.pathname.startsWith(route))
+  // Extract locale from pathname
+  const pathname = req.nextUrl.pathname
+  const locale = locales.find(loc => pathname.startsWith(`/${loc}/`)) || defaultLocale
+  
+  // Protected routes that require authentication (considering locale)
+  const protectedRoutes = ['/dashboard', '/training', '/campaigns', '/team', '/analytics', '/contacts', '/settings', '/emails', '/events']
+  const pathWithoutLocale = pathname.replace(`/${locale}`, '') || '/'
+  const isProtectedRoute = protectedRoutes.some(route => pathWithoutLocale.startsWith(route))
 
   if (isProtectedRoute && !user) {
     // No user, redirect to login
     const redirectUrl = req.nextUrl.clone()
-    redirectUrl.pathname = '/login'
-    redirectUrl.searchParams.set('redirectTo', req.nextUrl.pathname)
+    redirectUrl.pathname = `/${locale}/auth/login`
+    redirectUrl.searchParams.set('redirectTo', pathname)
     return NextResponse.redirect(redirectUrl)
   }
 

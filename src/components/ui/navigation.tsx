@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useTranslations } from 'next-intl'
+import { LanguageSwitcher, CompactLanguageSwitcher } from './language-switcher'
 import { 
   Home, 
   Users, 
@@ -22,25 +24,32 @@ interface NavItem {
   icon: any
 }
 
-const navItems: NavItem[] = [
-  { name: 'Dashboard', href: '/dashboard', icon: Home },
-  { name: 'Contacts', href: '/contacts', icon: Users },
-  { name: 'Email', href: '/emails', icon: Mail },
-  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-  { name: 'Events', href: '/events', icon: Calendar },
-  { name: 'Training', href: '/training', icon: GraduationCap },
-  { name: 'Team', href: '/team', icon: Users },
-  { name: 'Landing Page', href: '/landing-page', icon: Globe },
-]
+function useNavItems() {
+  const t = useTranslations('navigation')
+  
+  return [
+    { name: t('dashboard'), href: '/dashboard', icon: Home },
+    { name: t('contacts'), href: '/contacts', icon: Users },
+    { name: t('email'), href: '/emails', icon: Mail },
+    { name: t('analytics'), href: '/analytics', icon: BarChart3 },
+    { name: t('events'), href: '/events', icon: Calendar },
+    { name: t('training'), href: '/training', icon: GraduationCap },
+    { name: t('team'), href: '/team', icon: Users },
+    { name: t('landingPage'), href: '/landing-page', icon: Globe },
+  ]
+}
 
-// Mobile bottom navigation items (5 items max for optimal UX)
-const mobileNavItems = [
-  { name: 'Dashboard', href: '/dashboard', icon: Home },
-  { name: 'Contacts', href: '/contacts', icon: Users },
-  { name: 'Add New', href: '/add', icon: Plus, isSpecial: true }, // Center item
-  { name: 'Events', href: '/events', icon: Calendar },
-  { name: 'More', href: '/more', icon: Menu },
-]
+function useMobileNavItems() {
+  const t = useTranslations('navigation')
+  
+  return [
+    { name: t('dashboard'), href: '/dashboard', icon: Home },
+    { name: t('contacts'), href: '/contacts', icon: Users },
+    { name: t('add'), href: '/add', icon: Plus, isSpecial: true }, // Center item
+    { name: t('events'), href: '/events', icon: Calendar },
+    { name: 'More', href: '/more', icon: Menu },
+  ]
+}
 
 interface TopNavigationProps {
   user?: {
@@ -53,6 +62,7 @@ interface TopNavigationProps {
 
 export function TopNavigation({ user }: TopNavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const navItems = useNavItems()
   
   return (
     <nav className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 z-50 shadow-sm">
@@ -69,8 +79,9 @@ export function TopNavigation({ user }: TopNavigationProps) {
           </Link>
         </div>
 
-        {/* Desktop User Menu */}
+        {/* Desktop User Menu and Language Switcher */}
         <div className="hidden md:flex items-center space-x-4">
+          <LanguageSwitcher />
           <span className="text-sm font-medium text-text-secondary">
             {user?.user_metadata?.first_name || 'User'}
           </span>
@@ -89,17 +100,20 @@ export function TopNavigation({ user }: TopNavigationProps) {
           </div>
         </div>
 
-        {/* Mobile Menu Button */}
-        <button
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="md:hidden p-2 rounded-xl text-text-secondary hover:bg-gray-50 transition-colors"
-        >
-          {isMobileMenuOpen ? (
-            <X className="h-6 w-6" />
-          ) : (
-            <Menu className="h-6 w-6" />
-          )}
-        </button>
+        {/* Mobile Menu Button and Language Switcher */}
+        <div className="md:hidden flex items-center space-x-2">
+          <CompactLanguageSwitcher />
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-2 rounded-xl text-text-secondary hover:bg-gray-50 transition-colors"
+          >
+            {isMobileMenuOpen ? (
+              <X className="h-6 w-6" />
+            ) : (
+              <Menu className="h-6 w-6" />
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Menu */}
@@ -122,6 +136,7 @@ export function TopNavigation({ user }: TopNavigationProps) {
 
 export function SidebarNavigation() {
   const pathname = usePathname()
+  const navItems = useNavItems()
 
   return (
     <nav className="hidden md:block fixed left-0 top-16 w-60 h-[calc(100vh-4rem)] bg-white border-r border-gray-100 overflow-y-auto shadow-sm">
@@ -140,6 +155,7 @@ export function SidebarNavigation() {
 
 export function MobileBottomNavigation() {
   const pathname = usePathname()
+  const mobileNavItems = useMobileNavItems()
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 shadow-lg z-50">
