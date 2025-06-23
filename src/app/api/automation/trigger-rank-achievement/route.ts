@@ -1,101 +1,232 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'
+import { createApiClient } from '@/lib/supabase/api-client'
+import { sendEmail } from '@/lib/email'
+import { populateEmailVariables, replaceEmailVariables, getMemberDisplayName, getMemberEmail } from '@/lib/email-variables'
 
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const { memberId, rankName, nextRankName } = await request.json();
+    const supabase = createApiClient()
     
-    if (!memberId || !rankName) {
-      return NextResponse.json(
-        { error: 'Member ID and rank name are required' },
-        { status: 400 }
-      );
+    // Get current user
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabase = createRouteHandlerClient({ cookies });
-    
-    // Get member details including language preference
+    const body = await req.json()
+    const { memberId, rankName, achievementDate, nextRankName } = body
+
+    // Use provided memberId or current user
+    const targetMemberId = memberId || user.id
+
+    if (!rankName) {
+      return NextResponse.json({ error: 'Rank name is required' }, { status: 400 })
+    }
+
+    // Get member data
     const { data: member, error: memberError } = await supabase
       .from('members')
-      .select('id, email, name, language')
-      .eq('id', memberId)
-      .single();
+      .select('id, company_id, email, first_name, last_name, name, sponsor_id')
+      .eq('id', targetMemberId)
+      .single()
 
     if (memberError || !member) {
-      return NextResponse.json(
-        { error: 'Member not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Member profile not found' }, { status: 404 })
     }
 
-    // Get the rank achievement template in member's language
-    const { data: achievementTemplate, error: templateError } = await supabase
-      .from('system_email_templates')
-      .select('id')
-      .eq('trigger_event', 'rank_achievement')
-      .eq('language', member.language || 'en')
-      .eq('is_active', true)
-      .single();
+    // Get rank achievement email template
+    const { data: template, error: templateError } = await supabase
+      .from('email_templates')
+      .select('*')
+      .eq('name', 'Rank Achievement')
+      .eq('company_id', member.company_id)
+      .single()
 
-    if (templateError || !achievementTemplate) {
-      console.error('Rank achievement template not found:', templateError);
-      return NextResponse.json(
-        { error: 'Rank achievement template not found' },
-        { status: 404 }
-      );
+    if (templateError || !template) {
+      return NextResponse.json({ error: 'Rank achievement email template not found' }, { status: 404 })
     }
 
-    // Store rank details in metadata
-    const metadata = {
+    // Get sponsor if available
+    let sponsor = null
+    if (member.sponsor_id) {
+      const { data: sponsorData } = await supabase
+        .from('members')
+        .select('id, name, email, first_name, last_name')
+        .eq('id', member.sponsor_id)
+        .single()
+      
+      sponsor = sponsorData
+    }
+
+    // Get member's display name and email for from/reply-to
+    const memberDisplayName = await getMemberDisplayName(targetMemberId)
+    const memberReplyToEmail = await getMemberEmail(targetMemberId)
+
+    // Populate email variables with rank achievement info
+    const customVariables = {
+      // Set member/sender info
+      member_name: memberDisplayName,
+      sender_name: memberDisplayName,
+      
+      // Rank achievement variables
       rank_name: rankName,
-      next_rank_name: nextRankName || 'the next level',
-      achievement_date: new Date().toLocaleDateString()
-    };
+      achievement_date: achievementDate || new Date().toLocaleDateString(),
+      next_rank_name: nextRankName || '',
+      
+      // Contact info (member is receiving their own achievement email)
+      contact_name: member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim(),
+      first_name: member.first_name || (member.name ? member.name.split(' ')[0] : ''),
+      contact_email: member.email
+    }
 
-    // Schedule rank achievement email (immediate)
-    const { data: automation, error: automationError } = await supabase
-      .from('email_automation_queue')
+    const emailVariables = await populateEmailVariables(
+      targetMemberId,
+      undefined, // contactId (member is receiving their own email)
+      undefined, // eventId
+      customVariables
+    )
+
+    // Replace variables in subject and content
+    const processedSubject = replaceEmailVariables(template.subject, emailVariables)
+    const processedContent = replaceEmailVariables(template.body_html, emailVariables)
+    
+    // Insert communication record
+    const { data: communication, error: commError } = await supabase
+      .from('communications')
       .insert({
-        member_id: memberId,
-        system_template_id: achievementTemplate.id,
-        scheduled_for: new Date().toISOString(),
-        status: 'pending',
-        metadata
+        member_id: targetMemberId,
+        contact_id: null, // Member is receiving their own achievement email
+        type: 'email',
+        subject: processedSubject,
+        content: processedContent,
+        status: 'sent',
+        template_id: template.id,
+        metadata: {
+          recipient_email: member.email,
+          recipient_name: member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim(),
+          recipient_type: 'member',
+          sender_name: memberDisplayName,
+          direction: 'outbound',
+          automation_trigger: 'rank_achievement',
+          rank_name: rankName,
+          achievement_date: achievementDate
+        }
       })
       .select()
-      .single();
+      .single()
 
-    if (automationError) {
-      throw automationError;
+    if (commError) {
+      console.error('Failed to create communication record:', commError)
+      return NextResponse.json({ error: 'Failed to create communication record' }, { status: 500 })
     }
 
-    // Trigger the edge function to process immediately
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      // Call edge function (fire and forget)
-      fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/process-email-automation`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
+    // Send email using Resend
+    const emailResult = await sendEmail({
+      to: member.email,
+      subject: processedSubject,
+      html: processedContent,
+      text: processedContent.replace(/<[^>]*>/g, ''), // Strip HTML for text version
+      replyTo: memberReplyToEmail,
+      fromName: memberDisplayName,
+      useEdgeFunction: false
+    })
+    
+    if (emailResult.success) {
+      // Update communication record with success
+      await supabase
+        .from('communications')
+        .update({
+          status: 'sent',
+          metadata: {
+            ...communication.metadata,
+            sent_via: 'resend',
+            message_id: emailResult.messageId,
+            variables_used: emailVariables
+          }
+        })
+        .eq('id', communication.id)
+
+      // Also send notification to sponsor if available
+      let sponsorNotification = null
+      if (sponsor) {
+        try {
+          // Get sponsor notification template
+          const { data: sponsorTemplate } = await supabase
+            .from('email_templates')
+            .select('*')
+            .eq('name', 'Sponsor Notification - Rank Achievement')
+            .eq('company_id', member.company_id)
+            .single()
+
+          if (sponsorTemplate) {
+            const sponsorVariables = {
+              ...emailVariables,
+              contact_name: sponsor.name || `${sponsor.first_name || ''} ${sponsor.last_name || ''}`.trim(),
+              first_name: sponsor.first_name || (sponsor.name ? sponsor.name.split(' ')[0] : ''),
+              contact_email: sponsor.email,
+              new_member_name: member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim()
+            }
+
+            const sponsorSubject = replaceEmailVariables(sponsorTemplate.subject, sponsorVariables)
+            const sponsorContent = replaceEmailVariables(sponsorTemplate.body_html, sponsorVariables)
+
+            const sponsorEmailResult = await sendEmail({
+              to: sponsor.email,
+              subject: sponsorSubject,
+              html: sponsorContent,
+              text: sponsorContent.replace(/<[^>]*>/g, ''),
+              replyTo: memberReplyToEmail,
+              fromName: memberDisplayName
+            })
+
+            sponsorNotification = {
+              sent: sponsorEmailResult.success,
+              messageId: sponsorEmailResult.messageId,
+              error: sponsorEmailResult.error
+            }
+          }
+        } catch (sponsorError) {
+          console.error('Error sending sponsor notification:', sponsorError)
+          sponsorNotification = {
+            sent: false,
+            error: 'Failed to send sponsor notification'
+          }
         }
-      }).catch(console.error);
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Rank achievement email sent successfully',
+        messageId: emailResult.messageId,
+        communicationId: communication.id,
+        sponsorNotification
+      })
+    } else {
+      // Update communication record with failure
+      await supabase
+        .from('communications')
+        .update({
+          status: 'failed',
+          metadata: {
+            ...communication.metadata,
+            error: emailResult.error
+          }
+        })
+        .eq('id', communication.id)
+
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to send rank achievement email',
+        details: emailResult.error
+      }, { status: 500 })
     }
 
-    return NextResponse.json({
-      success: true,
-      automation: {
-        id: automation.id,
-        status: automation.status,
-        scheduled_for: automation.scheduled_for
-      }
-    });
   } catch (error) {
-    console.error('Rank achievement automation error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to trigger rank achievement automation' },
-      { status: 500 }
-    );
+    console.error('Unexpected error in trigger-rank-achievement:', error)
+    return NextResponse.json({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
-} 
+}

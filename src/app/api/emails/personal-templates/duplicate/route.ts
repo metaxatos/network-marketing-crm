@@ -1,52 +1,84 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createApiClient } from '@/lib/supabase/api-client'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
-    const { template_id, new_name } = await request.json()
+    const supabase = createApiClient()
     
     // Get the current user
-    const { data: { session }, error: authError } = await supabase.auth.getSession()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
     
-    if (authError || !session?.user) {
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Call the RPC function to duplicate the template
-    const { data: personalTemplateId, error } = await supabase
-      .rpc('duplicate_template_for_personal_use', {
-        p_template_id: template_id,
-        p_new_name: new_name
+    const body = await request.json()
+    const { template_id, new_name } = body
+
+    if (!template_id) {
+      return NextResponse.json({ error: 'Template ID is required' }, { status: 400 })
+    }
+
+    // Get the original template (can be from email_templates or personal_email_templates)
+    let originalTemplate = null
+    let isPersonalTemplate = false
+
+    // First try to get from personal templates
+    const { data: personalTemplate } = await supabase
+      .from('personal_email_templates')
+      .select('*')
+      .eq('id', template_id)
+      .eq('member_id', user.id)
+      .single()
+
+    if (personalTemplate) {
+      originalTemplate = personalTemplate
+      isPersonalTemplate = true
+    } else {
+      // Try to get from global email templates
+      const { data: globalTemplate } = await supabase
+        .from('email_templates')
+        .select('*')
+        .eq('id', template_id)
+        .single()
+
+      if (globalTemplate) {
+        originalTemplate = globalTemplate
+        isPersonalTemplate = false
+      }
+    }
+
+    if (!originalTemplate) {
+      return NextResponse.json({ error: 'Template not found' }, { status: 404 })
+    }
+
+    // Create the duplicate personal template
+    const duplicateName = new_name || `${originalTemplate.name} (Copy)`
+    
+    const { data: newTemplate, error } = await supabase
+      .from('personal_email_templates')
+      .insert({
+        member_id: user.id,
+        parent_template_id: isPersonalTemplate ? originalTemplate.parent_template_id : template_id,
+        name: duplicateName,
+        subject: originalTemplate.subject,
+        body_html: originalTemplate.body_html,
+        body_text: originalTemplate.body_text,
+        category: originalTemplate.category || 'custom',
+        is_active: true
       })
+      .select()
+      .single()
 
     if (error) {
       console.error('Error duplicating template:', error)
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return NextResponse.json({ error: error.message || 'Failed to duplicate template' }, { status: 500 })
     }
 
-    // Get the newly created personal template
-    const { data: personalTemplate, error: fetchError } = await supabase
-      .from('personal_email_templates')
-      .select(`
-        *,
-        email_templates!parent_template_id (
-          name,
-          category
-        )
-      `)
-      .eq('id', personalTemplateId)
-      .single()
+    return NextResponse.json({ template: newTemplate })
 
-    if (fetchError) {
-      console.error('Error fetching created template:', fetchError)
-      return NextResponse.json({ error: 'Failed to fetch created template' }, { status: 500 })
-    }
-
-    return NextResponse.json({ data: personalTemplate })
   } catch (error) {
-    console.error('Unexpected error:', error)
+    console.error('Unexpected error in personal-templates duplicate:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-} 
+}
