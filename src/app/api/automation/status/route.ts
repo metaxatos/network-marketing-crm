@@ -1,5 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createApiClient } from '@/lib/supabase/api-client';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
@@ -8,7 +7,7 @@ export async function GET(request: Request) {
     const status = searchParams.get('status');
     const limit = parseInt(searchParams.get('limit') || '20');
     
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = createApiClient();
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -83,4 +82,4 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-} 
+}
