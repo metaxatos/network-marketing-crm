@@ -8,7 +8,11 @@ import {
   MegaphoneIcon,
   AcademicCapIcon,
   HandThumbUpIcon,
-  EnvelopeIcon
+  EnvelopeIcon,
+  UsersIcon,
+  UserGroupIcon,
+  BriefcaseIcon,
+  GiftIcon
 } from '@heroicons/react/24/outline'
 
 export interface TemplateCategoryConfig {
@@ -22,6 +26,24 @@ export interface TemplateCategoryConfig {
 }
 
 export const TEMPLATE_CATEGORIES: Record<string, TemplateCategoryConfig> = {
+  customer: {
+    id: 'customer',
+    icon: <UsersIcon className="w-6 h-6" />,
+    iconColor: 'text-purple-600',
+    bgGradient: 'from-purple-500 to-pink-500',
+    borderColor: 'border-purple-200',
+    label: 'Customer Emails',
+    description: 'Product shares & customer nurturing'
+  },
+  partner: {
+    id: 'partner',
+    icon: <BriefcaseIcon className="w-6 h-6" />,
+    iconColor: 'text-orange-600',
+    bgGradient: 'from-orange-500 to-red-500',
+    borderColor: 'border-orange-200',
+    label: 'Partner Emails',
+    description: 'Business opportunity & recruiting'
+  },
   welcome: {
     id: 'welcome',
     icon: <HeartIcon className="w-6 h-6" />,
@@ -42,20 +64,20 @@ export const TEMPLATE_CATEGORIES: Record<string, TemplateCategoryConfig> = {
   },
   invitation: {
     id: 'invitation',
-    icon: <MegaphoneIcon className="w-6 h-6" />,
-    iconColor: 'text-purple-600',
-    bgGradient: 'from-purple-500 to-pink-500',
-    borderColor: 'border-purple-200',
-    label: 'Invitations',
-    description: 'Exciting opportunities await'
+    icon: <GiftIcon className="w-6 h-6" />,
+    iconColor: 'text-indigo-600',
+    bgGradient: 'from-indigo-500 to-purple-500',
+    borderColor: 'border-indigo-200',
+    label: 'Invitations & Events',
+    description: 'Training sessions & presentations'
   },
   training: {
     id: 'training',
     icon: <AcademicCapIcon className="w-6 h-6" />,
-    iconColor: 'text-orange-600',
-    bgGradient: 'from-orange-500 to-amber-500',
-    borderColor: 'border-orange-200',
-    label: 'Training',
+    iconColor: 'text-emerald-600',
+    bgGradient: 'from-emerald-500 to-teal-500',
+    borderColor: 'border-emerald-200',
+    label: 'Training & Education',
     description: 'Knowledge that empowers growth'
   },
   thank_you: {

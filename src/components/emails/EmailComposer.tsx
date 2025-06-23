@@ -38,20 +38,15 @@ export function EmailComposer({
 
   // Filter templates by category and language
   const filteredTemplates = useMemo(() => {
-    let filtered = templates.filter(template => {
-      const matchesCategory = !selectedCategory || template.category === selectedCategory
+    const filtered = templates.filter(template => {
+      // Check both category and target_audience fields for customer/partner templates
+      const matchesCategory = !selectedCategory || 
+        template.category === selectedCategory || 
+        template.target_audience === selectedCategory
+      // Only show templates that match the selected language exactly
       const matchesLanguage = template.language === selectedLanguage
       return matchesCategory && matchesLanguage
     })
-    
-    // If no templates match the selected language, fall back to show all templates in the category
-    if (filtered.length === 0 && selectedLanguage) {
-      console.log('[EmailComposer] No templates found for language', selectedLanguage, 'falling back to all templates')
-      filtered = templates.filter(template => {
-        const matchesCategory = !selectedCategory || template.category === selectedCategory
-        return matchesCategory
-      })
-    }
     
     return filtered
   }, [templates, selectedCategory, selectedLanguage])
@@ -257,9 +252,22 @@ export function EmailComposer({
                       `} />
                       
                       <div className="flex-1">
-                        <h4 className="font-medium text-gray-900 mb-1">
-                          {template.name}
-                        </h4>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-medium text-gray-900">
+                            {template.name}
+                          </h4>
+                          {template.target_audience && (
+                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                              template.target_audience === 'customer' 
+                                ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                                : template.target_audience === 'partner'
+                                ? 'bg-orange-100 text-orange-700 border border-orange-200'
+                                : 'bg-gray-100 text-gray-700 border border-gray-200'
+                            }`}>
+                              {template.target_audience}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-gray-600 line-clamp-2">
                           {template.subject}
                         </p>

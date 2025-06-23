@@ -16,8 +16,8 @@ import {
   XCircleIcon
 } from '@heroicons/react/24/outline'
 
-// Smart template suggestions based on contacts
-function getRecommendedCategories(contacts: any[]) {
+// Smart template suggestions based on contacts and template strategy
+function getRecommendedCategories(contacts: any[], templates: any[]) {
   const hasNewLeads = contacts.some(c => c.status === 'lead' && !c.last_contacted_at)
   const hasInactiveContacts = contacts.some(c => {
     if (!c.last_contacted_at) return false
@@ -25,9 +25,39 @@ function getRecommendedCategories(contacts: any[]) {
     return daysSince > 7
   })
   
-  if (hasNewLeads) return ['welcome', 'invitation']
-  if (hasInactiveContacts) return ['follow_up']
-  return ['general']
+  const hasCustomers = contacts.some(c => c.status === 'customer')
+  const hasPartners = contacts.some(c => c.status === 'partner' || c.status === 'member')
+  
+  // Check if we have customer/partner templates available
+  const hasCustomerTemplates = templates.some(t => t.target_audience === 'customer' || t.category === 'customer')
+  const hasPartnerTemplates = templates.some(t => t.target_audience === 'partner' || t.category === 'partner')
+  
+  const recommendations = []
+  
+  // Prioritize customer/partner categories if we have templates and contacts
+  if (hasCustomers && hasCustomerTemplates) {
+    recommendations.push('customer')
+  }
+  if (hasPartners && hasPartnerTemplates) {
+    recommendations.push('partner')
+  }
+  
+  // Traditional recommendations
+  if (hasNewLeads) {
+    recommendations.push('welcome', 'invitation')
+  }
+  if (hasInactiveContacts) {
+    recommendations.push('follow_up')
+  }
+  
+  // Fallback recommendations
+  if (recommendations.length === 0) {
+    if (hasCustomerTemplates) recommendations.push('customer')
+    if (hasPartnerTemplates) recommendations.push('partner')
+    if (recommendations.length === 0) recommendations.push('general')
+  }
+  
+  return recommendations
 }
 
 export default function EmailsPage() {
@@ -68,32 +98,37 @@ export default function EmailsPage() {
     console.log('[Email Templates Debug] All templates:', templates.map(t => ({
       name: t.name,
       category: t.category,
+      target_audience: t.target_audience,
       language: t.language || 'undefined'
     })))
     
     console.log('[Email Templates Debug] Selected language:', selectedLanguage)
     
     templates.forEach(template => {
-      if (template.language === selectedLanguage) {
-        counts[template.category] = (counts[template.category] || 0) + 1
+      // Only count templates that match the selected language exactly
+      const shouldCount = template.language === selectedLanguage
+      
+      if (shouldCount) {
+        // Map target_audience to categories for customer/partner templates
+        if (template.target_audience === 'customer') {
+          counts.customer = (counts.customer || 0) + 1
+        } else if (template.target_audience === 'partner') {
+          counts.partner = (counts.partner || 0) + 1
+        }
+        
+        // Count by actual category
+        if (template.category) {
+          counts[template.category] = (counts[template.category] || 0) + 1
+        }
       }
     })
-    
-    // If no templates match the selected language, fall back to show all templates
-    const totalInLanguage = Object.values(counts).reduce((sum, count) => sum + count, 0)
-    if (totalInLanguage === 0) {
-      console.log('[Email Templates Debug] No templates found for language', selectedLanguage, 'falling back to all templates')
-      templates.forEach(template => {
-        counts[template.category] = (counts[template.category] || 0) + 1
-      })
-    }
     
     console.log('[Email Templates Debug] Final counts:', counts)
     return counts
   }, [templates, selectedLanguage])
 
   // Get recommended categories
-  const recommendedCategories = getRecommendedCategories(contacts)
+  const recommendedCategories = getRecommendedCategories(contacts, templates)
 
   // Handle email sending
   const handleSendEmail = async (templateId: string, contactIds: string[]) => {
@@ -137,7 +172,7 @@ export default function EmailsPage() {
                     Email Center
                   </h1>
                   <p className="text-gray-600 mt-1">
-                    Send beautiful emails that build relationships
+                    Choose from customer, partner, and specialized email templates
                   </p>
                 </div>
                 
