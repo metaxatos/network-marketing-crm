@@ -15,7 +15,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/react/24/solid';
 import { formatDistanceToNow } from 'date-fns';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/lib/supabase/client';
 
 interface AutomationItem {
   id: string;
@@ -99,7 +99,7 @@ export default function AutomationDashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
 
   const fetchAutomations = async () => {
     try {
