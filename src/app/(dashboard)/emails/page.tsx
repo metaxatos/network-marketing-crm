@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { DashboardLayout } from '@/components/ui/dashboard-layout'
 import { useAppAuth } from '@/hooks/useAuth'
-import { useEmailTemplates, useEmailHistory, useSendEmail } from '@/hooks/queries/useEmails'
+import { useEmailTemplates, useTemplatesByCategory, useEmailHistory, useSendEmail } from '@/hooks/queries/useEmails'
 import { useContacts } from '@/hooks/queries/useContacts'
 import { TemplateCategoriesGrid, generateTemplateCategories } from '@/components/emails/TemplateCategories'
 import { LanguageToggle, LanguageToggleCompact } from '@/components/emails/LanguageToggle'
@@ -63,22 +63,22 @@ function getRecommendedCategories(contacts: any[], templates: any[]) {
 export default function EmailsPage() {
   const { user } = useAppAuth()
   
+  // Local state
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [selectedLanguage, setSelectedLanguage] = useState<'en' | 'gr'>('en')
+  const [showSuccess, setShowSuccess] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
+  
   // React Query hooks
   const { 
     data: templates = [], 
     isLoading: templatesLoading,
     error: templatesError,
     refetch: refetchTemplates
-  } = useEmailTemplates()
+  } = useTemplatesByCategory(selectedLanguage)
   const { data: sentEmails = [], isLoading: emailsLoading } = useEmailHistory()
   const { data: contacts = [], isLoading: contactsLoading } = useContacts()
   const { mutate: sendEmail, isPending: isSending } = useSendEmail()
-  
-  // Local state
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [selectedLanguage, setSelectedLanguage] = useState<'en' | 'gr'>('en')
-  const [showSuccess, setShowSuccess] = useState(false)
-  const [successMessage, setSuccessMessage] = useState('')
 
   // Load language preference
   useEffect(() => {
