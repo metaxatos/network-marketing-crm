@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/providers/AuthProvider'
+import { useAppAuth } from '@/hooks/useAuth'
 import { DashboardLayout } from '@/components/ui/dashboard-layout'
 import { useContactStore } from '@/stores/contactStore'
 import { useContactsRealtime } from '@/hooks/useContactsRealtime'
@@ -23,7 +23,7 @@ import type { Contact } from '@/types'
 import { useContacts } from '@/hooks/queries/useContacts'
 
 export default function ContactsPage() {
-  const { user, loading } = useAuth()
+  const { user, loading } = useAppAuth()
   const router = useRouter()
   const { 
     searchQuery,
