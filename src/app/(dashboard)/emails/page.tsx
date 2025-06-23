@@ -129,8 +129,8 @@ export default function EmailsPage() {
 
   // Generate dynamic categories based on actual templates
   const dynamicCategories = useMemo(() => {
-    return generateTemplateCategories(templates, templateCounts)
-  }, [templates, templateCounts])
+    return generateTemplateCategories(templates, templateCounts, selectedLanguage)
+  }, [templates, templateCounts, selectedLanguage])
 
   // Get recommended categories
   const recommendedCategories = getRecommendedCategories(contacts, templates)

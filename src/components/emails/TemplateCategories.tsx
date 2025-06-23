@@ -117,30 +117,44 @@ function generateCategoryLabel(categoryId: string): string {
 // Function to dynamically generate template categories from actual templates
 export function generateTemplateCategories(
   templates: any[], 
-  templateCounts: Record<string, number>
+  templateCounts: Record<string, number>,
+  selectedLanguage?: string
 ): Record<string, TemplateCategoryConfig> {
   const categories: Record<string, TemplateCategoryConfig> = {}
   
-  // Get all unique categories and target audiences from templates
+  // Get all unique categories and target audiences from templates that match the selected language
   const allCategoryIds = new Set<string>()
   
   templates.forEach(template => {
-    // Add target_audience as a category (customer/partner)
-    if (template.target_audience && template.target_audience !== 'general') {
-      allCategoryIds.add(template.target_audience)
-    }
+    // Only consider templates that match the selected language (or all if no language filter)
+    const shouldInclude = !selectedLanguage || template.language === selectedLanguage
     
-    // Add traditional category
-    if (template.category) {
-      allCategoryIds.add(template.category)
+    if (shouldInclude) {
+      // Add target_audience as a category (customer/partner)
+      if (template.target_audience && template.target_audience !== 'general') {
+        allCategoryIds.add(template.target_audience)
+      }
+      
+      // Add traditional category
+      if (template.category) {
+        allCategoryIds.add(template.category)
+      }
     }
   })
   
-  // Only show categories that have templates (based on templateCounts)
+  // Create categories for all found category IDs
   allCategoryIds.forEach(categoryId => {
-    const hasTemplates = templateCounts[categoryId] > 0
+    // Check if category has templates (prefer templateCounts, but fallback to checking templates directly)
+    const countFromCounts = templateCounts[categoryId] || 0
+    const countFromTemplates = templates.filter(t => {
+      const matchesLanguage = !selectedLanguage || t.language === selectedLanguage
+      const matchesCategory = t.category === categoryId || t.target_audience === categoryId
+      return matchesLanguage && matchesCategory
+    }).length
     
-    if (hasTemplates) {
+    const templateCount = countFromCounts > 0 ? countFromCounts : countFromTemplates
+    
+    if (templateCount > 0) {
       const styleConfig = CATEGORY_STYLE_MAP[categoryId] || {
         ...CATEGORY_STYLE_MAP.default,
         label: generateCategoryLabel(categoryId),
