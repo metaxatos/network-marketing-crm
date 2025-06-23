@@ -252,7 +252,7 @@ export function ContactDetailModal({ contact, onClose }: ContactDetailModalProps
                   </div>
                 )}
                 
-                {contact.tags.length > 0 && (
+                {contact.tags && contact.tags.length > 0 && (
                   <div className="flex items-start gap-3">
                     <Tag className="w-5 h-5 text-action-purple mt-0.5" />
                     <div className="flex flex-wrap gap-2">

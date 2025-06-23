@@ -44,7 +44,7 @@ export interface Contact {
   phone?: string
   email?: string
   status: ContactStatus
-  tags: string[]
+  tags?: string[]
   // NEW: Notes stored inline instead of separate table
   notes?: string
   custom_fields: Record<string, any>
