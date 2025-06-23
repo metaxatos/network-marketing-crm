@@ -66,7 +66,7 @@ export async function populateEmailVariables(
   eventId?: string,
   customVariables: Partial<EmailVariables> = {}
 ): Promise<EmailVariables> {
-  const supabase = createApiClient()
+  const supabase = await createApiClient()
   const variables: EmailVariables = {}
 
   try {
@@ -192,7 +192,7 @@ export function replaceEmailVariables(content: string, variables: EmailVariables
 // Get member's display name for "from" field
 export async function getMemberDisplayName(userId: string): Promise<string> {
   try {
-    const supabase = createApiClient()
+    const supabase = await createApiClient()
     const { data: member } = await supabase
       .from('members')
       .select('name, first_name, last_name, email')
@@ -218,7 +218,7 @@ export async function getMemberDisplayName(userId: string): Promise<string> {
 // Get member's email for reply-to
 export async function getMemberEmail(userId: string): Promise<string> {
   try {
-    const supabase = createApiClient()
+    const supabase = await createApiClient()
     const { data: member } = await supabase
       .from('members')
       .select('email')
