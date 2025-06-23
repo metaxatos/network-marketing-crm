@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { createApiClient } from '@/lib/supabase/api-client'
 import { apiResponse, apiError } from '@/lib/api-helpers'
 import { sendEmail } from '@/lib/email'
+import { populateEmailVariables, replaceEmailVariables, getMemberDisplayName, getMemberEmail } from '@/lib/email-variables'
 
 export async function POST(req: NextRequest) {
   try {
@@ -38,13 +39,22 @@ export async function POST(req: NextRequest) {
     // Get member data
     const { data: member, error: memberError } = await supabase
       .from('members')
-      .select('id, company_id, email, first_name, last_name')
+      .select('id, company_id, email, first_name, last_name, name')
       .eq('id', user.id)
       .single()
 
     if (memberError || !member) {
       return apiError('Member profile not found', 404)
     }
+
+    // Get member's display name and email for from/reply-to
+    const memberDisplayName = await getMemberDisplayName(user.id)
+    const memberReplyToEmail = await getMemberEmail(user.id)
+
+    console.log('[Email Send API] Member details for email headers:', {
+      displayName: memberDisplayName,
+      replyToEmail: memberReplyToEmail
+    })
 
     // Validate input
     if (!templateId && !customContent) {
@@ -56,7 +66,7 @@ export async function POST(req: NextRequest) {
     }
 
     let template = null
-    let emailSubject = customSubject || 'Email from ' + (member.first_name || member.email)
+    let emailSubject = customSubject || 'Email from ' + memberDisplayName
     let emailContent = customContent || ''
 
     // Get template if provided
@@ -73,8 +83,8 @@ export async function POST(req: NextRequest) {
       }
 
       template = templateData
-      emailSubject = customSubject || template.subject
-      emailContent = customContent || template.body_html
+      emailSubject = template.subject
+      emailContent = template.body_html
     }
 
     // Get contacts if contactIds provided
@@ -122,20 +132,56 @@ export async function POST(req: NextRequest) {
         id: recipient.id
       })
       
+      // Populate email variables for this specific recipient
+      const customVariables = {
+        // Set member/sender info
+        member_name: memberDisplayName,
+        sender_name: memberDisplayName,
+        
+        // Handle contact name - extract first name from full name
+        contact_name: recipient.name || recipient.email,
+        first_name: recipient.name ? recipient.name.split(' ')[0] : recipient.email.split('@')[0],
+        
+        // Set recipient email for unsubscribe links etc.
+        contact_email: recipient.email
+      }
+
+      const emailVariables = await populateEmailVariables(
+        user.id,
+        recipient.type === 'contact' ? recipient.id : undefined,
+        undefined, // eventId
+        customVariables
+      )
+
+      console.log('[Email Send API] Email variables populated:', {
+        recipientEmail: recipient.email,
+        variables: emailVariables
+      })
+
+      // Replace variables in subject and content
+      const processedSubject = customSubject || replaceEmailVariables(emailSubject, emailVariables)
+      const processedContent = customContent || replaceEmailVariables(emailContent, emailVariables)
+
+      console.log('[Email Send API] Email content processed:', {
+        originalSubject: emailSubject,
+        processedSubject,
+        contentLength: processedContent.length
+      })
+      
       // Insert communication record
       const communicationData = {
         member_id: member.id,
         contact_id: recipient.type === 'contact' ? recipient.id : null,
         type: 'email',
-        subject: emailSubject,
-        content: emailContent,
-        status: 'sent', // Use 'sent' as initial status (allowed values: sent, delivered, opened, clicked, bounced, failed)
+        subject: processedSubject,
+        content: processedContent,
+        status: 'sent', // Use 'sent' as initial status (allowed values: pending, sent, delivered, failed, completed)
         template_id: templateId || null,
         metadata: {
           recipient_email: recipient.email,
           recipient_name: recipient.name || null,
           recipient_type: recipient.type,
-          sender_name: member.first_name ? `${member.first_name} ${member.last_name || ''}`.trim() : member.email,
+          sender_name: memberDisplayName,
           direction: 'outbound' // Store direction in metadata instead
         }
       }
@@ -153,18 +199,18 @@ export async function POST(req: NextRequest) {
         throw new Error(`Failed to create communication record: ${commError.message}`)
       }
 
-      // Send email using Resend
+      // Send email using Resend with proper from name and reply-to
       try {
-        console.log(`[Email Send API] About to send email to ${recipient.email} with subject: "${emailSubject}"`)
-        console.log(`[Email Send API] Email content length: ${emailContent.length} characters`)
-        console.log(`[Email Send API] Member email (reply-to): ${member.email}`)
+        console.log(`[Email Send API] About to send email to ${recipient.email} with subject: "${processedSubject}"`)
+        console.log(`[Email Send API] From name: ${memberDisplayName}, Reply-to: ${memberReplyToEmail}`)
         
         const emailResult = await sendEmail({
           to: recipient.email,
-          subject: emailSubject,
-          html: emailContent,
-          text: emailContent.replace(/<[^>]*>/g, ''), // Strip HTML for text version
-          replyTo: member.email,
+          subject: processedSubject,
+          html: processedContent,
+          text: processedContent.replace(/<[^>]*>/g, ''), // Strip HTML for text version
+          replyTo: memberReplyToEmail, // User's email for replies
+          fromName: memberDisplayName, // User's name as sender
           useEdgeFunction: false // Temporarily disable Edge Function to test direct API
         })
         
@@ -183,7 +229,8 @@ export async function POST(req: NextRequest) {
               metadata: {
                 ...communicationData.metadata,
                 sent_via: 'resend',
-                message_id: emailResult.messageId
+                message_id: emailResult.messageId,
+                variables_used: emailVariables
               }
             })
             .eq('id', communication.id)

@@ -44,6 +44,7 @@ export async function sendEmail({
   html,
   text,
   replyTo,
+  fromName,
   useEdgeFunction = false,
 }: {
   to: string
@@ -51,6 +52,7 @@ export async function sendEmail({
   html: string
   text?: string
   replyTo?: string
+  fromName?: string
   useEdgeFunction?: boolean
 }): Promise<EmailResult> {
   
@@ -75,6 +77,7 @@ export async function sendEmail({
             html,
             text: text || html.replace(/<[^>]*>/g, ''),
             replyTo: replyTo || EMAIL_CONFIG.replyTo,
+            fromName: fromName || EMAIL_CONFIG.fromName,
           }),
         })
         
@@ -98,7 +101,7 @@ export async function sendEmail({
   if (!resend) {
     // In development, simulate success
     if (process.env.NODE_ENV === 'development') {
-      console.log('📧 [DEV] Simulated email:', { to, subject })
+      console.log('📧 [DEV] Simulated email:', { to, subject, fromName: fromName || EMAIL_CONFIG.fromName })
       return { success: true, messageId: 'dev_' + Date.now() }
     }
     
@@ -110,10 +113,11 @@ export async function sendEmail({
   }
 
   try {
-    console.log('📧 Sending email via direct Resend API:', { to, subject })
+    const senderName = fromName || EMAIL_CONFIG.fromName
+    console.log('📧 Sending email via direct Resend API:', { to, subject, fromName: senderName })
     
     const { data, error } = await resend.emails.send({
-      from: `${EMAIL_CONFIG.fromName} <${EMAIL_CONFIG.fromEmail}>`,
+      from: `${senderName} <${EMAIL_CONFIG.fromEmail}>`,
       to: [to],
       subject,
       html,
