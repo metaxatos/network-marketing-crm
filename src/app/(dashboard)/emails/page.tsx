@@ -5,7 +5,7 @@ import { DashboardLayout } from '@/components/ui/dashboard-layout'
 import { useAppAuth } from '@/hooks/useAuth'
 import { useEmailTemplates, useEmailHistory, useSendEmail } from '@/hooks/queries/useEmails'
 import { useContacts } from '@/hooks/queries/useContacts'
-import { TemplateCategoriesGrid } from '@/components/emails/TemplateCategories'
+import { TemplateCategoriesGrid, generateTemplateCategories } from '@/components/emails/TemplateCategories'
 import { LanguageToggle, LanguageToggleCompact } from '@/components/emails/LanguageToggle'
 import { EmailComposer } from '@/components/emails/EmailComposer'
 import { 
@@ -126,6 +126,11 @@ export default function EmailsPage() {
     console.log('[Email Templates Debug] Final counts:', counts)
     return counts
   }, [templates, selectedLanguage])
+
+  // Generate dynamic categories based on actual templates
+  const dynamicCategories = useMemo(() => {
+    return generateTemplateCategories(templates, templateCounts)
+  }, [templates, templateCounts])
 
   // Get recommended categories
   const recommendedCategories = getRecommendedCategories(contacts, templates)
@@ -286,6 +291,7 @@ export default function EmailsPage() {
                     onCategorySelect={setSelectedCategory}
                     templateCounts={templateCounts}
                     recommendedCategories={recommendedCategories}
+                    categories={dynamicCategories}
                   />
                 </div>
 

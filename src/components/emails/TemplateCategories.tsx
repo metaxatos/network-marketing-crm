@@ -1,6 +1,6 @@
 'use client'
 
-import { ReactNode } from 'react'
+import { ReactNode, useMemo } from 'react'
 import { 
   SparklesIcon, 
   HeartIcon, 
@@ -25,9 +25,10 @@ export interface TemplateCategoryConfig {
   description: string
 }
 
-export const TEMPLATE_CATEGORIES: Record<string, TemplateCategoryConfig> = {
+// Icon and styling mappings for categories and target audiences
+const CATEGORY_STYLE_MAP: Record<string, Omit<TemplateCategoryConfig, 'id'>> = {
+  // Target audiences (priority styling)
   customer: {
-    id: 'customer',
     icon: <UsersIcon className="w-6 h-6" />,
     iconColor: 'text-purple-600',
     bgGradient: 'from-purple-500 to-pink-500',
@@ -36,7 +37,6 @@ export const TEMPLATE_CATEGORIES: Record<string, TemplateCategoryConfig> = {
     description: 'Product shares & customer nurturing'
   },
   partner: {
-    id: 'partner',
     icon: <BriefcaseIcon className="w-6 h-6" />,
     iconColor: 'text-orange-600',
     bgGradient: 'from-orange-500 to-red-500',
@@ -44,8 +44,9 @@ export const TEMPLATE_CATEGORIES: Record<string, TemplateCategoryConfig> = {
     label: 'Partner Emails',
     description: 'Business opportunity & recruiting'
   },
+  
+  // Traditional categories
   welcome: {
-    id: 'welcome',
     icon: <HeartIcon className="w-6 h-6" />,
     iconColor: 'text-pink-600',
     bgGradient: 'from-pink-500 to-rose-500',
@@ -54,7 +55,6 @@ export const TEMPLATE_CATEGORIES: Record<string, TemplateCategoryConfig> = {
     description: 'First impressions that warm hearts'
   },
   follow_up: {
-    id: 'follow_up',
     icon: <ArrowPathIcon className="w-6 h-6" />,
     iconColor: 'text-blue-600',
     bgGradient: 'from-blue-500 to-cyan-500',
@@ -63,7 +63,6 @@ export const TEMPLATE_CATEGORIES: Record<string, TemplateCategoryConfig> = {
     description: 'Keep the conversation flowing'
   },
   invitation: {
-    id: 'invitation',
     icon: <GiftIcon className="w-6 h-6" />,
     iconColor: 'text-indigo-600',
     bgGradient: 'from-indigo-500 to-purple-500',
@@ -72,7 +71,6 @@ export const TEMPLATE_CATEGORIES: Record<string, TemplateCategoryConfig> = {
     description: 'Training sessions & presentations'
   },
   training: {
-    id: 'training',
     icon: <AcademicCapIcon className="w-6 h-6" />,
     iconColor: 'text-emerald-600',
     bgGradient: 'from-emerald-500 to-teal-500',
@@ -81,7 +79,6 @@ export const TEMPLATE_CATEGORIES: Record<string, TemplateCategoryConfig> = {
     description: 'Knowledge that empowers growth'
   },
   thank_you: {
-    id: 'thank_you',
     icon: <HandThumbUpIcon className="w-6 h-6" />,
     iconColor: 'text-green-600',
     bgGradient: 'from-green-500 to-emerald-500',
@@ -90,15 +87,78 @@ export const TEMPLATE_CATEGORIES: Record<string, TemplateCategoryConfig> = {
     description: 'Gratitude that builds bonds'
   },
   general: {
-    id: 'general',
     icon: <EnvelopeIcon className="w-6 h-6" />,
     iconColor: 'text-gray-600',
     bgGradient: 'from-gray-500 to-slate-500',
     borderColor: 'border-gray-200',
     label: 'General',
     description: 'Versatile messages for any occasion'
+  },
+  
+  // Fallback for unknown categories
+  default: {
+    icon: <EnvelopeIcon className="w-6 h-6" />,
+    iconColor: 'text-gray-600',
+    bgGradient: 'from-gray-500 to-slate-500',
+    borderColor: 'border-gray-200',
+    label: 'Other',
+    description: 'Miscellaneous templates'
   }
 }
+
+// Function to generate category label from ID
+function generateCategoryLabel(categoryId: string): string {
+  return categoryId
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
+// Function to dynamically generate template categories from actual templates
+export function generateTemplateCategories(
+  templates: any[], 
+  templateCounts: Record<string, number>
+): Record<string, TemplateCategoryConfig> {
+  const categories: Record<string, TemplateCategoryConfig> = {}
+  
+  // Get all unique categories and target audiences from templates
+  const allCategoryIds = new Set<string>()
+  
+  templates.forEach(template => {
+    // Add target_audience as a category (customer/partner)
+    if (template.target_audience && template.target_audience !== 'general') {
+      allCategoryIds.add(template.target_audience)
+    }
+    
+    // Add traditional category
+    if (template.category) {
+      allCategoryIds.add(template.category)
+    }
+  })
+  
+  // Only show categories that have templates (based on templateCounts)
+  allCategoryIds.forEach(categoryId => {
+    const hasTemplates = templateCounts[categoryId] > 0
+    
+    if (hasTemplates) {
+      const styleConfig = CATEGORY_STYLE_MAP[categoryId] || {
+        ...CATEGORY_STYLE_MAP.default,
+        label: generateCategoryLabel(categoryId),
+        description: `Templates for ${generateCategoryLabel(categoryId).toLowerCase()}`
+      }
+      
+      categories[categoryId] = {
+        id: categoryId,
+        ...styleConfig
+      }
+    }
+  })
+  
+  return categories
+}
+
+// Deprecated: Keep for backward compatibility but shouldn't be used
+export const TEMPLATE_CATEGORIES: Record<string, TemplateCategoryConfig> = {}
 
 interface TemplateCategoryCardProps {
   category: TemplateCategoryConfig
@@ -212,17 +272,22 @@ interface TemplateCategoriesGridProps {
   onCategorySelect: (category: string | null) => void
   templateCounts: Record<string, number>
   recommendedCategories?: string[]
+  categories?: Record<string, TemplateCategoryConfig>
 }
 
 export function TemplateCategoriesGrid({
   selectedCategory,
   onCategorySelect,
   templateCounts,
-  recommendedCategories = []
+  recommendedCategories = [],
+  categories
 }: TemplateCategoriesGridProps) {
+  // Use provided categories or fallback to empty object if no categories provided
+  const categoriesToUse = categories || {}
+  
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {Object.entries(TEMPLATE_CATEGORIES).map(([key, category]) => (
+      {Object.entries(categoriesToUse).map(([key, category]) => (
         <TemplateCategoryCard
           key={key}
           category={category}
@@ -232,6 +297,19 @@ export function TemplateCategoriesGrid({
           isRecommended={recommendedCategories.includes(key)}
         />
       ))}
+      
+      {/* Show message if no categories available */}
+      {Object.keys(categoriesToUse).length === 0 && (
+        <div className="col-span-full text-center py-12">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <EnvelopeIcon className="w-8 h-8 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Email Categories Available</h3>
+          <p className="text-gray-500">
+            No email templates found for the selected language. Try switching to a different language.
+          </p>
+        </div>
+      )}
     </div>
   )
 } 
