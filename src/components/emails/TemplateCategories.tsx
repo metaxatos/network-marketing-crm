@@ -129,7 +129,12 @@ export function generateTemplateCategories(
     // Only consider templates that match the selected language (or all if no language filter)
     const shouldInclude = !selectedLanguage || template.language === selectedLanguage
     
-    if (shouldInclude) {
+    // Debug: For Greek language, also show what templates are available if no Greek ones found
+    const isDebuggingGreek = selectedLanguage === 'gr'
+    const hasGreekTemplates = templates.some(t => t.language === 'gr')
+    const shouldIncludeForDebug = isDebuggingGreek && !hasGreekTemplates
+    
+    if (shouldInclude || shouldIncludeForDebug) {
       // Add target_audience as a category (customer/partner)
       if (template.target_audience && template.target_audience !== 'general') {
         allCategoryIds.add(template.target_audience)

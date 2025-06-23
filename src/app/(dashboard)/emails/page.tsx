@@ -104,6 +104,27 @@ export default function EmailsPage() {
     
     console.log('[Email Templates Debug] Selected language:', selectedLanguage)
     
+    // Debug: Show Greek templates specifically  
+    const greekTemplates = templates.filter(t => t.language === 'gr')
+    console.log('[Email Templates Debug] Greek templates found:', greekTemplates.length, greekTemplates.map(t => ({
+      name: t.name,
+      category: t.category,
+      target_audience: t.target_audience,
+      language: t.language
+    })))
+    
+    // Debug: Show English templates specifically
+    const englishTemplates = templates.filter(t => t.language === 'en')
+    console.log('[Email Templates Debug] English templates found:', englishTemplates.length)
+    
+    // Debug: Show all language values in templates
+    const allLanguages = [...new Set(templates.map(t => t.language || 'undefined'))]
+    console.log('[Email Templates Debug] All languages found:', allLanguages)
+    
+    // Debug: Show templates without language
+    const templatesWithoutLanguage = templates.filter(t => !t.language || t.language === '' || t.language === null)
+    console.log('[Email Templates Debug] Templates without language:', templatesWithoutLanguage.length)
+    
     templates.forEach(template => {
       // Only count templates that match the selected language exactly
       const shouldCount = template.language === selectedLanguage
