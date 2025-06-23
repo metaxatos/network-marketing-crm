@@ -127,7 +127,15 @@ export default function EmailsPage() {
     
     templates.forEach(template => {
       // Only count templates that match the selected language exactly
+      // Templates with null/undefined language should not be counted for any language
       const shouldCount = template.language === selectedLanguage
+      
+      console.log('[Email Templates Debug] Template check:', {
+        name: template.name,
+        templateLang: template.language,
+        selectedLang: selectedLanguage,
+        shouldCount
+      })
       
       if (shouldCount) {
         // Map target_audience to categories for customer/partner templates

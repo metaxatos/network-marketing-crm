@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
         company_id: template.company_id || null,
         member_id: template.member_id || null,
         is_active: template.is_active ?? true,
-        language: template.language || 'en',
+        language: template.language, // Keep original value, don't default to 'en'
         preview_text: template.preview_text || null,
         usage_priority: template.usage_priority || 0,
         target_audience: template.target_audience || 'general',
@@ -149,6 +149,8 @@ export async function GET(req: NextRequest) {
     
     // Apply Phase 3 filters if columns exist
     if (language && availableColumns.has('language')) {
+      // Handle strict language filtering - only return templates with exact language match
+      // Don't include templates with null/undefined language as fallbacks
       query = query.eq('language', language)
       console.log('[Email Templates API] Filtering by language:', language)
     }
@@ -189,6 +191,7 @@ export async function GET(req: NextRequest) {
     const safeTemplates = Array.isArray(templates) ? templates as unknown as DatabaseEmailTemplate[] : []
 
     // Add default values for missing columns
+    // Note: Don't default language to 'en' to ensure strict language filtering works
     const templatesWithDefaults = safeTemplates.map(template => ({
       id: template.id,
       name: template.name,
@@ -201,7 +204,7 @@ export async function GET(req: NextRequest) {
       company_id: template.company_id || null,
       member_id: template.member_id || null,
       is_active: template.is_active ?? true,
-      language: template.language || 'en',
+      language: template.language, // Keep original value, don't default to 'en'
       preview_text: template.preview_text || null,
       usage_priority: template.usage_priority || 0,
       target_audience: template.target_audience || 'general',

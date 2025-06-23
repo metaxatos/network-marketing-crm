@@ -6,14 +6,17 @@ export interface EmailVariables {
   member_name?: string
   member_email?: string
   member_phone?: string
+  member_credentials?: string
   first_name?: string
   last_name?: string
   username?: string
+  sender_name?: string
 
   // Contact variables
   contact_name?: string
   contact_email?: string
   contact_phone?: string
+  recipient_name?: string
 
   // Sponsor variables
   sponsor_name?: string
@@ -29,31 +32,111 @@ export interface EmailVariables {
   training_link?: string
   products_link?: string
   compensation_link?: string
+  terms_link?: string
+  earnings_link?: string
 
   // Event variables
   event_name?: string
+  event_title?: string
   event_date?: string
   event_time?: string
+  event_day?: string
   timezone?: string
   event_type?: string
   event_location?: string
+  event_city?: string
+  venue_name?: string
+  venue_address?: string
+  directions_link?: string
+  event_url?: string
+  meeting_url?: string
+  zoom_link?: string
+  virtual_link?: string
+  registration_link?: string
+  rsvp_link?: string
+  vip_rsvp_link?: string
+  alternate_dates_link?: string
+  alternate_times_link?: string
+  seats_remaining?: string
+  attendee_limit?: string
+  total_seats?: string
+  seats_taken?: string
+  free_spots?: string
+  spots_remaining?: string
+  registrants?: string
+  rsvp_deadline?: string
+  countdown_time?: string
+
+  // Speaker/Presenter variables
   speaker_name?: string
   speaker_title?: string
   speaker_bio?: string
   speaker_initial?: string
-  registration_link?: string
-  seats_remaining?: string
-  alternate_times_link?: string
+  guest_speaker?: string
 
-  // Achievement variables
+  // Achievement/Statistics variables
   rank_name?: string
   achievement_date?: string
   next_rank_name?: string
+  achievement_1_number?: string
+  achievement_1_label?: string
+  achievement_2_number?: string
+  achievement_2_label?: string
+  achievement_3_number?: string
+  achievement_3_label?: string
+  stat_1_number?: string
+  stat_1_label?: string
+  stat_2_number?: string
+  stat_2_label?: string
+  stat_3_number?: string
+  stat_3_label?: string
 
   // New member variables (for sponsor notifications)
   new_member_name?: string
   new_member_email?: string
   new_member_phone?: string
+
+  // Business/Opportunity variables
+  product_or_opportunity?: string
+  journey_type?: string
+  desired_outcome?: string
+  specific_benefit?: string
+  platform?: string
+  calendar_link?: string
+  schedule_consultation_link?: string
+  support_link?: string
+  team_group_link?: string
+  new_countries?: string
+
+  // Time/Scheduling variables
+  day?: string
+  time?: string
+  meeting_time?: string
+  team_call_day?: string
+  team_call_time?: string
+  time_option_1?: string
+  time_option_2?: string
+  time_option_3?: string
+  training_date?: string
+  training_time?: string
+  next_event_time?: string
+  frequency?: string
+
+  // Countdown variables
+  days?: string
+  hours?: string
+  minutes?: string
+
+  // Product variables
+  product_name?: string
+  special_offer_link?: string
+
+  // Medical/Clinical variables (for healthcare professionals)
+  clinical_kit_link?: string
+  pubmed_studies_link?: string
+  clinical_trials_link?: string
+  physician_portal_link?: string
+  cme_resources_link?: string
 
   // Dynamic/custom variables
   [key: string]: string | undefined
@@ -163,7 +246,32 @@ export async function populateEmailVariables(
     variables.products_link = `${baseUrl}/products`
     variables.compensation_link = `${baseUrl}/compensation`
     variables.privacy_link = `${baseUrl}/privacy`
+    variables.terms_link = `${baseUrl}/terms`
+    variables.earnings_link = `${baseUrl}/earnings-disclaimer`
     variables.unsubscribe_link = `${baseUrl}/unsubscribe?email=${encodeURIComponent(variables.member_email || '')}`
+    
+    // Additional system links for medical/clinical use
+    variables.clinical_kit_link = `${baseUrl}/clinical-kit`
+    variables.pubmed_studies_link = `${baseUrl}/studies`
+    variables.clinical_trials_link = `${baseUrl}/clinical-trials`
+    variables.physician_portal_link = `${baseUrl}/physician-portal`
+    variables.cme_resources_link = `${baseUrl}/cme-resources`
+    
+    // Calendar and support links
+    variables.calendar_link = `${baseUrl}/calendar`
+    variables.schedule_consultation_link = `${baseUrl}/consultation`
+    variables.support_link = `${baseUrl}/support`
+    variables.team_group_link = `${baseUrl}/team-group`
+    
+    // Set recipient_name as alias for contact_name if not already set
+    if (!variables.recipient_name && variables.contact_name) {
+      variables.recipient_name = variables.contact_name
+    }
+    
+    // Set sender_name as alias for member_name if not already set
+    if (!variables.sender_name && variables.member_name) {
+      variables.sender_name = variables.member_name
+    }
 
     // Merge with custom variables (custom variables take precedence)
     return { ...variables, ...customVariables }

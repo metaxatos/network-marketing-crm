@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { apiResponse, apiError } from '@/lib/api-helpers';
 import { sendEmail } from '@/lib/email';
+import { populateEmailVariables, replaceEmailVariables } from '@/lib/email-variables';
 
 // Email template IDs as provided by the user
 const EMAIL_TEMPLATES = {
@@ -181,16 +182,33 @@ export async function POST(req: NextRequest) {
               emailSubject = template.subject || emailSubject;
               emailContent = template.body_html || emailContent;
               
-              // Simple variable replacement
-              emailContent = emailContent
-                .replace(/\{\{recipient_name\}\}/g, recipient.name)
-                .replace(/\{\{sender_name\}\}/g, senderName)
-                .replace(/\{\{event_title\}\}/g, event.title)
-                .replace(/\{\{event_description\}\}/g, event.description || '')
-                .replace(/\{\{event_date\}\}/g, new Date(event.start_time).toLocaleString())
-                .replace(/\{\{event_location\}\}/g, event.location_name || 'Online')
-                .replace(/\{\{event_url\}\}/g, event.meeting_url || '')
-                .replace(/\{\{register_url\}\}/g, `https://ourteam.gr/events/${eventId}/register`);
+              // Use proper email variable population and replacement
+              const emailVariables = await populateEmailVariables(
+                user.id,
+                recipient.type === 'contact' ? recipient.id : undefined,
+                baseEventId, // Pass event ID for event-specific variables
+                {
+                  // Override recipient information
+                  contact_name: recipient.name,
+                  contact_email: recipient.email,
+                  recipient_name: recipient.name,
+                  sender_name: senderName,
+                  // Event specific overrides
+                  event_title: event.title,
+                  event_description: event.description || '',
+                  event_date: new Date(event.start_time).toLocaleString(),
+                  event_time: new Date(event.start_time).toLocaleTimeString(),
+                  event_location: event.location_name || 'Online',
+                  event_url: event.meeting_url || '',
+                  register_url: `https://ourteam.gr/events/${eventId}/register`
+                }
+              );
+
+              console.log(`[Event Invite] Email variables populated for ${recipient.email}:`, Object.keys(emailVariables));
+
+              // Replace variables in subject and content
+              emailSubject = replaceEmailVariables(emailSubject, emailVariables);
+              emailContent = replaceEmailVariables(emailContent, emailVariables);
             }
           } catch (templateError) {
             console.warn('Could not fetch email template, using default:', templateError);

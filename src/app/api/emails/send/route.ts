@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { createApiClient } from '@/lib/supabase/api-client'
 import { apiResponse, apiError } from '@/lib/api-helpers'
 import { sendEmail } from '@/lib/email'
+import { populateEmailVariables, replaceEmailVariables } from '@/lib/email-variables'
 
 export async function POST(req: NextRequest) {
   try {
@@ -122,13 +123,33 @@ export async function POST(req: NextRequest) {
         id: recipient.id
       })
       
+      // Populate email variables for this specific recipient
+      const emailVariables = await populateEmailVariables(
+        member.id,
+        recipient.type === 'contact' ? recipient.id : undefined,
+        undefined, // eventId - not used in this context
+        {
+          // Override contact name if direct email
+          contact_name: recipient.name || recipient.email,
+          contact_email: recipient.email
+        }
+      )
+
+      console.log(`[Email Send API] Email variables populated:`, Object.keys(emailVariables))
+
+      // Replace variables in subject and content
+      const processedSubject = replaceEmailVariables(emailSubject, emailVariables)
+      const processedContent = replaceEmailVariables(emailContent, emailVariables)
+
+      console.log(`[Email Send API] Variables replaced. Subject: "${processedSubject}"`)
+      
       // Insert communication record
       const communicationData = {
         member_id: member.id,
         contact_id: recipient.type === 'contact' ? recipient.id : null,
         type: 'email',
-        subject: emailSubject,
-        content: emailContent,
+        subject: processedSubject,
+        content: processedContent,
         status: 'sent', // Use 'sent' as initial status (allowed values: sent, delivered, opened, clicked, bounced, failed)
         template_id: templateId || null,
         metadata: {
@@ -155,15 +176,15 @@ export async function POST(req: NextRequest) {
 
       // Send email using Resend
       try {
-        console.log(`[Email Send API] About to send email to ${recipient.email} with subject: "${emailSubject}"`)
-        console.log(`[Email Send API] Email content length: ${emailContent.length} characters`)
+        console.log(`[Email Send API] About to send email to ${recipient.email} with subject: "${processedSubject}"`)
+        console.log(`[Email Send API] Email content length: ${processedContent.length} characters`)
         console.log(`[Email Send API] Member email (reply-to): ${member.email}`)
         
         const emailResult = await sendEmail({
           to: recipient.email,
-          subject: emailSubject,
-          html: emailContent,
-          text: emailContent.replace(/<[^>]*>/g, ''), // Strip HTML for text version
+          subject: processedSubject,
+          html: processedContent,
+          text: processedContent.replace(/<[^>]*>/g, ''), // Strip HTML for text version
           replyTo: member.email,
           useEdgeFunction: false // Temporarily disable Edge Function to test direct API
         })
