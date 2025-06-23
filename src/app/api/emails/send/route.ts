@@ -83,8 +83,13 @@ export async function POST(req: NextRequest) {
       }
 
       template = templateData
-      emailSubject = template.subject
-      emailContent = template.body_html
+      // Only use template subject/content if custom ones are not provided
+      if (!customSubject) {
+        emailSubject = template.subject
+      }
+      if (!customContent) {
+        emailContent = template.body_html
+      }
     }
 
     // Get contacts if contactIds provided
@@ -159,8 +164,9 @@ export async function POST(req: NextRequest) {
       })
 
       // Replace variables in subject and content
-      const processedSubject = customSubject || replaceEmailVariables(emailSubject, emailVariables)
-      const processedContent = customContent || replaceEmailVariables(emailContent, emailVariables)
+      // IMPORTANT: Always apply variable replacement, even for custom content
+      const processedSubject = replaceEmailVariables(emailSubject, emailVariables)
+      const processedContent = replaceEmailVariables(emailContent, emailVariables)
 
       console.log('[Email Send API] Email content processed:', {
         originalSubject: emailSubject,
