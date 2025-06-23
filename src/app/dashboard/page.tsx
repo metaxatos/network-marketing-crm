@@ -7,6 +7,7 @@ import { useEmailHistory } from '@/hooks/queries/useEmails'
 import { useTrainingVideos, useVideoProgress } from '@/hooks/queries/useTraining'
 import { useDashboardRealtime, useRealtimeConnection } from '@/hooks/useRealtime'
 import { useContactsRealtime } from '@/hooks/useContactsRealtime'
+import { useTranslation } from '@/hooks/useTranslation'
 import { DashboardLayout } from '@/components/ui/dashboard-layout'
 import { RealtimeTestPanel } from '@/components/dev/RealtimeTestPanel'
 import { ErrorBoundary, QueryErrorFallback } from '@/components/ErrorBoundary'
@@ -35,6 +36,7 @@ import {
 
 export default function DashboardPage() {
   const { user, loading } = useAppAuth()
+  const { t } = useTranslation()
   
   // React Query hooks for server state
   const { data: metrics, isLoading: metricsLoading } = useDashboardMetrics()
@@ -69,7 +71,7 @@ export default function DashboardPage() {
       <div className="min-h-screen gradient-main flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-500 mx-auto"></div>
-          <h2 className="mt-6 text-xl font-semibold text-gray-700">Loading your success...</h2>
+          <h2 className="mt-6 text-xl font-semibold text-gray-700">{t('common.loading')}</h2>
         </div>
       </div>
     )
@@ -96,22 +98,22 @@ export default function DashboardPage() {
   // Quick wins actions (2-3 most relevant optional actions)
   const quickWinActions = [
     {
-      title: "Continue Training",
-      subtitle: `${trainingProgress}% complete`,
+      title: t('training.continueCourse'),
+      subtitle: t('training.progress', { percent: trainingProgress }),
       href: "/training",
       icon: <GraduationCap className="w-full h-full" />,
       variant: "golden" as const
     },
     {
-      title: "View Team Activity",
-      subtitle: "See recent wins",
+      title: t('team.title'),
+      subtitle: t('dashboard.recentActivity'),
       href: "/team",
       icon: <BarChart3 className="w-full h-full" />,
       variant: "green" as const
     },
     {
-      title: "Update Landing Page",
-      subtitle: "Make it shine",
+      title: t('dashboard.updateLandingPage'),
+      subtitle: t('dashboard.makeItShine'),
       href: "/landing-page",
       icon: <Globe className="w-full h-full" />,
       variant: "blue" as const
@@ -139,7 +141,7 @@ export default function DashboardPage() {
               <div className="mx-4 mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <div className="flex items-center gap-2 text-yellow-800">
                   <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
-                  <span className="text-sm font-medium">Reconnecting to live updates...</span>
+                  <span className="text-sm font-medium">{t('dashboard.reconnecting')}</span>
                 </div>
               </div>
             )}
@@ -148,7 +150,7 @@ export default function DashboardPage() {
               <div className="mx-4 mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                 <div className="flex items-center gap-2 text-red-800">
                   <div className="w-2 h-2 bg-red-400 rounded-full"></div>
-                  <span className="text-sm font-medium">Live updates unavailable</span>
+                  <span className="text-sm font-medium">{t('dashboard.liveUpdatesUnavailable')}</span>
                 </div>
               </div>
             )}
@@ -158,7 +160,7 @@ export default function DashboardPage() {
               <div className="mx-4 mb-6">
                 <div className="flex items-center gap-2 text-text-secondary">
                   <div className="w-4 h-4 bg-gray-200 rounded-full animate-shimmer"></div>
-                  <span className="text-sm">Loading dashboard...</span>
+                  <span className="text-sm">{t('dashboard.loadingDashboard')}</span>
                 </div>
               </div>
             )}
@@ -167,21 +169,21 @@ export default function DashboardPage() {
             <div className="grid grid-cols-3 gap-3 mx-4 mb-6 md:hidden">
               <StatsBubble 
                 number={isDataLoading ? "..." : contactsThisWeek.toString()} 
-                label="Contacts" 
+                label={t('contacts.title')} 
                 trend="up" 
                 trendValue="+3" 
                 color="teal" 
               />
               <StatsBubble 
                 number={isDataLoading ? "..." : emailsToday.toString()} 
-                label="Emails" 
+                label={t('nav.emails')} 
                 trend="up" 
                 trendValue="+2" 
                 color="green" 
               />
               <StatsBubble 
                 number={isDataLoading ? "..." : (activityCount ?? activities.length).toString()} 
-                label="Activities" 
+                label={t('dashboard.activities')} 
                 trend="neutral" 
                 color="purple" 
               />
@@ -196,13 +198,13 @@ export default function DashboardPage() {
                   {/* Primary Actions Section */}
                   <section className="primary-actions">
                     <h2 className="font-display text-xl font-semibold text-text-primary mb-6">
-                      Quick Actions
+                      {t('dashboard.quickActions')}
                     </h2>
                     
                     <div className="action-cards-grid grid grid-cols-1 md:grid-cols-3 gap-5">
                       <ActionCard
-                        title="Send Email"
-                        subtitle="Stay in touch"
+                        title={t('dashboard.sendEmail')}
+                        subtitle={t('dashboard.stayInTouch')}
                         href="/emails"
                         icon={<Mail className="w-full h-full" />}
                         variant="coral"
@@ -210,8 +212,8 @@ export default function DashboardPage() {
                       />
                       
                       <ActionCard
-                        title="My Contacts"
-                        subtitle={contactsLoading ? "Loading..." : `${contacts.length} contacts`}
+                        title={t('dashboard.myContacts')}
+                        subtitle={contactsLoading ? t('common.loading') : t('dashboard.contactsCount', { count: contacts.length })}
                         href="/contacts"
                         icon={<Users className="w-full h-full" />}
                         variant="teal"
@@ -219,8 +221,8 @@ export default function DashboardPage() {
                       />
                       
                       <ActionCard
-                        title="Events"
-                        subtitle="Schedule meetings"
+                        title={t('events.title')}
+                        subtitle={t('dashboard.scheduleMeetings')}
                         href="/events"
                         icon={<Calendar className="w-full h-full" />}
                         variant="purple"

@@ -14,30 +14,33 @@ import {
   X,
   Plus
 } from 'lucide-react'
+import { useTranslation } from '@/hooks/useTranslation'
+import { LanguageToggle } from '@/components/ui/LanguageToggle'
 
 interface NavItem {
-  name: string
+  nameKey: string
   href: string
   icon: any
+  isSpecial?: boolean
 }
 
 const navItems: NavItem[] = [
-  { name: 'Dashboard', href: '/dashboard', icon: Home },
-  { name: 'Contacts', href: '/contacts', icon: Users },
-  { name: 'Email', href: '/emails', icon: Mail },
-  { name: 'Events', href: '/events', icon: Calendar },
-  { name: 'Training', href: '/training', icon: GraduationCap },
-  { name: 'Team', href: '/team', icon: Users },
-  { name: 'Settings', href: '/settings', icon: Settings },
+  { nameKey: 'nav.dashboard', href: '/dashboard', icon: Home },
+  { nameKey: 'nav.contacts', href: '/contacts', icon: Users },
+  { nameKey: 'nav.emails', href: '/emails', icon: Mail },
+  { nameKey: 'nav.events', href: '/events', icon: Calendar },
+  { nameKey: 'nav.training', href: '/training', icon: GraduationCap },
+  { nameKey: 'nav.team', href: '/team', icon: Users },
+  { nameKey: 'nav.settings', href: '/settings', icon: Settings },
 ]
 
 // Mobile bottom navigation items (5 items max for optimal UX)
-const mobileNavItems = [
-  { name: 'Dashboard', href: '/dashboard', icon: Home },
-  { name: 'Contacts', href: '/contacts', icon: Users },
-  { name: 'Add New', href: '/add', icon: Plus, isSpecial: true }, // Center item
-  { name: 'Events', href: '/events', icon: Calendar },
-  { name: 'More', href: '/more', icon: Menu },
+const mobileNavItems: NavItem[] = [
+  { nameKey: 'nav.dashboard', href: '/dashboard', icon: Home },
+  { nameKey: 'nav.contacts', href: '/contacts', icon: Users },
+  { nameKey: 'nav.addNew', href: '/add', icon: Plus, isSpecial: true }, // Center item
+  { nameKey: 'nav.events', href: '/events', icon: Calendar },
+  { nameKey: 'nav.more', href: '/more', icon: Menu },
 ]
 
 interface TopNavigationProps {
@@ -51,6 +54,7 @@ interface TopNavigationProps {
 
 export function TopNavigation({ user }: TopNavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const { t } = useTranslation()
   
   return (
     <nav className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 z-50 shadow-sm">
@@ -69,6 +73,7 @@ export function TopNavigation({ user }: TopNavigationProps) {
 
         {/* Desktop User Menu */}
         <div className="hidden md:flex items-center space-x-4">
+          <LanguageToggle compact={true} showLabel={false} />
           <span className="text-sm font-medium text-text-secondary">
             {user?.user_metadata?.first_name || 'User'}
           </span>
@@ -104,13 +109,19 @@ export function TopNavigation({ user }: TopNavigationProps) {
       {isMobileMenuOpen && (
         <div className="md:hidden bg-white border-b border-gray-100 shadow-lg">
           <div className="px-4 py-2 space-y-1">
-            {navItems.map((item) => (
-              <MobileNavItem
-                key={item.name}
-                item={item}
-                onClick={() => setIsMobileMenuOpen(false)}
-              />
-            ))}
+            {/* Language Toggle for Mobile */}
+            <div className="px-4 py-2 flex justify-center">
+              <LanguageToggle showLabel={true} />
+            </div>
+            <div className="border-t border-gray-100 pt-2">
+              {navItems.map((item) => (
+                <MobileNavItem
+                  key={item.nameKey}
+                  item={item}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                />
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -126,7 +137,7 @@ export function SidebarNavigation() {
       <div className="p-6 space-y-2">
         {navItems.map((item) => (
           <SidebarNavItem
-            key={item.name}
+            key={item.nameKey}
             item={item}
             isActive={pathname === item.href}
           />
@@ -138,6 +149,7 @@ export function SidebarNavigation() {
 
 export function MobileBottomNavigation() {
   const pathname = usePathname()
+  const { t } = useTranslation()
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 shadow-lg z-50">
@@ -148,7 +160,7 @@ export function MobileBottomNavigation() {
 
           return (
             <Link
-              key={item.name}
+              key={item.nameKey}
               href={item.href}
               className={`flex flex-col items-center justify-center px-1 py-2 transition-all duration-300 relative ${
                 item.isSpecial
@@ -172,7 +184,7 @@ export function MobileBottomNavigation() {
               
               {!item.isSpecial && (
                 <span className={`text-xs font-medium ${isActive ? 'font-semibold' : ''}`}>
-                  {item.name}
+                  {t(item.nameKey)}
                 </span>
               )}
               
@@ -189,6 +201,7 @@ export function MobileBottomNavigation() {
 
 function SidebarNavItem({ item, isActive }: { item: NavItem; isActive: boolean }) {
   const Icon = item.icon
+  const { t } = useTranslation()
 
   return (
     <Link
@@ -202,7 +215,7 @@ function SidebarNavItem({ item, isActive }: { item: NavItem; isActive: boolean }
       `}
     >
       <Icon className="h-5 w-5 mr-3" />
-      {item.name}
+      {t(item.nameKey)}
     </Link>
   )
 }
@@ -211,6 +224,7 @@ function MobileNavItem({ item, onClick }: { item: NavItem; onClick: () => void }
   const pathname = usePathname()
   const isActive = pathname === item.href
   const Icon = item.icon
+  const { t } = useTranslation()
 
   return (
     <Link
@@ -225,7 +239,7 @@ function MobileNavItem({ item, onClick }: { item: NavItem; onClick: () => void }
       `}
     >
       <Icon className="h-5 w-5 mr-3" />
-      {item.name}
+      {t(item.nameKey)}
     </Link>
   )
 } 
