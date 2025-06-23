@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { sendEmail } from '@/lib/email'
+import { populateEmailVariables, replaceEmailVariables } from '@/lib/email-variables'
 
 interface Contact {
   id: string
@@ -101,20 +103,115 @@ export async function POST(request: NextRequest) {
 
     console.log('[Send Quick Email] Valid contacts with emails:', validContacts.length)
 
-    // Simulate email sending (replace with actual email service)
+    // Get current user for email variables
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      console.error('[Send Quick Email] Authentication error:', authError)
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    // Get member data for email variables and reply-to
+    const { data: member, error: memberError } = await supabase
+      .from('members')
+      .select('id, company_id, email, first_name, last_name')
+      .eq('id', user.id)
+      .single()
+
+    if (memberError || !member) {
+      console.error('[Send Quick Email] Member not found:', memberError)
+      return NextResponse.json({ error: 'Member profile not found' }, { status: 404 })
+    }
+
+    // Send actual emails using Resend
     const results = []
     for (const contact of validContacts) {
       try {
-        // Here you would integrate with your email service (Resend, etc.)
-        console.log(`[Send Quick Email] Simulating email to ${contact.email}`)
+        console.log(`[Send Quick Email] Sending email to ${contact.email}`)
         
-        results.push({
-          contactId: contact.id,
-          contactName: contact.name,
-          email: contact.email,
-          status: 'sent',
-          sentAt: new Date().toISOString()
+        // Populate email variables for this specific contact
+        const emailVariables = await populateEmailVariables(
+          member.id,
+          contact.id,
+          undefined, // eventId
+          {
+            contact_name: contact.name || contact.email,
+            contact_email: contact.email
+          }
+        )
+
+        console.log(`[Send Quick Email] Email variables populated for ${contact.name}`)
+
+        // Replace variables in template subject and content
+        const processedSubject = replaceEmailVariables(template.subject, emailVariables)
+        const processedContent = replaceEmailVariables(template.body_html, emailVariables)
+
+        console.log(`[Send Quick Email] Processed subject: "${processedSubject}"`)
+
+        // Send email using Resend
+        const emailResult = await sendEmail({
+          to: contact.email,
+          subject: processedSubject,
+          html: processedContent,
+          text: processedContent.replace(/<[^>]*>/g, ''), // Strip HTML for text version
+          replyTo: member.email,
+          useEdgeFunction: false
         })
+
+        console.log(`[Send Quick Email] Email result for ${contact.email}:`, {
+          success: emailResult.success,
+          messageId: emailResult.messageId,
+          error: emailResult.error
+        })
+
+        if (emailResult.success) {
+          // Create communication record
+          const communicationData = {
+            member_id: member.id,
+            contact_id: contact.id,
+            type: 'email',
+            subject: processedSubject,
+            content: processedContent,
+            status: 'sent',
+            template_id: template.id,
+            metadata: {
+              recipient_email: contact.email,
+              recipient_name: contact.name,
+              recipient_type: 'contact',
+              sender_name: member.first_name ? `${member.first_name} ${member.last_name || ''}`.trim() : member.email,
+              direction: 'outbound',
+              quick_action: true,
+              target_audience: targetAudience,
+              message_id: emailResult.messageId
+            }
+          }
+
+          const { error: commError } = await supabase
+            .from('communications')
+            .insert([communicationData])
+
+          if (commError) {
+            console.error('[Send Quick Email] Communication record error:', commError)
+            // Continue anyway since email was sent successfully
+          }
+
+          results.push({
+            contactId: contact.id,
+            contactName: contact.name,
+            email: contact.email,
+            status: 'sent',
+            sentAt: new Date().toISOString(),
+            messageId: emailResult.messageId
+          })
+        } else {
+          results.push({
+            contactId: contact.id,
+            contactName: contact.name,
+            email: contact.email,
+            status: 'failed',
+            error: emailResult.error || 'Email sending failed'
+          })
+        }
+        
       } catch (emailError) {
         console.error(`[Send Quick Email] Failed to send to ${contact.email}:`, emailError)
         results.push({
@@ -127,15 +224,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log('[Send Quick Email] Sending complete. Results:', results)
+    const sentCount = results.filter(r => r.status === 'sent').length
+    const failedCount = results.filter(r => r.status === 'failed').length
+    
+    console.log('[Send Quick Email] Sending complete. Results:', {
+      sent: sentCount,
+      failed: failedCount,
+      total: results.length
+    })
 
     return NextResponse.json({
-      success: true,
-      message: `Email sent to ${results.filter(r => r.status === 'sent').length} recipients`,
+      success: sentCount > 0,
+      message: sentCount > 0 
+        ? `Successfully sent ${sentCount} email(s)${failedCount > 0 ? ` (${failedCount} failed)` : ''}`
+        : `Failed to send emails to all ${failedCount} recipients`,
       results,
       template: {
         id: template.id,
         name: template.name
+      },
+      stats: {
+        sent: sentCount,
+        failed: failedCount,
+        total: results.length
       }
     })
 
