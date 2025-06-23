@@ -1,5 +1,5 @@
 [build]
-  command = "npm install && npm run build"
+  command = "rm -rf node_modules .next && npm ci && node scripts/verify-build.js && npm run build"
 
 [build.environment]
   # Use Node.js 18 for better compatibility with React 18
