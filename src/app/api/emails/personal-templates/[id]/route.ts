@@ -3,7 +3,7 @@ import { createApiClient } from '@/lib/supabase/api-client'
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const supabase = createApiClient()
+    const supabase = await createApiClient(request)
     
     // Get the current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const supabase = createApiClient()
+    const supabase = await createApiClient(request)
     
     // Get the current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -94,7 +94,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const supabase = createApiClient()
+    const supabase = await createApiClient(request)
     
     // Get the current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()

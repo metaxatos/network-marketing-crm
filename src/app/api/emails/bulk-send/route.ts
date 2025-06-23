@@ -5,7 +5,7 @@ import { populateEmailVariables, replaceEmailVariables, getMemberDisplayName, ge
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createApiClient()
+    const supabase = await createApiClient(req)
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -103,8 +103,8 @@ export async function POST(req: NextRequest) {
         )
 
         // Replace variables in subject and content
-        const processedSubject = customSubject || replaceEmailVariables(emailSubject, emailVariables)
-        const processedContent = customContent || replaceEmailVariables(emailContent, emailVariables)
+        const processedSubject = replaceEmailVariables(customSubject || emailSubject, emailVariables)
+        const processedContent = replaceEmailVariables(customContent || emailContent, emailVariables)
         
         // Insert communication record
         const { data: communication, error: commError } = await supabase

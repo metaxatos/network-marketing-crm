@@ -3,7 +3,7 @@ import { createApiClient } from '@/lib/supabase/api-client'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createApiClient()
+    const supabase = await createApiClient(request)
     
     // Get the current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
