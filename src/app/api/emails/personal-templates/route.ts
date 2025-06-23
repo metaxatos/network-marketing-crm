@@ -12,13 +12,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get personal email templates for the user
-    const { data: personalTemplates, error } = await supabase
+    // Get personal templates for the user
+    const { data: templates, error } = await supabase
       .from('personal_email_templates')
       .select(`
         *,
         email_templates!parent_template_id (
-          name as parent_name,
+          name,
           category
         )
       `)
@@ -27,13 +27,12 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching personal templates:', error)
-      return NextResponse.json({ error: 'Failed to fetch personal templates' }, { status: 500 })
+      return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
-    return NextResponse.json({ templates: personalTemplates || [] })
-
+    return NextResponse.json({ data: templates })
   } catch (error) {
-    console.error('Unexpected error in personal-templates GET:', error)
+    console.error('Unexpected error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -49,41 +48,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { template_id, new_name } = body
+    const { parent_template_id, name, subject, body_html, body_text, category } = await request.json()
 
-    if (!template_id) {
-      return NextResponse.json({ error: 'Template ID is required' }, { status: 400 })
-    }
-
-    // Call the RPC function to duplicate the template
-    const { data: newTemplateId, error } = await supabase
-      .rpc('duplicate_template_for_personal_use', {
-        p_template_id: template_id,
-        p_new_name: new_name
-      })
-
-    if (error) {
-      console.error('Error duplicating template:', error)
-      return NextResponse.json({ error: error.message || 'Failed to duplicate template' }, { status: 500 })
-    }
-
-    // Get the newly created template
-    const { data: newTemplate, error: fetchError } = await supabase
+    // Create new personal template
+    const { data: template, error } = await supabase
       .from('personal_email_templates')
-      .select('*')
-      .eq('id', newTemplateId)
+      .insert({
+        member_id: user.id,
+        parent_template_id,
+        name,
+        subject,
+        body_html,
+        body_text,
+        category
+      })
+      .select(`
+        *,
+        email_templates!parent_template_id (
+          name,
+          category
+        )
+      `)
       .single()
 
-    if (fetchError) {
-      console.error('Error fetching new template:', fetchError)
-      return NextResponse.json({ error: 'Template created but failed to fetch' }, { status: 500 })
+    if (error) {
+      console.error('Error creating personal template:', error)
+      return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
-    return NextResponse.json({ template: newTemplate })
-
+    return NextResponse.json({ data: template })
   } catch (error) {
-    console.error('Unexpected error in personal-templates POST:', error)
+    console.error('Unexpected error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-} 
+}

@@ -1,9 +1,9 @@
 import { createApiClient } from '@/lib/supabase/api-client';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status');
     const limit = parseInt(searchParams.get('limit') || '20');
     
@@ -11,74 +11,67 @@ export async function GET(request: Request) {
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
+    
     // Build query
     let query = supabase
       .from('email_automation_queue')
       .select(`
         *,
-        system_email_templates (
-          name,
-          trigger_event,
-          language
-        ),
-        members!email_automation_queue_member_id_fkey (
-          name,
-          email
-        ),
-        contact:members!email_automation_queue_contact_id_fkey (
-          name,
-          email
-        )
+        contacts:contact_id(id, name, email),
+        system_email_templates:system_template_id(id, name, subject)
       `)
-      .order('scheduled_for', { ascending: false })
+      .eq('member_id', user.id)
+      .order('scheduled_for', { ascending: true })
       .limit(limit);
-
-    // Filter by status if provided
+    
+    // Apply status filter if provided
     if (status && status !== 'all') {
       query = query.eq('status', status);
     }
-
+    
     const { data: automations, error } = await query;
-
+    
     if (error) {
       throw error;
     }
-
-    // Get summary statistics
-    const { data: stats } = await supabase
+    
+    // Get summary stats
+    const { data: stats, error: statsError } = await supabase
       .from('email_automation_queue')
       .select('status')
-      .in('status', ['pending', 'sent', 'failed']);
-
-    const summary = {
-      pending: 0,
-      sent: 0,
-      failed: 0,
-      total: 0
-    };
-
-    if (stats) {
-      stats.forEach(item => {
-        summary[item.status as keyof typeof summary]++;
-        summary.total++;
-      });
+      .eq('member_id', user.id);
+    
+    if (statsError) {
+      throw statsError;
     }
-
+    
+    const summary = {
+      total: stats?.length || 0,
+      pending: stats?.filter(s => s.status === 'pending').length || 0,
+      sent: stats?.filter(s => s.status === 'sent').length || 0,
+      failed: stats?.filter(s => s.status === 'failed').length || 0,
+      cancelled: stats?.filter(s => s.status === 'cancelled').length || 0
+    };
+    
     return NextResponse.json({
-      automations: automations || [],
-      summary
+      success: true,
+      data: {
+        automations,
+        summary
+      }
     });
+    
   } catch (error) {
-    console.error('Automation status error:', error);
+    console.error('Error fetching automation status:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to get automation status' },
+      { 
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch automation status' 
+      },
       { status: 500 }
     );
   }
