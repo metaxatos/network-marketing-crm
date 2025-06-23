@@ -85,6 +85,18 @@ SET language = 'en'
 WHERE language IS NULL 
   AND is_active = true;
 
+-- Fix 6: Update any templates with empty string language to default language
+UPDATE email_templates 
+SET language = 'en'
+WHERE language = '' 
+  AND is_active = true;
+
+-- Fix 7: Ensure system templates have proper language assignments
+UPDATE email_templates 
+SET language = 'en'
+WHERE template_type = 'system' 
+  AND (language IS NULL OR language = '');
+
 -- Show the results after fixing
 SELECT 
     language,
@@ -99,5 +111,26 @@ ORDER BY language;
 SELECT COUNT(*) as null_language_templates
 FROM email_templates 
 WHERE language IS NULL AND is_active = true;
+
+-- Show specific details for debugging
+SELECT 
+    id,
+    name,
+    language,
+    template_type,
+    target_audience,
+    category,
+    is_active
+FROM email_templates 
+WHERE is_active = true
+ORDER BY language, name;
+
+-- Check for Greek templates specifically
+SELECT 
+    'Greek Templates Available' as info,
+    COUNT(*) as count,
+    STRING_AGG(name, ', ') as template_names
+FROM email_templates 
+WHERE language = 'gr' AND is_active = true;
 
 SELECT 'Language assignment fix completed successfully!' as status; 

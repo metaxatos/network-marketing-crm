@@ -149,10 +149,9 @@ export async function GET(req: NextRequest) {
     
     // Apply Phase 3 filters if columns exist
     if (language && availableColumns.has('language')) {
-      // Handle strict language filtering - only return templates with exact language match
-      // Don't include templates with null/undefined language as fallbacks
+      // Strict language filtering - only return templates for the requested language
       query = query.eq('language', language)
-      console.log('[Email Templates API] Filtering by language:', language)
+      console.log('[Email Templates API] Filtering by language (strict):', language)
     }
     
     if (category && availableColumns.has('category')) {

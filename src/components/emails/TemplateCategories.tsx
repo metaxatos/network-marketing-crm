@@ -126,38 +126,40 @@ export function generateTemplateCategories(
   const allCategoryIds = new Set<string>()
   
   templates.forEach(template => {
-    // Only consider templates that match the selected language (or all if no language filter)
-    const shouldInclude = !selectedLanguage || template.language === selectedLanguage
+    // Since API already filters by language, include all templates from API response
+    // Add target_audience as a category (customer/partner)
+    if (template.target_audience && template.target_audience !== 'general') {
+      allCategoryIds.add(template.target_audience)
+    }
     
-    // Debug: For Greek language, also show what templates are available if no Greek ones found
-    const isDebuggingGreek = selectedLanguage === 'gr'
-    const hasGreekTemplates = templates.some(t => t.language === 'gr')
-    const shouldIncludeForDebug = isDebuggingGreek && !hasGreekTemplates
-    
-    if (shouldInclude || shouldIncludeForDebug) {
-      // Add target_audience as a category (customer/partner)
-      if (template.target_audience && template.target_audience !== 'general') {
-        allCategoryIds.add(template.target_audience)
-      }
-      
-      // Add traditional category
-      if (template.category) {
-        allCategoryIds.add(template.category)
-      }
+    // Add traditional category
+    if (template.category) {
+      allCategoryIds.add(template.category)
     }
   })
+  
+  console.log('[TemplateCategories Debug] Category IDs found:', Array.from(allCategoryIds))
+  console.log('[TemplateCategories Debug] Selected language:', selectedLanguage)
+  console.log('[TemplateCategories Debug] Template counts:', templateCounts)
   
   // Create categories for all found category IDs
   allCategoryIds.forEach(categoryId => {
     // Check if category has templates (prefer templateCounts, but fallback to checking templates directly)
     const countFromCounts = templateCounts[categoryId] || 0
     const countFromTemplates = templates.filter(t => {
-      const matchesLanguage = !selectedLanguage || t.language === selectedLanguage
+      // Since API already filters by language, only check category match
       const matchesCategory = t.category === categoryId || t.target_audience === categoryId
-      return matchesLanguage && matchesCategory
+      return matchesCategory
     }).length
     
     const templateCount = countFromCounts > 0 ? countFromCounts : countFromTemplates
+    
+    console.log('[TemplateCategories Debug] Category check:', {
+      categoryId,
+      countFromCounts,
+      countFromTemplates,
+      finalCount: templateCount
+    })
     
     if (templateCount > 0) {
       const styleConfig = CATEGORY_STYLE_MAP[categoryId] || {
@@ -172,6 +174,12 @@ export function generateTemplateCategories(
       }
     }
   })
+  
+  // If no categories found, log a helpful warning
+  if (Object.keys(categories).length === 0) {
+    console.warn('[TemplateCategories Debug] No categories found for language:', selectedLanguage)
+    console.log('[TemplateCategories Debug] Total templates available:', templates.length)
+  }
   
   return categories
 }
@@ -292,6 +300,7 @@ interface TemplateCategoriesGridProps {
   templateCounts: Record<string, number>
   recommendedCategories?: string[]
   categories?: Record<string, TemplateCategoryConfig>
+  selectedLanguage?: string
 }
 
 export function TemplateCategoriesGrid({
@@ -299,7 +308,8 @@ export function TemplateCategoriesGrid({
   onCategorySelect,
   templateCounts,
   recommendedCategories = [],
-  categories
+  categories,
+  selectedLanguage
 }: TemplateCategoriesGridProps) {
   // Use provided categories or fallback to empty object if no categories provided
   const categoriesToUse = categories || {}
@@ -323,10 +333,26 @@ export function TemplateCategoriesGrid({
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <EnvelopeIcon className="w-8 h-8 text-gray-400" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Email Categories Available</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            {selectedLanguage === 'gr' 
+              ? 'Δεν βρέθηκαν ελληνικά πρότυπα email' 
+              : 'No Email Categories Available'
+            }
+          </h3>
           <p className="text-gray-500">
-            No email templates found for the selected language. Try switching to a different language.
+            {selectedLanguage === 'gr' 
+              ? 'Δεν βρέθηκαν πρότυπα email για την ελληνική γλώσσα. Δοκιμάστε να αλλάξετε σε αγγλικά ή επικοινωνήστε με τον διαχειριστή.'
+              : 'No email templates found for the selected language. Try switching to a different language or contact your administrator.'
+            }
           </p>
+          {selectedLanguage === 'gr' && (
+            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800">
+                <strong>Σημείωση:</strong> Τα ελληνικά πρότυπα μπορεί να μην έχουν ρυθμιστεί ακόμη. 
+                Επικοινωνήστε με τον διαχειριστή του συστήματος για να προσθέσει ελληνικά πρότυπα email.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

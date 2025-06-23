@@ -126,33 +126,35 @@ export default function EmailsPage() {
     console.log('[Email Templates Debug] Templates without language:', templatesWithoutLanguage.length)
     
     templates.forEach(template => {
-      // Only count templates that match the selected language exactly
-      // Templates with null/undefined language should not be counted for any language
-      const shouldCount = template.language === selectedLanguage
-      
-      console.log('[Email Templates Debug] Template check:', {
+      console.log('[Email Templates Debug] Processing template:', {
         name: template.name,
         templateLang: template.language,
         selectedLang: selectedLanguage,
-        shouldCount
+        category: template.category,
+        target_audience: template.target_audience
       })
       
-      if (shouldCount) {
-        // Map target_audience to categories for customer/partner templates
-        if (template.target_audience === 'customer') {
-          counts.customer = (counts.customer || 0) + 1
-        } else if (template.target_audience === 'partner') {
-          counts.partner = (counts.partner || 0) + 1
-        }
-        
-        // Count by actual category
-        if (template.category) {
-          counts[template.category] = (counts[template.category] || 0) + 1
-        }
+      // Since API already filters by language, count all returned templates
+      // Map target_audience to categories for customer/partner templates
+      if (template.target_audience === 'customer') {
+        counts.customer = (counts.customer || 0) + 1
+      } else if (template.target_audience === 'partner') {
+        counts.partner = (counts.partner || 0) + 1
+      }
+      
+      // Count by actual category
+      if (template.category) {
+        counts[template.category] = (counts[template.category] || 0) + 1
       }
     })
     
     console.log('[Email Templates Debug] Final counts:', counts)
+    
+    // If we're in Greek mode and have no templates, log a warning
+    if (selectedLanguage === 'gr' && Object.keys(counts).length === 0) {
+      console.warn('[Email Templates Debug] No Greek templates found! Consider running the language migration.')
+    }
+    
     return counts
   }, [templates, selectedLanguage])
 
@@ -321,6 +323,7 @@ export default function EmailsPage() {
                     templateCounts={templateCounts}
                     recommendedCategories={recommendedCategories}
                     categories={dynamicCategories}
+                    selectedLanguage={selectedLanguage}
                   />
                 </div>
 

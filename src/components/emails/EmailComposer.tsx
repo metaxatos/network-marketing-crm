@@ -43,23 +43,27 @@ export function EmailComposer({
       const matchesCategory = !selectedCategory || 
         template.category === selectedCategory || 
         template.target_audience === selectedCategory
-      // Only show templates that match the selected language exactly
-      // Templates with null/undefined language should not be shown for any language
-      const matchesLanguage = template.language === selectedLanguage
       
+      // Since API already filters by language, only filter by category
       console.log('[EmailComposer Debug] Template filter check:', {
         name: template.name,
         templateLang: template.language,
         selectedLang: selectedLanguage,
         matchesCategory,
-        matchesLanguage,
-        included: matchesCategory && matchesLanguage
+        included: matchesCategory
       })
       
-      return matchesCategory && matchesLanguage
+      return matchesCategory
     })
     
     console.log('[EmailComposer Debug] Filtered templates count:', filtered.length)
+    
+    // If no templates found, log a helpful message
+    if (filtered.length === 0) {
+      console.warn('[EmailComposer Debug] No templates found for category:', selectedCategory, 'language:', selectedLanguage)
+      console.log('[EmailComposer Debug] Total templates available:', templates.length)
+    }
+    
     return filtered
   }, [templates, selectedCategory, selectedLanguage])
 
