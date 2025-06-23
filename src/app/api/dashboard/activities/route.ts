@@ -14,33 +14,46 @@ interface DatabaseActivity {
 export const GET = withAuth(async (req: NextRequest, userId: string) => {
   try {
     const { page = 1, limit = 20 } = getPaginationParams(req.nextUrl.searchParams)
+    const supabase = await createClient()
     
-    // Return mock activities for now since member_activities table doesn't exist
-    // This will be replaced with real data once we create the proper table structure
-    const mockActivities = [
-      {
-        id: '1',
-        type: 'signup',
-        description: 'Created account',
-        timestamp: new Date().toISOString(),
-        metadata: {},
-      },
-      {
-        id: '2', 
-        type: 'login',
-        description: 'Logged in',
-        timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-        metadata: {},
-      }
-    ]
+    // Fetch real activities from member_activities table
+    const { data: activities, error, count } = await supabase
+      .from('member_activities')
+      .select('*', { count: 'exact' })
+      .eq('member_id', userId)
+      .order('created_at', { ascending: false })
+      .range((page - 1) * limit, page * limit - 1)
+
+    if (error) {
+      console.error('Error fetching activities:', error)
+      // Return empty activities if table doesn't exist or other error
+      return apiResponse({
+        activities: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          hasMore: false,
+        },
+      }, 200)
+    }
+
+    // Transform activities to expected format
+    const transformedActivities = activities?.map((activity: DatabaseActivity) => ({
+      id: activity.id,
+      type: activity.activity_type,
+      description: getActivityDescription(activity),
+      timestamp: activity.created_at,
+      metadata: activity.metadata || {},
+    })) || []
 
     return apiResponse({
-      activities: mockActivities,
+      activities: transformedActivities,
       pagination: {
         page,
         limit,
-        total: mockActivities.length,
-        hasMore: false,
+        total: count || 0,
+        hasMore: (count || 0) > page * limit,
       },
     }, 200)
   } catch (error) {
@@ -51,6 +64,7 @@ export const GET = withAuth(async (req: NextRequest, userId: string) => {
 
 export const POST = withAuth(async (req: NextRequest, userId: string) => {
   try {
+    const supabase = await createClient()
     const body = await req.json()
     const { activity_type, metadata = {} } = body
 
@@ -58,23 +72,33 @@ export const POST = withAuth(async (req: NextRequest, userId: string) => {
       return apiError('Activity type is required', 400)
     }
 
-    // Return mock activity for now since member_activities table doesn't exist
-    const mockActivity = {
-      id: `mock-${Date.now()}`,
-      type: activity_type,
-      description: getActivityDescription({
-        id: 'mock',
+    // Insert new activity into database
+    const { data: activity, error } = await supabase
+      .from('member_activities')
+      .insert({
         member_id: userId,
         activity_type,
         metadata,
-        created_at: new Date().toISOString()
-      }),
-      timestamp: new Date().toISOString(),
-      metadata,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error creating activity:', error)
+      return apiError('Failed to create activity', 500)
+    }
+
+    // Transform to expected format
+    const transformedActivity = {
+      id: activity.id,
+      type: activity.activity_type,
+      description: getActivityDescription(activity),
+      timestamp: activity.created_at,
+      metadata: activity.metadata || {},
     }
 
     return apiResponse({
-      activity: mockActivity
+      activity: transformedActivity
     }, 201)
   } catch (error) {
     console.error('Create activity error:', error)

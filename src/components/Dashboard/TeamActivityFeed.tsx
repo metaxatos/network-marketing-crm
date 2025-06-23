@@ -28,79 +28,22 @@ export function TeamActivityFeed() {
     setActivities: setRealtimeActivities
   } = useActivityFeedRealtime()
 
-  // Mock activity data - in real app this would come from API/websocket
-  const mockActivities: ActivityItem[] = [
-    {
-      id: '1',
-      type: 'achievement',
-      user: { name: 'Sarah Chen', avatar: '', initials: 'SC' },
-      message: 'reached 50 contacts milestone! 🎉',
-      timestamp: new Date(Date.now() - 5 * 60 * 1000), // 5 min ago
-      icon: <Trophy className="w-4 h-4 text-action-golden" />
-    },
-    {
-      id: '2',
-      type: 'growth',
-      user: { name: 'Mike Rodriguez', avatar: '', initials: 'MR' },
-      message: 'added 3 new team members this week',
-      timestamp: new Date(Date.now() - 15 * 60 * 1000), // 15 min ago
-      icon: <Users className="w-4 h-4 text-action-blue" />
-    },
-    {
-      id: '3',
-      type: 'milestone',
-      user: { name: 'Emily Johnson', avatar: '', initials: 'EJ' },
-      message: 'completed Advanced Leadership training',
-      timestamp: new Date(Date.now() - 30 * 60 * 1000), // 30 min ago
-      icon: <Star className="w-4 h-4 text-action-purple" />
-    },
-    {
-      id: '4',
-      type: 'celebration',
-      user: { name: 'David Kim', avatar: '', initials: 'DK' },
-      message: 'hit monthly goals 3 days early! ⚡',
-      timestamp: new Date(Date.now() - 45 * 60 * 1000), // 45 min ago
-      icon: <Zap className="w-4 h-4 text-action-green" />
-    },
-    {
-      id: '5',
-      type: 'growth',
-      user: { name: 'Lisa Parker', avatar: '', initials: 'LP' },
-      message: 'achieved 25% conversion rate improvement',
-      timestamp: new Date(Date.now() - 60 * 60 * 1000), // 1 hour ago
-      icon: <TrendingUp className="w-4 h-4 text-action-coral" />
-    },
-  ]
-
   useEffect(() => {
-    // Initialize with mock data if no realtime activities yet
-    if (realtimeActivities.length === 0) {
-      setActivities(mockActivities)
-      setRealtimeActivities(mockActivities.map(activity => ({
-        id: activity.id,
-        type: activity.type,
-        description: activity.message,
-        timestamp: activity.timestamp,
-        metadata: { user_name: activity.user.name },
-        member_id: 'mock'
-      })))
-    } else {
-      // Convert realtime activities to display format
-      const displayActivities = realtimeActivities.map((activity): ActivityItem => ({
-        id: activity.id,
-        type: activity.type as any,
-        user: {
-          name: activity.metadata?.user_name || 'Team Member',
-          avatar: '',
-          initials: (activity.metadata?.user_name || 'TM').split(' ').map((n: string) => n[0]).join('').toUpperCase()
-        },
-        message: activity.description,
-        timestamp: activity.timestamp,
-        icon: getActivityIcon(activity.type)
-      }))
-      setActivities(displayActivities)
-    }
-  }, [realtimeActivities, setRealtimeActivities])
+    // Convert realtime activities to display format
+    const displayActivities = realtimeActivities.map((activity): ActivityItem => ({
+      id: activity.id,
+      type: activity.type as any,
+      user: {
+        name: activity.metadata?.user_name || 'Team Member',
+        avatar: '',
+        initials: (activity.metadata?.user_name || 'TM').split(' ').map((n: string) => n[0]).join('').toUpperCase()
+      },
+      message: activity.description,
+      timestamp: activity.timestamp,
+      icon: getActivityIcon(activity.type)
+    }))
+    setActivities(displayActivities)
+  }, [realtimeActivities])
 
   const formatTimeAgo = (timestamp: Date) => {
     const diff = Date.now() - timestamp.getTime()
@@ -141,6 +84,29 @@ export function TeamActivityFeed() {
       case 'celebration': return 'border-l-action-green bg-green-50'
       default: return 'border-l-gray-300 bg-gray-50'
     }
+  }
+
+  // Show empty state if no activities
+  if (activities.length === 0) {
+    return (
+      <div className="rounded-xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display text-lg font-semibold text-text-primary">
+            Team Wins
+          </h3>
+        </div>
+        
+        <div className="text-center py-8">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Trophy className="w-8 h-8 text-gray-400" />
+          </div>
+          <h4 className="text-lg font-medium text-text-primary mb-2">No activities yet</h4>
+          <p className="text-sm text-text-secondary">
+            Team activities and achievements will appear here as they happen.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -198,13 +164,6 @@ export function TeamActivityFeed() {
             </div>
           </div>
         ))}
-      </div>
-
-      {/* Call to Action */}
-      <div className="mt-4 pt-4 border-t border-gray-100">
-        <p className="text-xs text-text-light text-center">
-          Your next win could be here! 🚀
-        </p>
       </div>
     </div>
   )

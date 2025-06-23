@@ -33,6 +33,7 @@ import {
   Target,
   Award
 } from 'lucide-react'
+import { useMemo } from 'react'
 
 export default function DashboardPage() {
   const { user, loading } = useAppAuth()
@@ -43,16 +44,8 @@ export default function DashboardPage() {
   const { data: activitiesData, isLoading: activitiesLoading } = useActivityFeed()
   const { data: contacts = [], isLoading: contactsLoading } = useContacts()
   const { data: sentEmails = [], isLoading: emailsLoading } = useEmailHistory()
-  
-  // TEMP: Remove problematic training hooks until we fix the API/hook mismatch
-  // const { data: courses = [], isLoading: coursesLoading } = useTrainingVideos()
-  // const { data: userProgress, isLoading: progressLoading } = useVideoProgress()
-  
-  // Simple fallbacks for training data
-  const courses: any[] = []
-  const userProgress: any[] = []
-  const coursesLoading = false
-  const progressLoading = false
+  const { data: courses = [], isLoading: coursesLoading } = useTrainingVideos()
+  const { data: userProgress = [], isLoading: progressLoading } = useVideoProgress()
   
   // Extract activities from InfiniteData if needed
   const activities = Array.isArray(activitiesData) 
@@ -86,45 +79,100 @@ export default function DashboardPage() {
     return email.sent_at && new Date(email.sent_at).toDateString() === today
   }).length
   
-  // SIMPLIFIED: Use static training progress until we fix the API/hook structure
-  const trainingProgress: number = 0 // Will show "0% complete" for now
-  
-  // Mock smart suggestion - in real app this would come from AI/analytics
-  const handleSuggestionAction = () => {
-    // Navigate to contacts or specific action
-    window.location.href = '/contacts'
-  }
+  // Calculate real training progress from user progress
+  const trainingProgress = useMemo(() => {
+    if (progressLoading || coursesLoading) return 0
+    const coursesArray = Array.isArray(courses) ? courses : courses?.courses || []
+    if (coursesArray.length === 0) return 0
+    
+    const completedCount = userProgress.filter((progress: any) => progress.completed).length
+    return Math.round((completedCount / coursesArray.length) * 100)
+  }, [userProgress, courses, progressLoading, coursesLoading])
 
-  // Quick wins actions (2-3 most relevant optional actions)
-  const quickWinActions = [
-    {
-      title: t('training.continueCourse'),
-      subtitle: t('training.progress', { percent: trainingProgress }),
-      href: "/training",
-      icon: <GraduationCap className="w-full h-full" />,
-      variant: "golden" as const
-    },
-    {
-      title: t('team.title'),
-      subtitle: t('dashboard.recentActivity'),
-      href: "/team",
-      icon: <BarChart3 className="w-full h-full" />,
-      variant: "green" as const
-    },
-    {
+  // Quick wins actions based on real data
+  const quickWinActions = useMemo(() => {
+    const actions = []
+    const coursesArray = Array.isArray(courses) ? courses : courses?.courses || []
+    
+    // Show training action if there are incomplete courses
+    if (coursesArray.length > 0 && trainingProgress < 100) {
+      actions.push({
+        title: t('training.continueCourse'),
+        subtitle: t('training.progress', { percent: trainingProgress }),
+        href: "/training",
+        icon: <GraduationCap className="w-full h-full" />,
+        variant: "golden" as const
+      })
+    }
+    
+    // Show team action if user has contacts
+    if (contacts.length > 0) {
+      actions.push({
+        title: t('team.title'),
+        subtitle: t('dashboard.recentActivity'),
+        href: "/team",
+        icon: <BarChart3 className="w-full h-full" />,
+        variant: "green" as const
+      })
+    }
+    
+    // Always show landing page action
+    actions.push({
       title: t('dashboard.updateLandingPage'),
       subtitle: t('dashboard.makeItShine'),
       href: "/landing-page",
       icon: <Globe className="w-full h-full" />,
       variant: "blue" as const
-    }
-  ]
+    })
+    
+    return actions
+  }, [courses, trainingProgress, contacts, t])
 
-  // Calculate monthly goals progress (mock - could be based on real metrics)
-  const monthlyGoalProgress = Math.min(Math.round((contactsThisWeek / 20) * 100), 100) // Goal of 20 contacts per month
+  // Calculate monthly goals progress based on real data
+  const monthlyGoalProgress = Math.min(Math.round((contactsThisWeek / 20) * 100), 100)
 
-  // Show loading state if any critical data is still loading (removed training from critical path)
+  // Show loading state if any critical data is still loading
   const isDataLoading = metricsLoading || contactsLoading
+
+  // Generate smart suggestion based on real data
+  const smartSuggestion = useMemo(() => {
+    // Check for recent unopened emails
+    const recentEmails = sentEmails.filter((email: any) => {
+      const sentDate = new Date(email.sent_at)
+      const daysSince = (Date.now() - sentDate.getTime()) / (1000 * 60 * 60 * 24)
+      return daysSince <= 3 && !email.opened
+    })
+    
+    if (recentEmails.length > 0) {
+      return {
+        text: `You have ${recentEmails.length} recent email${recentEmails.length > 1 ? 's' : ''} that haven't been opened yet - consider following up!`,
+        actionText: "Review Emails",
+        actionUrl: "/emails"
+      }
+    }
+    
+    // Check for prospects that need follow-up
+    const prospects = contacts.filter((contact: any) => contact.status === 'prospect')
+    if (prospects.length > 0) {
+      return {
+        text: `You have ${prospects.length} prospect${prospects.length > 1 ? 's' : ''} ready for follow-up!`,
+        actionText: "View Prospects",
+        actionUrl: "/contacts?filter=prospects"
+      }
+    }
+    
+    // Check if user needs training
+    const coursesArray = Array.isArray(courses) ? courses : courses?.courses || []
+    if (coursesArray.length > 0 && trainingProgress < 50) {
+      return {
+        text: "Complete your training to unlock more features and maximize your success!",
+        actionText: "Continue Training",
+        actionUrl: "/training"
+      }
+    }
+    
+    return null
+  }, [sentEmails, contacts, courses, trainingProgress])
 
   return (
     <ErrorBoundary fallback={({ error, resetError }) => <QueryErrorFallback error={error} resetError={resetError} />}>
@@ -234,15 +282,19 @@ export default function DashboardPage() {
                   {/* Quick Email Actions - Phase 2 Feature */}
                   <QuickEmailActions className="mt-8" />
                   
-                  {/* Smart Suggestion Section */}
-                  <SmartSuggestion
-                    suggestion="Sarah opened your email yesterday - great time to follow up!"
-                    actionText="Contact Sarah"
-                    onAction={handleSuggestionAction}
-                  />
+                  {/* Smart Suggestion Section - Only show if we have a real suggestion */}
+                  {smartSuggestion && (
+                    <SmartSuggestion
+                      suggestion={smartSuggestion.text}
+                      actionText={smartSuggestion.actionText}
+                      onAction={() => window.location.href = smartSuggestion.actionUrl}
+                    />
+                  )}
                   
-                  {/* Quick Wins Section */}
-                  <QuickWins actions={quickWinActions} />
+                  {/* Quick Wins Section - Only show if we have actions */}
+                  {quickWinActions.length > 0 && (
+                    <QuickWins actions={quickWinActions} />
+                  )}
                 </div>
               </div>
 

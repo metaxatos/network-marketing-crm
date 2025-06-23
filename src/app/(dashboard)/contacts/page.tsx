@@ -10,6 +10,7 @@ import { ContactCard } from '@/components/contacts/ContactCard'
 import { SearchBar } from '@/components/contacts/SearchBar'
 import { StatusFilter } from '@/components/contacts/StatusFilter'
 import { AddContactModal } from '@/components/contacts/AddContactModal'
+import { ContactDetailModal } from '@/components/contacts/ContactDetailModal'
 
 import { ViewToggle, type ViewType } from '@/components/contacts/ViewToggle'
 import { AdvancedFilters, type FilterOptions } from '@/components/contacts/AdvancedFilters'
@@ -27,8 +28,6 @@ export default function ContactsPage() {
   const { 
     searchQuery,
     statusFilter,
-    selectedContact,
-    selectContact,
     searchContacts,
     filterByStatus,
   } = useContactStore()
@@ -45,6 +44,7 @@ export default function ContactsPage() {
   })
 
   const [showAddModal, setShowAddModal] = useState(false)
+  const [contactDetailModal, setContactDetailModal] = useState<Contact | null>(null)
 
   const [view, setView] = useState<ViewType>('grid')
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
@@ -55,7 +55,7 @@ export default function ContactsPage() {
   useContactsRealtime()
 
   const handleContactClick = (contact: Contact) => {
-    router.push(`/contacts/${contact.id}`)
+    setContactDetailModal(contact)
   }
 
   const handleApplyAdvancedFilters = (filters: FilterOptions) => {
@@ -307,7 +307,12 @@ export default function ContactsPage() {
           />
         )}
 
-
+        {contactDetailModal && (
+          <ContactDetailModal
+            contact={contactDetailModal}
+            onClose={() => setContactDetailModal(null)}
+          />
+        )}
 
         {showAdvancedFilters && (
           <AdvancedFilters
