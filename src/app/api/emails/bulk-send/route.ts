@@ -5,7 +5,7 @@ import { populateEmailVariables, replaceEmailVariables, getMemberDisplayName, ge
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createApiClient()
+    const supabase = await createApiClient(req)
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()

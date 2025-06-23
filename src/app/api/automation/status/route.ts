@@ -7,7 +7,7 @@ export async function GET(request: Request) {
     const status = searchParams.get('status');
     const limit = parseInt(searchParams.get('limit') || '20');
     
-    const supabase = createApiClient();
+    const supabase = await createApiClient(request);
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
