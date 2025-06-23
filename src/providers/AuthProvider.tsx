@@ -62,10 +62,10 @@ export default function AuthProvider({ children }: AuthProviderProps) {
     // Fallback: Ensure loading doesn't get stuck (reduced timeout)
     timeoutId = setTimeout(() => {
       if (isMounted && loading) {
-        console.warn('Auth loading timeout after 5 seconds, proceeding without auth')
+        console.warn('Auth loading timeout after 2 seconds, proceeding without auth')
         setLoading(false)
       }
-    }, 5000) // Reduced from 10 seconds to 5 seconds
+    }, 2000) // Reduced to 2 seconds for faster recovery
 
     // Listen for auth changes
     let subscription: any

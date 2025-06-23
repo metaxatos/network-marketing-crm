@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useUserStore } from '@/stores/userStore'
+import { useAppAuth } from '@/hooks/useAuth'
 import MemberSetup from '@/components/auth/MemberSetup'
 
 export default function DashboardLayout({
@@ -10,7 +10,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { isAuthenticated, isLoading, member } = useUserStore()
+  const { isAuthenticated, isLoading: loading, member } = useAppAuth()
   const [showMemberSetup, setShowMemberSetup] = useState(false)
   const router = useRouter()
 
@@ -18,10 +18,10 @@ export default function DashboardLayout({
 
   useEffect(() => {
     // Redirect to login if not authenticated (production only)
-    if (process.env.NODE_ENV === 'production' && !isLoading && !isAuthenticated) {
+    if (process.env.NODE_ENV === 'production' && !loading && !isAuthenticated) {
       router.push('/auth/login')
     }
-  }, [isAuthenticated, isLoading, router])
+  }, [isAuthenticated, loading, router])
 
   useEffect(() => {
     // Check if member setup is needed - ALWAYS check this, even in development
@@ -51,7 +51,7 @@ export default function DashboardLayout({
   }, [isAuthenticated, member, member?.email, member?.phone, member?.username])
 
   // Show loading while checking authentication (production only)
-  if (process.env.NODE_ENV === 'production' && isLoading) {
+  if (process.env.NODE_ENV === 'production' && loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-success-50 flex items-center justify-center">
         <div className="w-full max-w-sm mx-auto p-6">
