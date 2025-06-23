@@ -221,7 +221,7 @@ export const en = {
     startCourse: 'Start Course',
     continueCourse: 'Continue Course',
     viewCertificate: 'View Certificate',
-    progress: 'Progress',
+    progress: '{percent}% complete',
     lessons: 'Lessons',
     duration: 'Duration',
     instructor: 'Instructor',
